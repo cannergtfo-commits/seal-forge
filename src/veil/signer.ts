@@ -73,6 +73,11 @@ export async function ensureBzb(
   }
   const amount = gameKeySigns(localKey) ? maxUint256 : need;
   const hash = await sendGame(localKey, owner, (nonce) => write(amount, nonce));
+  try {
+    await confirm(hash);
+  } catch (error) {
+    spent.delete(id);
+    throw error;
+  }
   if (gameKeySigns(localKey)) spent.add(id);
-  else await confirm(hash);
 }

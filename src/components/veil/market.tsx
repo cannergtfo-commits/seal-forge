@@ -10,7 +10,7 @@ import { veilBalances } from "@/veil/holds";
 import { redactKey } from "@/veil/keys";
 import { isApk } from "@/veil/shell";
 import { buySealedPack } from "@/veil/pack-buy";
-import { ensureBzb, gameKeySigns, sendGame } from "@/veil/signer";
+import { ensureBzb, sendGame } from "@/veil/signer";
 import { rarityLabel, rarityTier } from "@/veil/pack-score";
 import { createPublicClient, decodeEventLog, formatUnits, http, isAddress, parseUnits, type Hex } from "viem";
 import { polygon } from "viem/chains";
@@ -502,7 +502,7 @@ export function Market({ onBack }: { onBack: () => void }) {
       const ok = await reader.readContract({ address: collection, abi: cardsAbi, functionName: "isApprovedForAll", args: [signer, spender] });
       if (!ok) {
         const approval = await sendGame(key, signer, (nonce) => wallet.writeContract({ address: collection, abi: cardsAbi, functionName: "setApprovalForAll", args: [spender, true], nonce }));
-        if (!gameKeySigns(key)) await sentBy(approval, signer);
+        await sentBy(approval, signer);
         setApproved((current) => ({ core: false, blazar: false, kage: false, ashen: false, ...current, [card.edition]: true }));
       }
       for (let i = 0; i < count; i++) {

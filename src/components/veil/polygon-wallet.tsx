@@ -4,10 +4,12 @@ import { CardFace } from "@/components/veil/card";
 import { ConnectButton } from "@/components/veil/connect-button";
 import { BzbBox, useBzbQuote } from "@/components/veil/bzb-box";
 import { FundGuide, ImportWalletWarning, KeyBackup, KeyRestore, KeyWarning } from "@/components/veil/new-player";
-import { cardOf, type CardDef } from "@/veil/cards";
+import { CARDS, cardOf, type CardDef } from "@/veil/cards";
 import { POLYGON_CHAIN_ID, shortAddr } from "@/veil/chain";
 import { sendActive, sendBzb, sendVeilCard, useInjected, usePlayer } from "@/veil/connect";
+import { grantAllowances, readAllowances, type AllowanceRow } from "@/veil/allowances";
 import { ASHEN_NFT, BLAZAR_NFT, BZB, CARDS_NFT, KAGE_NFT } from "@/veil/deployed";
+import { veilBalances } from "@/veil/holds";
 import { redactKey, usePolKey } from "@/veil/keys";
 import { isApk } from "@/veil/shell";
 import { isPolAddress, polLabel, polygonClient, spendableAmount } from "@/veil/pol";
@@ -63,6 +65,8 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
   const [showKey, setShowKey] = useState(false);
   const [armErase, setArmErase] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [allowances, setAllowances] = useState<AllowanceRow[] | null>(null);
+  const [allowStep, setAllowStep] = useState<string | null>(null);
   const { quote } = useBzbQuote();
 
   useEffect(() => {
@@ -85,11 +89,10 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
         setBalance(polLabel(wei));
         setBzbExact(trimUnits(bzb));
         try {
-          const res = await fetch(`/api/veilforge/profile?address=${address}`);
-          if (!res.ok) throw new Error("read failed");
-          const body = (await res.json()) as { owned?: Held[] };
+          const [counts, flags] = await Promise.all([veilBalances(address), readAllowances(address)]);
           if (cancel) return;
-          setHeld(body.owned ?? []);
+          setHeld(CARDS.flatMap((card, index) => ((counts[index] ?? 0) > 0 ? [{ id: card.id, balance: counts[index]! }] : [])));
+          setAllowances(flags);
           setHoldState("ready");
         } catch {
           if (!cancel) setHoldState("error");
@@ -141,6 +144,28 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
       else setAmount(await spendableAmount(address));
     } catch (err) {
       setError(redactKey(message(err), key));
+    }
+  }
+
+  async function onAllow() {
+    if (!address) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await grantAllowances(key, (label, index, total) => setAllowStep(`${label} (${index} of ${total})`));
+      setAllowances(await readAllowances(address));
+      setNotice("Packs and the market can use this wallet.");
+    } catch (err) {
+      setError(redactKey(message(err), key));
+      try {
+        setAllowances(await readAllowances(address));
+      } catch {
+        /* the list stays as it was */
+      }
+    } finally {
+      setAllowStep(null);
+      setBusy(false);
     }
   }
 
@@ -299,8 +324,31 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-ash">
-                {external ? "The extension signs. The browser key is idle." : isApk() ? "This phone key signs packs, the market, and sign-in. The first spend approves a contract once." : "This game wallet signs packs, the market, and sign-in until you connect an extension. The first spend approves a contract once."} Send only on Polygon.
+                {external ? "The extension signs. The browser key is idle." : isApk() ? "This phone key signs packs, the market, and sign-in." : "This game wallet signs packs, the market, and sign-in until you connect an extension."} Send only on Polygon.
               </p>
+            </section>
+
+            <section className="rounded-md border border-line bg-panel p-4">
+              <h2 className="text-lg font-medium">Packs and market</h2>
+              <p className="mt-2 text-sm leading-relaxed text-ash">Allow this wallet to spend BzB on packs and listings, and to place cards in the stalls. The approval is only for Seal Forge contracts, and it stays until you revoke it.</p>
+              {allowances ? (
+                <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+                  {allowances.map((row) => (
+                    <li key={row.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span>{row.label}</span>
+                      <span className={row.ready ? "text-brass" : "text-ash"}>{row.ready ? "Allowed" : "Not yet"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-ash">Reading allowances.</p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className="veil-btn veil-btn-primary" disabled={busy || !balance || balance === "0.0000" || Boolean(allowances?.every((row) => row.ready))} onClick={() => void onAllow()}>
+                  {allowStep ? `Allowing ${allowStep}` : allowances?.every((row) => row.ready) ? "Allowed" : "Allow packs and market"}
+                </button>
+              </div>
+              {balance === "0.0000" && <p className="mt-2 text-sm text-danger">This wallet needs a little POL on Polygon before it can set allowances.</p>}
             </section>
 
             <section className="rounded-md border border-line bg-panel p-4">
