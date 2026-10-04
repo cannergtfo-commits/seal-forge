@@ -11,6 +11,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import java.lang.reflect.Method;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
@@ -30,6 +31,7 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(false);
+        allowFileScripts(settings);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         settings.setBuiltInZoomControls(false);
@@ -37,10 +39,22 @@ public class MainActivity extends Activity {
         settings.setSavePassword(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         WebView.setWebContentsDebuggingEnabled(false);
+        web.setBackgroundColor(0xFF0C0E12);
         web.addJavascriptInterface(new VaultBridge(this), "SealVault");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new AssetClient());
         web.loadUrl("file:///android_asset/index.html");
+    }
+
+    private static void allowFileScripts(WebSettings settings) {
+        try {
+            Method files = WebSettings.class.getMethod("setAllowFileAccessFromFileURLs", boolean.class);
+            Method any = WebSettings.class.getMethod("setAllowUniversalAccessFromFileURLs", boolean.class);
+            files.invoke(settings, true);
+            any.invoke(settings, true);
+        } catch (Exception ignored) {
+            /* older WebView builds hide these switches */
+        }
     }
 
     @Override

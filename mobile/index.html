@@ -7,6 +7,12 @@
     <title>Seal Forge</title>
     <script>
       window.__SEAL_APK__ = true;
+      window.addEventListener("error", function (event) {
+        var note = document.createElement("pre");
+        note.style.cssText = "color:#f3efe4;padding:16px;white-space:pre-wrap";
+        note.textContent = event.message || "The game script did not start.";
+        document.body.appendChild(note);
+      });
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
