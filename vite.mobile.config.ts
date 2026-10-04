@@ -9,8 +9,20 @@ export default defineConfig({
     {
       name: "classic-script",
       apply: "build",
-      transformIndexHtml(html: string) {
-        return html.replaceAll(' type="module"', "").replaceAll(" crossorigin", "");
+      transformIndexHtml: {
+        order: "post",
+        handler(html: string) {
+          return html
+            .replaceAll(' type="module"', "")
+            .replaceAll(" crossorigin", "")
+            .replace(/<script src="([^"]+)"><\/script>/g, '<script defer src="$1"></script>');
+        },
+      },
+      generateBundle(_options, bundle) {
+        for (const item of Object.values(bundle)) {
+          if (item.type !== "asset" || typeof item.source !== "string" || !item.fileName.endsWith(".css")) continue;
+          item.source = item.source.replaceAll('url("/assets/', 'url("./').replaceAll("url('/assets/", "url('./").replaceAll("url(/assets/", "url(./");
+        }
       },
     },
   ],

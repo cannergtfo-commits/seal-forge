@@ -11,10 +11,12 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import java.lang.reflect.Method;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     private WebView web;
@@ -93,15 +95,22 @@ public class MainActivity extends Activity {
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             if (request == null || request.getUrl() == null) return null;
             String path = request.getUrl().getPath();
-            if (path == null || !path.startsWith("/assets/")) return null;
-            String local = path.startsWith("/") ? path.substring(1) : path;
+            if (path == null || path.contains("..") || !path.startsWith("/assets/")) return null;
+            String local = path.substring(1);
             try {
                 InputStream stream = getAssets().open(local);
-                return new WebResourceResponse(mime(path), null, stream);
+                return new WebResourceResponse(mime(local), "utf-8", 200, "OK", assetHeaders(), stream);
             } catch (IOException ignored) {
                 return null;
             }
         }
+    }
+
+    private static Map<String, String> assetHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Access-Control-Allow-Origin", "*");
+        headers.put("Cache-Control", "no-cache");
+        return headers;
     }
 
     private static String mime(String path) {

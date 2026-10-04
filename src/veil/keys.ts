@@ -38,13 +38,37 @@ export function redactKey(text: string, key: string | null | undefined): string 
 const STORE = "veilforge-pol-v1";
 const KEY_SHAPE = /^0x[0-9a-f]{64}$/;
 
+function readStore(name: string): string | null {
+  try {
+    return localStorage.getItem(name);
+  } catch {
+    return null;
+  }
+}
+
+function writeStore(name: string, value: string) {
+  try {
+    localStorage.setItem(name, value);
+  } catch {
+    /* the phone can refuse page storage; the keystore still holds the key */
+  }
+}
+
+function dropStore(name: string) {
+  try {
+    localStorage.removeItem(name);
+  } catch {
+    /* ignore */
+  }
+}
+
 function vaultStore(): StateStorage {
   return {
     getItem: (name) => {
       const vault = window.SealVault;
-      if (!isApk() || !vault) return localStorage.getItem(name);
+      if (!isApk() || !vault) return readStore(name);
       let key = vault.read();
-      const legacy = localStorage.getItem(name);
+      const legacy = readStore(name);
       if (!KEY_SHAPE.test(key) && legacy) {
         try {
           const old = (JSON.parse(legacy) as { state?: { key?: string } }).state?.key;
@@ -56,10 +80,10 @@ function vaultStore(): StateStorage {
           /* ignore a damaged browser copy */
         }
       }
-      localStorage.removeItem(name);
+      dropStore(name);
       let sent: SentTx[] = [];
       try {
-        const raw = localStorage.getItem(`${name}:meta`);
+        const raw = readStore(`${name}:meta`);
         if (raw) sent = JSON.parse(raw) as SentTx[];
       } catch {
         sent = [];
@@ -70,20 +94,20 @@ function vaultStore(): StateStorage {
     setItem: (name, value) => {
       const vault = window.SealVault;
       if (!isApk() || !vault) {
-        localStorage.setItem(name, value);
+        writeStore(name, value);
         return;
       }
       const parsed = JSON.parse(value) as { state?: { key?: string | null; sent?: SentTx[] } };
       const key = parsed.state?.key;
       if (typeof key === "string" && KEY_SHAPE.test(key)) vault.write(key);
       else vault.clear();
-      localStorage.setItem(`${name}:meta`, JSON.stringify(parsed.state?.sent ?? []));
-      localStorage.removeItem(name);
+      writeStore(`${name}:meta`, JSON.stringify(parsed.state?.sent ?? []));
+      dropStore(name);
     },
     removeItem: (name) => {
       window.SealVault?.clear();
-      localStorage.removeItem(name);
-      localStorage.removeItem(`${name}:meta`);
+      dropStore(name);
+      dropStore(`${name}:meta`);
     },
   };
 }
