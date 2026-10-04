@@ -28,7 +28,8 @@ const factions = new Set<Faction>(["elf", "human", "goblin", "robot", "demon"]);
 async function sign(player: `0x${string}`, matchId: `0x${string}`): Promise<`0x${string}` | null> {
   if (REWARDS.length !== 42) return null;
   try {
-    const { key } = JSON.parse(readFileSync("/workspace/.secrets/deployer.json", "utf8")) as { key: `0x${string}` };
+    const fromEnv = process.env.SEAL_FORGE_SIGNER;
+    const key = (fromEnv && fromEnv.startsWith("0x") ? fromEnv : JSON.parse(readFileSync("/workspace/.secrets/deployer.json", "utf8")).key) as `0x${string}`;
     const account = privateKeyToAccount(key);
     const client = createPublicClient({ chain: polygon, transport: http("https://polygon-bor-rpc.publicnode.com") });
     const digest = await client.readContract({ address: REWARDS, abi: rewardsAbi, functionName: "inner", args: [player, matchId] });
