@@ -1,0 +1,358 @@
+{
+  "origin": "",
+  "blazarCount": 36,
+  "cards": [
+    {
+      "tokenId": 1,
+      "id": "bz-comet-fox",
+      "faction": 1,
+      "rarity": 1,
+      "imageHash": "0x0d4e0bdc0e00b98a33f177a3a9297c5de1eaca06aff445f9c5343f2e014b8998",
+      "file": "public/assets/veil/cards/bz-comet-fox.jpg"
+    },
+    {
+      "tokenId": 2,
+      "id": "bz-void-archer",
+      "faction": 1,
+      "rarity": 1,
+      "imageHash": "0x1d79bfcf31bf3515f7ff5bba88a337b7a31862b2aa13ae7267ee20c06ef278f3",
+      "file": "public/assets/veil/cards/bz-void-archer.jpg"
+    },
+    {
+      "tokenId": 3,
+      "id": "bz-moon-well",
+      "faction": 1,
+      "rarity": 1,
+      "imageHash": "0x2533cc6f347b573cd75349543e5a2ac89487ba05fa905fced50cb0940ca671c0",
+      "file": "public/assets/veil/cards/bz-moon-well.jpg"
+    },
+    {
+      "tokenId": 4,
+      "id": "bz-orbit-dryad",
+      "faction": 1,
+      "rarity": 1,
+      "imageHash": "0xa174d5b1dd35b2addd5747d95994ac9af1273f1367f55803b2ec6744757b1135",
+      "file": "public/assets/veil/cards/bz-orbit-dryad.jpg"
+    },
+    {
+      "tokenId": 5,
+      "id": "bz-eclipse-sentinel",
+      "faction": 1,
+      "rarity": 2,
+      "imageHash": "0x5c513283dd67260714925aac0dbea2fb200a3e316aaa64d3bd98d80b873a2738",
+      "file": "public/assets/veil/cards/bz-eclipse-sentinel.jpg"
+    },
+    {
+      "tokenId": 6,
+      "id": "bz-lysara-blazar",
+      "faction": 1,
+      "rarity": 3,
+      "imageHash": "0xb4e21cc61779f366edb3717fffafc1776a10e90ac963a01800d25870b3033214",
+      "file": "public/assets/veil/cards/bz-lysara-blazar.jpg"
+    },
+    {
+      "tokenId": 7,
+      "id": "bz-hull-scout",
+      "faction": 2,
+      "rarity": 1,
+      "imageHash": "0x7e2a84bd1b4dce49242e19dd0ecc22d4d7c5cd204cb387ca5e876fe9c8315096",
+      "file": "public/assets/veil/cards/bz-hull-scout.jpg"
+    },
+    {
+      "tokenId": 8,
+      "id": "bz-bulkhead",
+      "faction": 2,
+      "rarity": 1,
+      "imageHash": "0x783128cc1be6fbaf01dbf09a7ba35b4f480605db9de0ad0f97a9638391697dbb",
+      "file": "public/assets/veil/cards/bz-bulkhead.jpg"
+    },
+    {
+      "tokenId": 9,
+      "id": "bz-lance-shot",
+      "faction": 2,
+      "rarity": 1,
+      "imageHash": "0x830461a3f379c1cac8ed4d8669f4effdc799b8275ab1b9997f0551962101ec24",
+      "file": "public/assets/veil/cards/bz-lance-shot.jpg"
+    },
+    {
+      "tokenId": 10,
+      "id": "bz-oath-pilot",
+      "faction": 2,
+      "rarity": 1,
+      "imageHash": "0x2924bee347eb3514754faf15caab3d969068d091ef42157d1736ea7da1095c44",
+      "file": "public/assets/veil/cards/bz-oath-pilot.jpg"
+    },
+    {
+      "tokenId": 11,
+      "id": "bz-captain-kel",
+      "faction": 2,
+      "rarity": 2,
+      "imageHash": "0xc9a18de71257c96c23316375abe56dba582bb0e1d1a25eee10828f916973f552",
+      "file": "public/assets/veil/cards/bz-captain-kel.jpg"
+    },
+    {
+      "tokenId": 12,
+      "id": "bz-admiral-voss",
+      "faction": 2,
+      "rarity": 3,
+      "imageHash": "0xa25712f0014e25e61e86d138c67acfd8517e6883535a5cb77520ddb0e6ef75c9",
+      "file": "public/assets/veil/cards/bz-admiral-voss.jpg"
+    },
+    {
+      "tokenId": 13,
+      "id": "bz-spark-rat",
+      "faction": 3,
+      "rarity": 1,
+      "imageHash": "0x82463792e7adb237ce7f511f8e42843655917148fc725232360a61e0507ba99c",
+      "file": "public/assets/veil/cards/bz-spark-rat.jpg"
+    },
+    {
+      "tokenId": 14,
+      "id": "bz-twin-jets",
+      "faction": 3,
+      "rarity": 1,
+      "imageHash": "0xdc8ec3697a1f2152b30690da4d627417783552ebc013ffcc93a5f09479429962",
+      "file": "public/assets/veil/cards/bz-twin-jets.jpg"
+    },
+    {
+      "tokenId": 15,
+      "id": "bz-scrap-comet",
+      "faction": 3,
+      "rarity": 1,
+      "imageHash": "0xe6484e2c7f23da05d7b6e6885349ebc1e6dac2bf152b75afedcfc58dc518236b",
+      "file": "public/assets/veil/cards/bz-scrap-comet.jpg"
+    },
+    {
+      "tokenId": 16,
+      "id": "bz-boom-drone",
+      "faction": 3,
+      "rarity": 1,
+      "imageHash": "0x2c145f0ce7cf3db90ac4bdb3762a8ebe23abac10aec65d1190646b2e61abb276",
+      "file": "public/assets/veil/cards/bz-boom-drone.jpg"
+    },
+    {
+      "tokenId": 17,
+      "id": "bz-void-raider",
+      "faction": 3,
+      "rarity": 2,
+      "imageHash": "0x0a33c2a44861ee121874a4c7c4faba3719b3754c5c631267bc4d8181d75dde2b",
+      "file": "public/assets/veil/cards/bz-void-raider.jpg"
+    },
+    {
+      "tokenId": 18,
+      "id": "bz-skarn-rift",
+      "faction": 3,
+      "rarity": 3,
+      "imageHash": "0xfe3a6ce9b622f3845734bd1505a61463cffd50c8bfbda1e5b269456785f9deef",
+      "file": "public/assets/veil/cards/bz-skarn-rift.jpg"
+    },
+    {
+      "tokenId": 19,
+      "id": "bz-ion-wisp",
+      "faction": 4,
+      "rarity": 1,
+      "imageHash": "0x997eb1c52c6e2fbb6f8a6ce7ec333bdf0bef56984c74bc193cd067310fc627a5",
+      "file": "public/assets/veil/cards/bz-ion-wisp.jpg"
+    },
+    {
+      "tokenId": 20,
+      "id": "bz-hull-drone",
+      "faction": 4,
+      "rarity": 1,
+      "imageHash": "0x262ad6c6a9709bb43770e3f227779e8fb0672ca5832f773c0e3b6b1ad2c4cd8a",
+      "file": "public/assets/veil/cards/bz-hull-drone.jpg"
+    },
+    {
+      "tokenId": 21,
+      "id": "bz-cold-weld",
+      "faction": 4,
+      "rarity": 1,
+      "imageHash": "0xcd17a438c98ddb3d349069c2282662d3c79488cc812136194429890570448706",
+      "file": "public/assets/veil/cards/bz-cold-weld.jpg"
+    },
+    {
+      "tokenId": 22,
+      "id": "bz-sentry-prism",
+      "faction": 4,
+      "rarity": 1,
+      "imageHash": "0x311b854f366ca06e7af5d026c86a625ec2a5737a48f3003a559e03e99f4ef73c",
+      "file": "public/assets/veil/cards/bz-sentry-prism.jpg"
+    },
+    {
+      "tokenId": 23,
+      "id": "bz-null-array",
+      "faction": 4,
+      "rarity": 2,
+      "imageHash": "0x95805f1aa5d5eb90fd04787509ad8abb575decc365df6120771bca4ab52a2f53",
+      "file": "public/assets/veil/cards/bz-null-array.jpg"
+    },
+    {
+      "tokenId": 24,
+      "id": "bz-apex-blazar",
+      "faction": 4,
+      "rarity": 3,
+      "imageHash": "0x4080c581c88e51535ba70bcb083ed209ac663ede288ab9ce9ca207d136827354",
+      "file": "public/assets/veil/cards/bz-apex-blazar.jpg"
+    },
+    {
+      "tokenId": 25,
+      "id": "bz-cinder-imp",
+      "faction": 5,
+      "rarity": 1,
+      "imageHash": "0x6cb6f77084f55e8285507a7b2b98e7aecce7da97cb672b513125e688041ca6fd",
+      "file": "public/assets/veil/cards/bz-cinder-imp.jpg"
+    },
+    {
+      "tokenId": 26,
+      "id": "bz-pact-ember",
+      "faction": 5,
+      "rarity": 1,
+      "imageHash": "0x2425a9974d98c86fc0f75055c73612b26250008473bdc2d887b5cb2e862a824c",
+      "file": "public/assets/veil/cards/bz-pact-ember.jpg"
+    },
+    {
+      "tokenId": 27,
+      "id": "bz-brand-knight",
+      "faction": 5,
+      "rarity": 1,
+      "imageHash": "0xb3c45a38fa4ada946e9fe727ba2bcc49e77b0f3cd37514350d130db374294daf",
+      "file": "public/assets/veil/cards/bz-brand-knight.jpg"
+    },
+    {
+      "tokenId": 28,
+      "id": "bz-ash-moth",
+      "faction": 5,
+      "rarity": 1,
+      "imageHash": "0x88ae48fa47dcc9b0bbf3dcba5861d5431d5ec0737ec78a3fefd9e7ae64ffce6d",
+      "file": "public/assets/veil/cards/bz-ash-moth.jpg"
+    },
+    {
+      "tokenId": 29,
+      "id": "bz-hex-moth",
+      "faction": 5,
+      "rarity": 2,
+      "imageHash": "0x6dec74e1bb235239e1e3c4b17b4b324d33bb5e64eedb2e22f73c04168ea7dbb0",
+      "file": "public/assets/veil/cards/bz-hex-moth.jpg"
+    },
+    {
+      "tokenId": 30,
+      "id": "bz-tyrant-blazar",
+      "faction": 5,
+      "rarity": 3,
+      "imageHash": "0xb4013551fee7976e827b85b98280daaf031fbe29e885aa8e8f4cd050c262164e",
+      "file": "public/assets/veil/cards/bz-tyrant-blazar.jpg"
+    },
+    {
+      "tokenId": 31,
+      "id": "bz-drift-wisp",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x34c6ed507c446a4100478dc2e6a6149e8531885bfc6d9fde61d18461a207eef6",
+      "file": "public/assets/veil/cards/bz-drift-wisp.jpg"
+    },
+    {
+      "tokenId": 32,
+      "id": "bz-eclipse-blade",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x6f52007a2e1652d3c3ba06e3c527b789d752b0440290934e29b35d404f01d4de",
+      "file": "public/assets/veil/cards/bz-eclipse-blade.jpg"
+    },
+    {
+      "tokenId": 33,
+      "id": "bz-slip",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x26afd376aede104501a41ba4b5954c5aa722054c57aa70e231009b1d7819bf03",
+      "file": "public/assets/veil/cards/bz-slip.jpg"
+    },
+    {
+      "tokenId": 34,
+      "id": "bz-quiet-star",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0xbf7ba34889c86ba4c572c52a896859ff7d570679ec0e0ba01bc2402a7d34243e",
+      "file": "public/assets/veil/cards/bz-quiet-star.jpg"
+    },
+    {
+      "tokenId": 35,
+      "id": "bz-horizon",
+      "faction": 6,
+      "rarity": 2,
+      "imageHash": "0x316e63981ad1914756e62341862270b9079262e9b3173a0bc66f61cc7240f0e1",
+      "file": "public/assets/veil/cards/bz-horizon.jpg"
+    },
+    {
+      "tokenId": 36,
+      "id": "bz-the-veil",
+      "faction": 6,
+      "rarity": 3,
+      "imageHash": "0x0e087412a6b23bb31992da0ef2d0f3d31d9d3dc7b5dd1c26bcb39a2f2bbec4f9",
+      "file": "public/assets/veil/cards/bz-the-veil.jpg"
+    },
+    {
+      "tokenId": 37,
+      "id": "un-lantern",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0xea0f8a2e15b1784f36dde15199e3781a83a61915131c74643b1e2d1628d655ef",
+      "file": "public/assets/veil/cards/un-lantern.jpg"
+    },
+    {
+      "tokenId": 38,
+      "id": "un-squire",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x6f296e79d6bd500b18d306945e5ca89a964198862cf0106c1cebae6e12cf047b",
+      "file": "public/assets/veil/cards/un-squire.jpg"
+    },
+    {
+      "tokenId": 39,
+      "id": "un-toll",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x3654e8698bade3687e33c2ebd43e4383db8e475b52b103bde46eda49aa6ab10a",
+      "file": "public/assets/veil/cards/un-toll.jpg"
+    },
+    {
+      "tokenId": 40,
+      "id": "un-choir",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x495f75201ddc9195d4ddcc36e62fcc07278578a401fd368c5ef1eb55799e0325",
+      "file": "public/assets/veil/cards/un-choir.jpg"
+    },
+    {
+      "tokenId": 41,
+      "id": "un-ward",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0x43bb136cda6b1e2fd8829828a7bc3c0650aeacf35aaf2532a5d978b0ab8df2c7",
+      "file": "public/assets/veil/cards/un-ward.jpg"
+    },
+    {
+      "tokenId": 42,
+      "id": "un-pilgrim",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0xec46ef214d6dc230922f85eb3af009f2c1b04119702981b5772a1477cec20bce",
+      "file": "public/assets/veil/cards/un-pilgrim.jpg"
+    },
+    {
+      "tokenId": 43,
+      "id": "un-cross",
+      "faction": 6,
+      "rarity": 1,
+      "imageHash": "0xf7d75106c4d812f6c5f8450bbfa414716a6946387cfb4aaad7039f189c79d8ff",
+      "file": "public/assets/veil/cards/un-cross.jpg"
+    },
+    {
+      "tokenId": 44,
+      "id": "un-nameless",
+      "faction": 6,
+      "rarity": 2,
+      "imageHash": "0x7721710e7e7cede59300e4dfb8a784f82fd3a4624b0093e47feeed57d8dbba26",
+      "file": "public/assets/veil/cards/un-nameless.jpg"
+    }
+  ]
+}

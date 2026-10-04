@@ -1,0 +1,16 @@
+node_modules
+.secrets
+.vercel
+.grok
+dist
+.output
+artifacts
+screenshots
+attachments
+contracts/out
+AGENTS.md
+AGENTS.project.md
+startup.sh
+*.log
+.pglite
+data

@@ -1,0 +1,257 @@
+{
+  "art": "https://raw.githubusercontent.com/cannergtfo-commits/seal-forge-ashen/1f07b6b413746ef07fae23ac50d9d8dd4c71a4c3",
+  "cards": [
+    {
+      "tokenId": 1,
+      "id": "as-briar-vanguard",
+      "faction": "elf",
+      "rarity": "basic",
+      "imageHash": "0xe000549fcfea184338c1e87f261991d835c71c9da6062b83f6f2b74ff14583fb"
+    },
+    {
+      "tokenId": 2,
+      "id": "as-oak-sentinel",
+      "faction": "elf",
+      "rarity": "basic",
+      "imageHash": "0x9251bd85910f00fc7bd02fbcefed0bd5bcb349ac39b6fad2d7786c856ecddb43"
+    },
+    {
+      "tokenId": 3,
+      "id": "as-grove-mend",
+      "faction": "elf",
+      "rarity": "basic",
+      "imageHash": "0xcbc348d9fafbbedd5b78f350039fb400f2ad222e2727d65c7d23e74aa66881c1"
+    },
+    {
+      "tokenId": 4,
+      "id": "as-hidden-bough",
+      "faction": "elf",
+      "rarity": "basic",
+      "imageHash": "0x587bb080e937926b1db392e5b89d2327c65961c60fed83c4cea3d7728fa51c7b"
+    },
+    {
+      "tokenId": 5,
+      "id": "as-selene-bow",
+      "faction": "elf",
+      "rarity": "rare",
+      "imageHash": "0x2c6edc0d13d7a47da4ad1867ff926458624d8a7c1ca7d4516914d9ba7f8d8a41"
+    },
+    {
+      "tokenId": 6,
+      "id": "as-lysara-ash",
+      "faction": "elf",
+      "rarity": "legendary",
+      "imageHash": "0x0292ddabe1122eadf09f0158d3cdeae8c02f45f0c7013641bffd891bb9c2c396"
+    },
+    {
+      "tokenId": 7,
+      "id": "as-oath-squire",
+      "faction": "human",
+      "rarity": "basic",
+      "imageHash": "0x5064a67accfbf463dd31efba4c5fba54b2e5522cefcae82c4eca213030ed161d"
+    },
+    {
+      "tokenId": 8,
+      "id": "as-banner-dame",
+      "faction": "human",
+      "rarity": "basic",
+      "imageHash": "0xcaa454cd9d4e6b2c54d9225790321e2f3b0e41dea03f2f010f641d17b91269ea"
+    },
+    {
+      "tokenId": 9,
+      "id": "as-precise-oath",
+      "faction": "human",
+      "rarity": "basic",
+      "imageHash": "0xf6c32abae0b1821639642680c9f9533954bce2ddb540330c9001f5926643ae05"
+    },
+    {
+      "tokenId": 10,
+      "id": "as-pike-wall",
+      "faction": "human",
+      "rarity": "basic",
+      "imageHash": "0xc82e1a7e545a070cff0ea09b76b33bfe978c8cf7a7f1801857bec9b47ad6002b"
+    },
+    {
+      "tokenId": 11,
+      "id": "as-captain-ysara",
+      "faction": "human",
+      "rarity": "rare",
+      "imageHash": "0x4c33ca0971574485f9a04c274082838b03c9ecc93b517ebee5696bdf3916d978"
+    },
+    {
+      "tokenId": 12,
+      "id": "as-marshal-hala",
+      "faction": "human",
+      "rarity": "legendary",
+      "imageHash": "0x3f08eb6238e28c5a48cf7ed09b9bb2285ca54655b00dfaf9c3ef4b6c40669e40"
+    },
+    {
+      "tokenId": 13,
+      "id": "as-cinder-lass",
+      "faction": "goblin",
+      "rarity": "basic",
+      "imageHash": "0x12f67b9e8098f294f647feee6b34e99a26c14fc15649a8aae1846a39ce8208f8"
+    },
+    {
+      "tokenId": 14,
+      "id": "as-scrap-vixen",
+      "faction": "goblin",
+      "rarity": "basic",
+      "imageHash": "0x2fc1ffaef48c951f729247f1bac2b756bee3650a0f7584f372e4b920ce5b3596"
+    },
+    {
+      "tokenId": 15,
+      "id": "as-reckless-spark",
+      "faction": "goblin",
+      "rarity": "basic",
+      "imageHash": "0x0f11b7608fcdae0fb3900f401f39fd81db6e20d193a52b48d0ee4568c59e992b"
+    },
+    {
+      "tokenId": 16,
+      "id": "as-pit-wire",
+      "faction": "goblin",
+      "rarity": "basic",
+      "imageHash": "0x157dfc57fc00317d8e8ee54b8f85be23fd3ce9fd7ef17ceb08c29ce6958b4f58"
+    },
+    {
+      "tokenId": 17,
+      "id": "as-nima-knives",
+      "faction": "goblin",
+      "rarity": "rare",
+      "imageHash": "0xe609545608188274fd67a447c18ae200f8ff8c7672cd49aab9feeed01c71973c"
+    },
+    {
+      "tokenId": 18,
+      "id": "as-sable-crown",
+      "faction": "goblin",
+      "rarity": "legendary",
+      "imageHash": "0x27986922586c1b8e8969ec56e7c26383b8faca458f9d08d4166fb63db319bd08"
+    },
+    {
+      "tokenId": 19,
+      "id": "as-ion-duelist",
+      "faction": "robot",
+      "rarity": "basic",
+      "imageHash": "0x8c25cf489d89b2cb203a7234280d8b9026a2159fdaf987531a8905109828932e"
+    },
+    {
+      "tokenId": 20,
+      "id": "as-hull-maiden",
+      "faction": "robot",
+      "rarity": "basic",
+      "imageHash": "0x41524df472aa58de330219917961b027f989daf9636fc39a8ff094e2ab95df70"
+    },
+    {
+      "tokenId": 21,
+      "id": "as-cold-weld",
+      "faction": "robot",
+      "rarity": "basic",
+      "imageHash": "0x2d0ebe19fa741ced6beb33240554247115b0d3ccab8e202d1ec5c290403dbd1c"
+    },
+    {
+      "tokenId": 22,
+      "id": "as-veil-firewall",
+      "faction": "robot",
+      "rarity": "basic",
+      "imageHash": "0x01e7db030dbdc207f32772d901650eb86fd04d5c9cdbffa2916ac99350e7049d"
+    },
+    {
+      "tokenId": 23,
+      "id": "as-vesper-null",
+      "faction": "robot",
+      "rarity": "rare",
+      "imageHash": "0x4b99723b06dd444af04f26d6ee1afa32f47e62bd19c366495204d37cc4a1b93e"
+    },
+    {
+      "tokenId": 24,
+      "id": "as-apex-crown",
+      "faction": "robot",
+      "rarity": "legendary",
+      "imageHash": "0xeb9fbcdd9091bc79e2c8f19709ad70699bd44827afad15d81d9dab6fae223621"
+    },
+    {
+      "tokenId": 25,
+      "id": "as-cinder-imp",
+      "faction": "demon",
+      "rarity": "basic",
+      "imageHash": "0x6449ac6096b5831a12322ddd96bd82ead9fe20c80b38ae4f0477bcd79dfcefe5"
+    },
+    {
+      "tokenId": 26,
+      "id": "as-ash-temptress",
+      "faction": "demon",
+      "rarity": "basic",
+      "imageHash": "0xac614b1d0ddbed6204d95b99d343f98667b2dc2d23e68aa94fd963a9693a16ba"
+    },
+    {
+      "tokenId": 27,
+      "id": "as-blood-pact",
+      "faction": "demon",
+      "rarity": "basic",
+      "imageHash": "0xe7727487a242ccb421269d268f542f45a95f32bd2069932e0f9d8f23c4129759"
+    },
+    {
+      "tokenId": 28,
+      "id": "as-soul-kiss",
+      "faction": "demon",
+      "rarity": "basic",
+      "imageHash": "0xd8789611884baa1707a955c56bc821e053fb7b828b42b5f5d6f1b40b8be2fef0"
+    },
+    {
+      "tokenId": 29,
+      "id": "as-duchess-vex",
+      "faction": "demon",
+      "rarity": "rare",
+      "imageHash": "0xf6ce57592a929d2ff32cca6a1f4a7a0eaa43aa134a36a2f20e5394586f640a50"
+    },
+    {
+      "tokenId": 30,
+      "id": "as-tyrant-lilu",
+      "faction": "demon",
+      "rarity": "legendary",
+      "imageHash": "0x12706af74dafb3e9b56cd8eb7453f72046a91272d09bea9c9554d0bee017093c"
+    },
+    {
+      "tokenId": 31,
+      "id": "as-road-sister",
+      "faction": "veil",
+      "rarity": "basic",
+      "imageHash": "0x734ccef6dc161da33dc62c561aaeb778b1c07283fd4f31a2b69424bd81c2d1de"
+    },
+    {
+      "tokenId": 32,
+      "id": "as-ash-miller",
+      "faction": "veil",
+      "rarity": "basic",
+      "imageHash": "0xbe68e36235d288c355c2a5574678667159f25a97ea9df358600624f852431f3a"
+    },
+    {
+      "tokenId": 33,
+      "id": "as-silver-toll",
+      "faction": "veil",
+      "rarity": "basic",
+      "imageHash": "0x316710cfb26fecdf4ca980b4651686460d4891e86b6c3af397c175a0e4893a79"
+    },
+    {
+      "tokenId": 34,
+      "id": "as-cross-path",
+      "faction": "veil",
+      "rarity": "basic",
+      "imageHash": "0x69344cd7571d35b5ceef309bd6c25436a48c0b5c0388e800aa632263b27c76d2"
+    },
+    {
+      "tokenId": 35,
+      "id": "as-widow-lane",
+      "faction": "veil",
+      "rarity": "rare",
+      "imageHash": "0x23a982c933d6484a4e13f7f584e37bcf0e1ea985c1d81d2546f2dc81cd5567f6"
+    },
+    {
+      "tokenId": 36,
+      "id": "as-the-nameless",
+      "faction": "veil",
+      "rarity": "legendary",
+      "imageHash": "0xf8b908378b67569e04e24a2852d6817d72b838eba5c83470db481ebd85453146"
+    }
+  ]
+}
