@@ -3,6 +3,7 @@ import { BzbBox } from "@/components/veil/bzb-box";
 import { POLYGON_CHAIN_ID } from "@/veil/chain";
 import { downloadText, openKey, sealKey } from "@/veil/keyfile";
 import { usePolKey } from "@/veil/keys";
+import { isApk } from "@/veil/shell";
 import { addressOf, polLabel, polygonClient } from "@/veil/pol";
 
 export function KeyWarning() {
@@ -22,7 +23,11 @@ export function ImportWalletWarning() {
       <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 16 16" aria-hidden="true">
         <path fill="currentColor" d="M8 1.2 15 14H1L8 1.2Zm0 4.3-.55 3.8h1.1L8 5.5Zm0 5.3a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z" />
       </svg>
-      <strong>Import this key into MetaMask, or another wallet extension that can switch to Polygon. Then connect that wallet in the game. A key left only in this browser is not the wallet you should hold cards or funds in.</strong>
+      <strong>
+        {isApk()
+          ? "This key stays on the phone, wrapped by the device keystore. Download the locked file and keep it off the phone. Do not paste the key into a chat, a site, or another app unless you mean to move the wallet."
+          : "Import this key into MetaMask, or another wallet extension that can switch to Polygon. Then connect that wallet in the game. A key left only in this browser is not the wallet you should hold cards or funds in."}
+      </strong>
     </p>
   );
 }
@@ -69,7 +74,7 @@ export function KeyBackup({ privateKey }: { privateKey: string }) {
       <input className="veil-field" type="password" autoComplete="new-password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
       <input className="veil-field" type="password" autoComplete="new-password" placeholder="Repeat password" value={again} onChange={(event) => setAgain(event.target.value)} />
       {error && <p className="text-sm text-danger">{error}</p>}
-      {saved && <p className="text-sm text-brass">Key file downloaded.</p>}
+      {saved && <p className="text-sm text-brass">{isApk() ? "Locked key file saved in Downloads. The raw key is not in that file." : "Key file downloaded."}</p>}
       <button type="submit" className="veil-btn w-fit">
         Download key file
       </button>

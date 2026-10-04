@@ -9,6 +9,7 @@ import { POLYGON_CHAIN_ID, shortAddr } from "@/veil/chain";
 import { sendActive, sendBzb, sendVeilCard, useInjected, usePlayer } from "@/veil/connect";
 import { ASHEN_NFT, BLAZAR_NFT, BZB, CARDS_NFT, KAGE_NFT } from "@/veil/deployed";
 import { redactKey, usePolKey } from "@/veil/keys";
+import { isApk } from "@/veil/shell";
 import { isPolAddress, polLabel, polygonClient, spendableAmount } from "@/veil/pol";
 
 function message(error: unknown): string {
@@ -63,6 +64,12 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
   const [armErase, setArmErase] = useState(false);
   const [copied, setCopied] = useState(false);
   const { quote } = useBzbQuote();
+
+  useEffect(() => {
+    if (!isApk()) return;
+    window.SealVault?.secure(showKey);
+    return () => window.SealVault?.secure(false);
+  }, [showKey]);
 
   useEffect(() => {
     if (!address) return;
@@ -216,7 +223,7 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
         ) : !address ? (
           <section className="rounded-md border border-brass bg-panel p-4">
             <h2 className="text-lg font-medium">No wallet yet</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ash">Connect an extension, or keep a key in this browser. Packs, the market, and transfers use whichever is active. The browser key should not hold a large balance.</p>
+            <p className="mt-2 text-sm leading-relaxed text-ash">{isApk() ? "This phone uses the wallet made in the game. Packs, the market, and transfers sign with that key. It should not hold a large balance." : "Connect an extension, or keep a key in this browser. Packs, the market, and transfers use whichever is active. The browser key should not hold a large balance."}</p>
             <KeyWarning />
             <ImportWalletWarning />
             {error && <p className="mt-2 text-sm text-danger">{error}</p>}
@@ -292,7 +299,7 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-ash">
-                {external ? "The extension signs. The browser key is idle." : "This browser key signs until you connect an extension."} Send only on Polygon.
+                {external ? "The extension signs. The browser key is idle." : isApk() ? "This phone key signs packs, the market, and sign-in. The first spend approves a contract once." : "This game wallet signs packs, the market, and sign-in until you connect an extension. The first spend approves a contract once."} Send only on Polygon.
               </p>
             </section>
 
@@ -395,8 +402,8 @@ export function PolygonWallet({ onBack }: { onBack: () => void }) {
 
             {key ? (
               <section className="rounded-md border border-line bg-panel p-4">
-                <h2 className="text-lg font-medium">Browser key</h2>
-                <p className="mt-2 text-sm text-ash">{external ? "Not used while the extension is connected." : "Signs until you connect an extension."}</p>
+                <h2 className="text-lg font-medium">{isApk() ? "Phone key" : "Browser key"}</h2>
+                <p className="mt-2 text-sm text-ash">{external ? "Not used while the extension is connected." : isApk() ? "Signs from this phone. Showing it blocks screenshots until you hide it." : "Signs until you connect an extension."}</p>
                 <KeyWarning />
             <ImportWalletWarning />
                 <div className="mt-3 flex flex-wrap gap-2">

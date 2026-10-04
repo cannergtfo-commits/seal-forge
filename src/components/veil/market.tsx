@@ -8,7 +8,9 @@ import { playerClient, sentBy, usePlayer } from "@/veil/connect";
 import { ASHEN_NFT, ASHEN_PACKS, BLAZAR_NFT, BLAZAR_PACKS, BAZAAR, BZB, CARDS_NFT, KAGE_NFT, KAGE_PACKS, MARKET } from "@/veil/deployed";
 import { veilBalances } from "@/veil/holds";
 import { redactKey } from "@/veil/keys";
+import { isApk } from "@/veil/shell";
 import { buySealedPack } from "@/veil/pack-buy";
+import { ensureBzb, gameKeySigns, sendGame } from "@/veil/signer";
 import { rarityLabel, rarityTier } from "@/veil/pack-score";
 import { createPublicClient, decodeEventLog, formatUnits, http, isAddress, parseUnits, type Hex } from "viem";
 import { polygon } from "viem/chains";
@@ -499,14 +501,16 @@ export function Market({ onBack }: { onBack: () => void }) {
       const { address: signer, wallet } = await playerClient(key);
       const ok = await reader.readContract({ address: collection, abi: cardsAbi, functionName: "isApprovedForAll", args: [signer, spender] });
       if (!ok) {
-        const approval = await wallet.writeContract({ address: collection, abi: cardsAbi, functionName: "setApprovalForAll", args: [spender, true] });
-        await sentBy(approval, signer);
+        const approval = await sendGame(key, signer, (nonce) => wallet.writeContract({ address: collection, abi: cardsAbi, functionName: "setApprovalForAll", args: [spender, true], nonce }));
+        if (!gameKeySigns(key)) await sentBy(approval, signer);
         setApproved((current) => ({ core: false, blazar: false, kage: false, ashen: false, ...current, [card.edition]: true }));
       }
       for (let i = 0; i < count; i++) {
-        const listed = card.edition === "core"
-          ? await wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "list", args: [BigInt(card.tokenId), wei] })
-          : await wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "list", args: [collection, BigInt(card.tokenId), wei] });
+        const listed = await sendGame(key, signer, (nonce) =>
+          card.edition === "core"
+            ? wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "list", args: [BigInt(card.tokenId), wei], nonce })
+            : wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "list", args: [collection, BigInt(card.tokenId), wei], nonce }),
+        );
         await sentBy(listed, signer);
       }
       await refresh();
@@ -527,14 +531,19 @@ export function Market({ onBack }: { onBack: () => void }) {
     setNotice(null);
     try {
       const { address: signer, wallet } = await playerClient(key);
-      const allowance = await reader.readContract({ address: BZB, abi: erc20, functionName: "allowance", args: [signer, spender] });
-      if (allowance < cost) {
-        const approval = await wallet.writeContract({ address: BZB, abi: erc20, functionName: "approve", args: [spender, cost] });
-        await sentBy(approval, signer);
-      }
-      const bought = stall === "market"
-        ? await wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "buy", args: [BigInt(index)] })
-        : await wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "buy", args: [BigInt(index)] });
+      await ensureBzb(
+        key,
+        signer,
+        spender,
+        cost,
+        (amount, nonce) => wallet.writeContract({ address: BZB, abi: erc20, functionName: "approve", args: [spender, amount], nonce }),
+        (hash) => sentBy(hash, signer),
+      );
+      const bought = await sendGame(key, signer, (nonce) =>
+        stall === "market"
+          ? wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "buy", args: [BigInt(index)], nonce })
+          : wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "buy", args: [BigInt(index)], nonce }),
+      );
       await sentBy(bought, signer);
       await refresh();
       setNotice("Bought.");
@@ -552,9 +561,11 @@ export function Market({ onBack }: { onBack: () => void }) {
     setNotice(null);
     try {
       const { address: signer, wallet } = await playerClient(key);
-      const cancelled = stall === "market"
-        ? await wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "cancel", args: [BigInt(index)] })
-        : await wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "cancel", args: [BigInt(index)] });
+      const cancelled = await sendGame(key, signer, (nonce) =>
+        stall === "market"
+          ? wallet.writeContract({ address: MARKET, abi: marketAbi, functionName: "cancel", args: [BigInt(index)], nonce })
+          : wallet.writeContract({ address: BAZAAR, abi: bazaarAbi, functionName: "cancel", args: [BigInt(index)], nonce }),
+      );
       await sentBy(cancelled, signer);
       await refresh();
       setNotice("Listing cancelled. The card is back in your wallet.");
@@ -677,7 +688,7 @@ export function Market({ onBack }: { onBack: () => void }) {
         </div>
       </header>
       <main className="mx-auto grid max-w-6xl gap-4 px-4 pb-10">
-        {!address && <p className="text-sm text-ash">Connect a wallet extension, or generate one, before you buy, sell, or open your collection.</p>}
+        {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game before you buy, sell, or open your collection." : "Connect a wallet extension, or generate one, before you buy, sell, or open your collection."}</p>}
         {error && <p className="text-sm text-danger">{error}</p>}
         {notice && <p className="text-sm text-brass">{notice}</p>}
         <dl className="stall-stats">
@@ -946,7 +957,7 @@ function Collection({
   address: string | null;
   onOpen: (id: string) => void;
 }) {
-  if (!address) return <p className="text-sm text-ash">Connect a wallet to read the cards it holds.</p>;
+  if (!address) return <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game to read the cards it holds." : "Connect a wallet to read the cards it holds."}</p>;
   if (booting && holdings.length === 0) return <p className="text-sm text-ash">Reading the wallet.</p>;
   if (holdings.length === 0) return <p className="text-sm text-ash">No cards in this view. Listed copies are under My listings, not in the wallet.</p>;
   return (

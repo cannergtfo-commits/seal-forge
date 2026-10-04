@@ -52,11 +52,20 @@ type Ticket = {
   roomId: string | null;
   deck: string[] | null;
   eligible: boolean;
+  lobby: string | null;
+};
+
+type Lobby = {
+  code: string;
+  hostId: string;
+  at: number;
 };
 
 const WAIT_MS = 20_000;
+const LOBBY_MS = 15 * 60 * 1000;
 const tickets = new Map<string, Ticket>();
 const rooms = new Map<string, Room>();
+const lobbies = new Map<string, Lobby>();
 const wins = new Map<string, { day: string; n: number }>();
 
 function dayKey(): string {
@@ -220,8 +229,12 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     const seat = playing.seats[0].id === input.id ? 0 : 1;
     return { status: "play", waitMs: 0, view: publicMatch(playing, seat) };
   }
+  if (existing?.lobby) {
+    lobbies.delete(existing.lobby);
+    existing.lobby = null;
+  }
   if (existing) existing.at = Date.now();
-  const waiting = [...tickets.values()].find((ticket) => ticket.roomId === null && ticket.id !== input.id && Date.now() - ticket.at < WAIT_MS);
+  const waiting = [...tickets.values()].find((ticket) => ticket.roomId === null && ticket.lobby === null && ticket.id !== input.id && Date.now() - ticket.at < WAIT_MS);
   const self: Ticket = existing ?? {
     id: input.id,
     name: input.name.slice(0, 24) || "Duelist",
@@ -231,12 +244,14 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     roomId: null,
     deck: input.deck ?? null,
     eligible: Boolean(input.eligible),
+    lobby: null,
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
   self.address = input.address;
   self.deck = input.deck ?? null;
   self.eligible = Boolean(input.eligible);
+  self.lobby = null;
   tickets.set(self.id, self);
   if (waiting) {
     const room = openRoom(
@@ -260,7 +275,7 @@ function openBot(ticket: Ticket): Room {
   return room;
 }
 
-export function pollQueue(id: string): { status: "wait" | "play" | "missing"; waitMs: number; view: ReturnType<typeof publicMatch> | null } {
+export function pollQueue(id: string): { status: "wait" | "play" | "missing" | "lobby"; waitMs: number; view: ReturnType<typeof publicMatch> | null; code?: string } {
   const ticket = tickets.get(id);
   if (!ticket) return { status: "missing", waitMs: 0, view: null };
   if (ticket.roomId) {
@@ -269,6 +284,11 @@ export function pollQueue(id: string): { status: "wait" | "play" | "missing"; wa
     const seat = room.seats[0].id === id ? 0 : 1;
     advance(room, true);
     return { status: "play", waitMs: 0, view: publicMatch(room, seat) };
+  }
+  if (ticket.lobby) {
+    pruneLobbies();
+    if (lobbies.has(ticket.lobby)) return { status: "lobby", waitMs: 0, view: null, code: ticket.lobby };
+    ticket.lobby = null;
   }
   const left = WAIT_MS - (Date.now() - ticket.at);
   if (left > 0) return { status: "wait", waitMs: left, view: null };
@@ -283,6 +303,10 @@ export function seatBot(id: string): { status: "wait" | "play" | "missing"; wait
   if (playing) {
     const seat = playing.seats[0].id === id ? 0 : 1;
     return { status: "play", waitMs: 0, view: publicMatch(playing, seat) };
+  }
+  if (ticket.lobby) {
+    lobbies.delete(ticket.lobby);
+    ticket.lobby = null;
   }
   const room = openBot(ticket);
   return { status: "play", waitMs: 0, view: publicMatch(room, 0) };
@@ -362,3 +386,131 @@ export function scoreboard(id: string): { address: string; win: boolean }[] {
 }
 
 export const QUEUE_MS = WAIT_MS;
+
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function freshCode(): string {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let code = "";
+    for (let index = 0; index < 4; index++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    if (!lobbies.has(code)) return code;
+  }
+  return `T${Date.now().toString(36).slice(-4).toUpperCase()}`;
+}
+
+function pruneLobbies(): void {
+  const now = Date.now();
+  for (const [code, lobby] of lobbies) {
+    if (now - lobby.at <= LOBBY_MS) continue;
+    const host = tickets.get(lobby.hostId);
+    if (host && host.lobby === code && !host.roomId) host.lobby = null;
+    lobbies.delete(code);
+  }
+}
+
+function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean }): Ticket {
+  const existing = tickets.get(input.id);
+  const self: Ticket = existing ?? {
+    id: input.id,
+    name: input.name.slice(0, 24) || "Duelist",
+    faction: input.faction,
+    address: input.address,
+    at: Date.now(),
+    roomId: null,
+    deck: input.deck ?? null,
+    eligible: Boolean(input.eligible),
+    lobby: null,
+  };
+  self.name = input.name.slice(0, 24) || "Duelist";
+  self.faction = input.faction;
+  self.address = input.address;
+  self.deck = input.deck ?? null;
+  self.eligible = Boolean(input.eligible);
+  tickets.set(self.id, self);
+  return self;
+}
+
+export type LobbyRow = { code: string; name: string; faction: Faction };
+
+export function listLobbies(): LobbyRow[] {
+  pruneLobbies();
+  const rows: LobbyRow[] = [];
+  for (const lobby of lobbies.values()) {
+    const host = tickets.get(lobby.hostId);
+    if (!host || host.roomId) {
+      lobbies.delete(lobby.code);
+      continue;
+    }
+    rows.push({ code: lobby.code, name: host.name, faction: host.faction });
+  }
+  return rows;
+}
+
+export function hostLobby(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean }): {
+  status: "lobby" | "play";
+  code: string | null;
+  waitMs: number;
+  view: ReturnType<typeof publicMatch> | null;
+} {
+  const existing = tickets.get(input.id);
+  const playing = existing ? liveRoom(existing) : null;
+  if (existing && playing) {
+    const seat = playing.seats[0].id === input.id ? 0 : 1;
+    return { status: "play", code: null, waitMs: 0, view: publicMatch(playing, seat) };
+  }
+  const self = seatTicket(input);
+  if (self.lobby && lobbies.has(self.lobby)) {
+    const lobby = lobbies.get(self.lobby)!;
+    lobby.at = Date.now();
+    return { status: "lobby", code: self.lobby, waitMs: 0, view: null };
+  }
+  const code = freshCode();
+  self.lobby = code;
+  self.roomId = null;
+  self.at = Date.now();
+  lobbies.set(code, { code, hostId: self.id, at: Date.now() });
+  return { status: "lobby", code, waitMs: 0, view: null };
+}
+
+export function joinLobby(
+  code: string,
+  input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean },
+): { error?: string; status: "play" | "missing"; view: ReturnType<typeof publicMatch> | null } {
+  pruneLobbies();
+  const key = code.trim().toUpperCase();
+  const lobby = lobbies.get(key);
+  if (!lobby) return { error: "That table is gone.", status: "missing", view: null };
+  if (lobby.hostId === input.id) return { error: "That is your table.", status: "missing", view: null };
+  const host = tickets.get(lobby.hostId);
+  if (!host || host.roomId) {
+    lobbies.delete(key);
+    return { error: "That table is gone.", status: "missing", view: null };
+  }
+  const guestExisting = tickets.get(input.id);
+  const guestPlaying = guestExisting ? liveRoom(guestExisting) : null;
+  if (guestExisting && guestPlaying) {
+    const seat = guestPlaying.seats[0].id === input.id ? 0 : 1;
+    return { error: "You are already in a match.", status: "play", view: publicMatch(guestPlaying, seat) };
+  }
+  if (guestExisting?.lobby) {
+    lobbies.delete(guestExisting.lobby);
+    guestExisting.lobby = null;
+  }
+  lobbies.delete(key);
+  host.lobby = null;
+  const guest = seatTicket(input);
+  const room = openRoom(
+    { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible },
+    { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible },
+  );
+  host.roomId = room.id;
+  guest.roomId = room.id;
+  return { status: "play", view: publicMatch(room, 1) };
+}
+
+export function leaveSeat(id: string): void {
+  const ticket = tickets.get(id);
+  if (!ticket || ticket.roomId) return;
+  if (ticket.lobby) lobbies.delete(ticket.lobby);
+  tickets.delete(id);
+}

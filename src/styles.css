@@ -1488,3 +1488,292 @@ a.veil-btn {
     scroll-behavior: auto !important;
   }
 }
+
+.hall-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arena-music-mark {
+  display: none;
+}
+
+.connect-short {
+  display: none;
+}
+
+.wallet-sheet {
+  position: absolute;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 0.35rem;
+  min-width: 11rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--color-brass);
+  border-radius: 0.4rem;
+  background: var(--color-panel);
+  padding: 0.4rem;
+}
+
+.friend-code {
+  margin: 0.75rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  letter-spacing: 0.35em;
+  color: var(--color-brass);
+}
+
+.bar-tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.arena .veil-row.veil-row-touch {
+  touch-action: pan-x;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  cursor: auto;
+}
+
+.arena .veil-row.veil-row-touch.veil-row-y {
+  touch-action: pan-y;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y proximity;
+}
+
+.arena .veil-row.veil-row-touch .veil-card,
+.arena .veil-row.veil-row-touch .arena-token {
+  scroll-snap-align: center;
+}
+
+@media (pointer: coarse) {
+  .veil-btn,
+  .arena-btn,
+  .arena-grave,
+  .veil-seal,
+  .veil-pick {
+    touch-action: manipulation;
+  }
+
+  .veil-card:active {
+    transform: scale(0.98);
+  }
+}
+
+@media (max-width: 760px) {
+  .connect-label {
+    display: none;
+  }
+
+  .connect-short {
+    display: inline;
+  }
+
+  .hall-frame {
+    align-items: start;
+    padding: max(0.7rem, env(safe-area-inset-top)) 0.7rem max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .hall-hero .veil-card {
+    width: 5.25rem;
+  }
+
+  .hall-title {
+    font-size: 2.05rem;
+  }
+
+  .hall-sheet {
+    padding: 0.75rem 0.7rem 0.85rem;
+  }
+
+  .hall-lead {
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .hall-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hall-tools,
+  .bar-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .hall-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .hall-actions .veil-btn {
+    width: 100%;
+    min-height: 2.85rem;
+    padding-inline: 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .wallet-sheet {
+    position: fixed;
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: 0.75rem;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  .wallet-sheet .veil-btn {
+    min-height: 3rem;
+    font-size: 0.78rem;
+  }
+
+  .friend-code {
+    font-size: 2.4rem;
+    letter-spacing: 0.28em;
+  }
+
+  .veil-shell {
+    overflow-x: clip;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .arena-fit {
+    gap: 0.2rem;
+    padding:
+      max(0.28rem, env(safe-area-inset-top))
+      max(0.35rem, env(safe-area-inset-right))
+      max(0.2rem, env(safe-area-inset-bottom))
+      max(0.35rem, env(safe-area-inset-left));
+  }
+
+  .arena-hud {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.2rem;
+  }
+
+  .arena-music-label {
+    display: none;
+  }
+
+  .arena-music-mark {
+    display: inline;
+    letter-spacing: 0.08em;
+  }
+
+  .arena-now {
+    display: none;
+  }
+
+  .arena-coach {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .arena-play {
+    gap: 0.18rem;
+  }
+
+  .arena-seat {
+    flex: 1 1 0;
+    gap: 0.12rem;
+    padding: 0.18rem 0.28rem 0.22rem;
+  }
+
+  .arena-seat-bar {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .arena-vitals {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .arena-gems {
+    display: none;
+  }
+
+  .arena-plate {
+    gap: 0.35rem;
+  }
+
+  .arena-grave {
+    min-height: 2.4rem;
+    min-width: 2.4rem;
+    padding-right: 0.2rem;
+  }
+
+  .arena-grave span {
+    display: none;
+  }
+
+  .arena-backs {
+    height: 1.35rem;
+  }
+
+  .arena-backs .veil-card {
+    height: 1.35rem;
+  }
+
+  .arena-traps {
+    height: 4.4rem;
+  }
+
+  .arena-hand {
+    flex: 1.2 1 0;
+    max-height: 32dvh;
+  }
+
+  .arena-lane .arena-token,
+  .arena-lane .veil-card,
+  .arena-hand .veil-card,
+  .arena-traps .veil-card {
+    width: auto;
+    height: 100%;
+    max-width: 46vw;
+    max-height: 100%;
+  }
+
+  .arena .veil-dock {
+    padding-bottom: max(0.15rem, env(safe-area-inset-bottom));
+  }
+
+  .arena-dock-row {
+    gap: 0.35rem;
+    min-height: 3rem;
+  }
+
+  .arena-dock-row .arena-btn,
+  .arena-dock-row .veil-btn {
+    flex: 1 1 auto;
+    min-height: 3rem;
+  }
+
+  .arena-sheet {
+    max-height: calc(100dvh - 1.5rem);
+    overflow: auto;
+  }
+
+  .veil-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { CARDS } from "@/veil/cards";
-import { playerClient, usePlayer } from "@/veil/connect";
+import { usePlayer } from "@/veil/connect";
+import { openSession } from "@/veil/game-session";
+import { veilBalances } from "@/veil/holds";
+import { gameKeySigns } from "@/veil/signer";
 import { redactKey } from "@/veil/keys";
 import { PORTRAITS, deckSeal, rankFor } from "@/veil/ranks";
 import { clearSession, readSession, writeSession, type AccountSession } from "@/veil/session";
+import { isApk } from "@/veil/shell";
 
 type Profile = {
   address: string;
@@ -49,9 +53,8 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
 
   useEffect(() => {
     if (!address) return;
-    void fetch(`/api/veilforge/profile?address=${address}`)
-      .then((res) => res.json())
-      .then((data: { owned?: Owned[] }) => setOwned(data.owned ?? []))
+    void veilBalances(address)
+      .then((balances) => setOwned(CARDS.map((card, index) => ({ id: card.id, name: card.name, balance: balances[index] ?? 0 })).filter((card) => card.balance > 0)))
       .catch(() => setOwned([]));
     void fetch("/api/veilforge/profile?board=1")
       .then((res) => res.json())
@@ -80,28 +83,13 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
     setBusy(true);
     setError(null);
     try {
-      const challenge = await fetch("/api/veilforge/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "challenge", address }),
-      });
-      const prompt = (await challenge.json()) as { message?: string; error?: string };
-      if (!prompt.message) throw new Error(prompt.error ?? "No prompt.");
-      const { wallet, address: signer } = await playerClient(key);
-      if (signer.toLowerCase() !== address.toLowerCase()) throw new Error("The wallet account changed. Sign in again.");
-      const signature = await wallet.signMessage({ account: signer, message: prompt.message });
-      const opened = await fetch("/api/veilforge/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "sign", address, signature }),
-      });
-      const body = (await opened.json()) as { token?: string; profile?: Profile; error?: string };
-      if (!body.token || !body.profile) throw new Error(body.error ?? "Sign-in failed.");
-      const next = { token: body.token, address };
+      const opened = await openSession(key, address);
+      if (!opened.profile || typeof opened.profile !== "object") throw new Error("Sign-in failed.");
+      const next = { token: opened.token, address };
       writeSession(next);
       setSession(next);
-      setProfile(body.profile);
-      setName(body.profile.name);
+      setProfile(opened.profile as Profile);
+      setName((opened.profile as Profile).name);
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "Sign-in failed.", key));
     } finally {
@@ -141,18 +129,18 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
           </button>
           <div>
             <p className="text-xs tracking-widest text-brass">ACCOUNT</p>
-            <h1 className="text-lg font-medium leading-tight">{profile?.name ?? "Connect a wallet"}</h1>
+            <h1 className="text-lg font-medium leading-tight">{profile?.name ?? (isApk() ? "Make a wallet" : "Connect a wallet")}</h1>
           </div>
         </div>
         {profile && <p className="font-mono text-sm text-brass">{profile.rank} · {profile.xp} XP</p>}
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
-        {!address && <p className="text-sm text-ash">Connect a wallet extension, or generate one in the game. Signing in never sends a key to the server.</p>}
+        {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game. Signing in never sends a key to the server." : "Connect a wallet extension, or generate one in the game. Signing in never sends a key to the server."}</p>}
         {address && !profile && (
           <section className="rounded-md border border-brass bg-panel p-4">
-            <p className="text-sm leading-relaxed text-ash">Connect {address} by signing a login message. That creates the account and lets you edit a profile, build a deck, and earn rank.</p>
+            <p className="text-sm leading-relaxed text-ash">{gameKeySigns(key) ? `Sign in with the game wallet ${address}. The key stays on this device and signs the login here.` : `Connect ${address} by signing a login message. That creates the account and lets you edit a profile, build a deck, and earn rank.`}</p>
             <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void signIn()}>
-              Sign in with wallet
+              {busy ? "Signing…" : "Sign in with wallet"}
             </button>
           </section>
         )}

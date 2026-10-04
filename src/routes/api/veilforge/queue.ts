@@ -8,7 +8,7 @@ import type { Faction } from "@/veil/cards";
 import { REWARDS } from "@/veil/deployed";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { deckSeal, parseDeck } from "@/veil/ranks";
-import { act, joinQueue, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
+import { act, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
 
 const rewardsAbi = [
   {
@@ -43,11 +43,43 @@ async function finish(id: string) {
   if (scored.length) await applyXp(scored);
 }
 
+async function readSeat(body: { name?: string; faction?: string; address?: string; deck?: unknown }): Promise<
+  | { error: string; status: number }
+  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string }
+> {
+  if (!body.faction || !factions.has(body.faction as Faction)) return { error: "Pick a seal.", status: 400 };
+  const address = body.address && isAddress(body.address) ? body.address : "";
+  const parsed = parseDeck(body.deck);
+  let deck = parsed.ok ? parsed.deck : null;
+  let eligible = false;
+  let deckNote = deck ? "needs-nfts" : "starter";
+  if (deck) {
+    const sealed = deckSeal(deck);
+    if (!sealed.ok || sealed.seal !== body.faction) {
+      deck = null;
+      deckNote = "wrong-seal";
+    }
+  }
+  if (!address) deck = null;
+  if (address) {
+    const balances = await veilBalances(address).catch(() => null);
+    eligible = Boolean(balances?.some((count) => count > 0));
+    if (deck) {
+      const owned = balances ? await deckOwned(address, deck) : { ok: false as const, error: "Could not read this wallet's card NFTs." };
+      if (!owned.ok) deck = null;
+      else deckNote = "yours";
+    }
+  }
+  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote };
+}
+
 export const Route = createFileRoute("/api/veilforge/queue")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const id = new URL(request.url).searchParams.get("id") ?? "";
+        const url = new URL(request.url);
+        if (url.searchParams.get("list") === "1") return Response.json({ lobbies: listLobbies() });
+        const id = url.searchParams.get("id") ?? "";
         const found = pollQueue(id);
         await finish(id);
         const prize = prizeFor(id);
@@ -62,36 +94,29 @@ export const Route = createFileRoute("/api/veilforge/queue")({
           faction?: string;
           address?: string;
           deck?: unknown;
+          code?: string;
           action?: Act;
         };
         const id = body.id ?? "";
         if (!id || id.length > 40) return Response.json({ error: "Missing player." }, { status: 400 });
-        if (body.op === "join") {
-          if (!body.faction || !factions.has(body.faction as Faction)) return Response.json({ error: "Pick a seal." }, { status: 400 });
-          const address = body.address && isAddress(body.address) ? body.address : "";
-          const parsed = parseDeck(body.deck);
-          let deck = parsed.ok ? parsed.deck : null;
-          let eligible = false;
-          let deckNote = deck ? "needs-nfts" : "starter";
-          if (deck) {
-            const sealed = deckSeal(deck);
-            if (!sealed.ok || sealed.seal !== body.faction) {
-              deck = null;
-              deckNote = "wrong-seal";
-            }
+        if (body.op === "leave") {
+          leaveSeat(id);
+          return Response.json({ ok: true });
+        }
+        if (body.op === "join" || body.op === "host" || body.op === "enter") {
+          const seat = await readSeat(body);
+          if ("error" in seat && "status" in seat) return Response.json({ error: seat.error }, { status: seat.status });
+          if (body.op === "host") {
+            const found = hostLobby({ id, ...seat });
+            return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
           }
-          if (!address) deck = null;
-          if (address) {
-            const balances = await veilBalances(address).catch(() => null);
-            eligible = Boolean(balances?.some((count) => count > 0));
-            if (deck) {
-              const owned = balances ? await deckOwned(address, deck) : { ok: false as const, error: "Could not read this wallet's card NFTs." };
-              if (!owned.ok) deck = null;
-              else deckNote = "yours";
-            }
+          if (body.op === "enter") {
+            const found = joinLobby(body.code ?? "", { id, ...seat });
+            if (found.error && found.status !== "play") return Response.json({ error: found.error }, { status: 400 });
+            return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
           }
-          const found = joinQueue({ id, name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible });
-          return Response.json({ ...found, eligible, deck: deckNote });
+          const found = joinQueue({ id, ...seat });
+          return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
         }
         if (body.op === "bot") {
           const found = seatBot(id);

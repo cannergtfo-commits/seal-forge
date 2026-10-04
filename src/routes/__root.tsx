@@ -9,7 +9,7 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
       { name: "description", content: "Seal Forge is a five-seal card duel: units, traps, and spells, twenty life, and a Polygon registry you would deploy from your own wallet." },
       { name: "theme-color", content: "#0c0e12" },

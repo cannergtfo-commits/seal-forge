@@ -14,3 +14,9 @@ startup.sh
 *.log
 .pglite
 data
+.node_modules.lock
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+mobile/www

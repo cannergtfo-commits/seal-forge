@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { isApk } from "./shell";
 
 export type SentTx = {
   hash: `0x${string}`;
@@ -34,6 +35,59 @@ export function redactKey(text: string, key: string | null | undefined): string 
   return text.replaceAll(key, "0x[redacted]").replaceAll(bare, "[redacted]").replaceAll(bare.toLowerCase(), "[redacted]");
 }
 
+const STORE = "veilforge-pol-v1";
+const KEY_SHAPE = /^0x[0-9a-f]{64}$/;
+
+function vaultStore(): StateStorage {
+  return {
+    getItem: (name) => {
+      const vault = window.SealVault;
+      if (!isApk() || !vault) return localStorage.getItem(name);
+      let key = vault.read();
+      const legacy = localStorage.getItem(name);
+      if (!KEY_SHAPE.test(key) && legacy) {
+        try {
+          const old = (JSON.parse(legacy) as { state?: { key?: string } }).state?.key;
+          if (typeof old === "string" && KEY_SHAPE.test(old)) {
+            vault.write(old);
+            key = old;
+          }
+        } catch {
+          /* ignore a damaged browser copy */
+        }
+      }
+      localStorage.removeItem(name);
+      let sent: SentTx[] = [];
+      try {
+        const raw = localStorage.getItem(`${name}:meta`);
+        if (raw) sent = JSON.parse(raw) as SentTx[];
+      } catch {
+        sent = [];
+      }
+      if (!KEY_SHAPE.test(key) && sent.length === 0) return null;
+      return JSON.stringify({ state: { key: KEY_SHAPE.test(key) ? key : null, sent }, version: 0 });
+    },
+    setItem: (name, value) => {
+      const vault = window.SealVault;
+      if (!isApk() || !vault) {
+        localStorage.setItem(name, value);
+        return;
+      }
+      const parsed = JSON.parse(value) as { state?: { key?: string | null; sent?: SentTx[] } };
+      const key = parsed.state?.key;
+      if (typeof key === "string" && KEY_SHAPE.test(key)) vault.write(key);
+      else vault.clear();
+      localStorage.setItem(`${name}:meta`, JSON.stringify(parsed.state?.sent ?? []));
+      localStorage.removeItem(name);
+    },
+    removeItem: (name) => {
+      window.SealVault?.clear();
+      localStorage.removeItem(name);
+      localStorage.removeItem(`${name}:meta`);
+    },
+  };
+}
+
 export const usePolKey = create<KeyState>()(
   persist(
     (set, get) => ({
@@ -57,6 +111,6 @@ export const usePolKey = create<KeyState>()(
       erase: () => set({ key: null, sent: [] }),
       note: (tx) => set((state) => ({ sent: [tx, ...state.sent].slice(0, 8) })),
     }),
-    { name: "veilforge-pol-v1", skipHydration: true },
+    { name: STORE, skipHydration: true, storage: createJSONStorage(vaultStore) },
   ),
 );

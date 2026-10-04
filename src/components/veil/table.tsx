@@ -156,9 +156,15 @@ function EdgeRow({ children, className, axis = "x" }: { children: ReactNode; cla
   const holding = useRef(false);
   const frame = useRef(0);
   const endGesture = useRef<(() => void) | null>(null);
+  const [touchMode, setTouchMode] = useState(false);
 
   useEffect(() => {
+    const query = window.matchMedia("(pointer: coarse)");
+    const apply = () => setTouchMode(query.matches);
+    apply();
+    query.addEventListener("change", apply);
     return () => {
+      query.removeEventListener("change", apply);
       endGesture.current?.();
       cancelAnimationFrame(frame.current);
     };
@@ -233,8 +239,8 @@ function EdgeRow({ children, className, axis = "x" }: { children: ReactNode; cla
   return (
     <div
       ref={ref}
-      className={cx("veil-row", axis === "y" && "veil-row-y", className)}
-      onPointerDown={onPointerDown}
+      className={cx("veil-row", axis === "y" && "veil-row-y", touchMode && "veil-row-touch", className)}
+      onPointerDown={touchMode ? undefined : onPointerDown}
     >
       {children}
     </div>
@@ -577,12 +583,16 @@ export function Table({
           <button
             type="button"
             className="arena-btn"
+            aria-label={music ? "Music on" : "Music off"}
             onClick={() => {
               armArenaMusic();
               setMusic(toggleArenaMusic());
             }}
           >
-            {music ? "Music on" : "Music off"}
+            <span className="arena-music-label">{music ? "Music on" : "Music off"}</span>
+            <span className="arena-music-mark" aria-hidden>
+              {music ? "On" : "Off"}
+            </span>
           </button>
         </div>
 
@@ -595,7 +605,7 @@ export function Table({
                 <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} />
                 <Mana max={theirs.manaMax} current={theirs.mana} />
               </div>
-              <button type="button" className="arena-grave" onClick={() => setGraveSide(1)}>
+              <button type="button" className="arena-grave" aria-label={`Grave ${theirs.grave.length}`} onClick={() => setGraveSide(1)}>
                 <img src="/assets/veil/arena/icon-grave.jpg" alt="" />
                 <span>Grave {theirs.grave.length}</span>
               </button>
@@ -643,7 +653,7 @@ export function Table({
                 <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} />
                 <Mana max={yours.manaMax} current={yours.mana} />
               </div>
-              <button type="button" className="arena-grave" onClick={() => setGraveSide(0)}>
+              <button type="button" className="arena-grave" aria-label={`Grave ${yours.grave.length}`} onClick={() => setGraveSide(0)}>
                 <img src="/assets/veil/arena/icon-grave.jpg" alt="" />
                 <span>Grave {yours.grave.length}</span>
               </button>

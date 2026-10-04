@@ -15,7 +15,10 @@ import { PRACTICE, botOf } from "@/veil/bots";
 import { Table } from "@/components/veil/table";
 import { armArenaMusic, stopArenaMusic } from "@/veil/arena-music";
 import { CARDS, FACTIONS, SEALS, cardOf, type CardDef, type Faction } from "@/veil/cards";
+import { veilBalances } from "@/veil/holds";
 import { useInjected, usePlayer } from "@/veil/connect";
+import { openSession } from "@/veil/game-session";
+import { gameKeySigns } from "@/veil/signer";
 import { shortAddr } from "@/veil/chain";
 import { redactKey, usePolKey } from "@/veil/keys";
 import { buySealedPack } from "@/veil/pack-buy";
@@ -23,6 +26,8 @@ import { armPackScore, type PackScore } from "@/veil/pack-score";
 import { startMatch, type Match } from "@/veil/logic";
 import { metadataFor, useVault } from "@/veil/store";
 import { ASHEN_PACKS, KAGE_PACKS } from "@/veil/deployed";
+import { isApk } from "@/veil/shell";
+import { readSession } from "@/veil/session";
 import { isAddress } from "viem";
 
 type Screen = "home" | "start" | "duel" | "ranked" | "fight" | "packs" | "binder" | "codex" | "market" | "profile" | "deck" | "wallet" | "rules";
@@ -63,7 +68,7 @@ function Bar({ title, onBack }: { title: string; onBack?: () => void }) {
           <h1 className="text-lg font-medium leading-tight">{title}</h1>
         </div>
       </div>
-      <div className="flex items-start gap-2">
+      <div className="bar-tools">
         <ConnectButton />
         <BzbBox />
       </div>
@@ -113,6 +118,8 @@ export function VeilApp() {
   const [binderSeal, setBinderSeal] = useState<Faction | "all">("all");
   const [codexSeal, setCodexSeal] = useState<Faction | "all">("all");
   const key = usePolKey((state) => state.key);
+  const player = usePlayer();
+  const signedFor = useRef<string | null>(null);
   const notePull = useVault((state) => state.notePull);
   const scoreRef = useRef<PackScore | null>(null);
 
@@ -124,6 +131,16 @@ export function VeilApp() {
     if (useVault.persist.hasHydrated()) finish();
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!player.ready || !player.address || !player.key || !gameKeySigns(player.key)) return;
+    const id = player.address.toLowerCase();
+    if (readSession()?.address.toLowerCase() === id || signedFor.current === id) return;
+    signedFor.current = id;
+    void openSession(player.key, player.address).catch(() => {
+      if (signedFor.current === id) signedFor.current = null;
+    });
+  }, [player.ready, player.address, player.key]);
 
   useEffect(() => () => scoreRef.current?.stop(), []);
 
@@ -161,8 +178,8 @@ export function VeilApp() {
 
   async function buy(faction: number) {
     if (!ready || pulls || packBusy) return;
-    if (!key && !useInjected.getState().address) {
-      setPackError("Connect a wallet, or generate one, and send it BzB before opening a pack.");
+    if ((isApk() || !useInjected.getState().address) && !key) {
+      setPackError(isApk() ? "Make a wallet in the game and send it BzB before opening a pack." : "Connect a wallet, or generate one, and send it BzB before opening a pack.");
       return;
     }
     scoreRef.current?.stop();
@@ -209,7 +226,7 @@ export function VeilApp() {
               <div>
                 <h1 className="hall-title">Seal Forge</h1>
               </div>
-              <div className="flex items-start gap-2">
+              <div className="hall-tools">
                 <button type="button" className="veil-btn" disabled={!ready} onClick={() => setScreen("profile")}>
                   <User className="h-4 w-4" aria-hidden />
                   Profile
@@ -223,7 +240,7 @@ export function VeilApp() {
               <p>Aureth endure through ancient grace, Veymar through ambition, Rixen through cunning, Quorin through cold invention, and Malrec through darkness.</p>
               <p>As the Seals begin to break, old rivalries return and the fate of every realm hangs in the balance.</p>
             </div>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 hall-actions">
               <button type="button" className="veil-btn veil-btn-primary" disabled={!ready} onClick={() => setScreen("packs")}>
                 <Package className="h-4 w-4" aria-hidden />
                 Open a pack
@@ -240,7 +257,7 @@ export function VeilApp() {
                 Deck
               </button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 hall-actions">
               <button type="button" className="veil-btn" onClick={() => setScreen("binder")}>
                 <Layers className="h-4 w-4" aria-hidden />
                 Binder
@@ -543,14 +560,10 @@ function Binder({
     }
     let cancel = false;
     setHold("loading");
-    void fetch(`/api/veilforge/profile?address=${address}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("read failed");
-        return res.json();
-      })
-      .then((data: { owned?: { id: string; balance: number }[] }) => {
+    void veilBalances(address)
+      .then((balances) => {
         if (cancel) return;
-        setOwned(data.owned ?? []);
+        setOwned(CARDS.map((card, index) => ({ id: card.id, balance: balances[index] ?? 0 })).filter((card) => card.balance > 0));
         setHold("ready");
       })
       .catch(() => {
@@ -580,7 +593,7 @@ function Binder({
       <Bar title="Binder" onBack={onBack} />
       <main className="mx-auto max-w-5xl px-4 pb-8">
         <p className="mb-3 text-sm text-ash">
-          {address ? `Card NFTs held by ${shortAddr(address)}.` : "Connect a wallet. The binder reads the card NFTs that wallet holds."}
+          {address ? `Card NFTs held by ${shortAddr(address)}.` : isApk() ? "Make a wallet in the game. The binder reads the card NFTs that wallet holds." : "Connect a wallet. The binder reads the card NFTs that wallet holds."}
         </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={cx("veil-btn", seal === "all" && "veil-btn-primary")} onClick={() => setSeal("all")}>

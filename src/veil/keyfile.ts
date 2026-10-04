@@ -62,6 +62,10 @@ export async function openKey(fileText: string, password: string): Promise<strin
 }
 
 export function downloadText(filename: string, text: string): void {
+  if (typeof window !== "undefined" && window.SealVault) {
+    if (!window.SealVault.saveFile(filename, text)) throw new Error("The phone refused to save that file.");
+    return;
+  }
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;

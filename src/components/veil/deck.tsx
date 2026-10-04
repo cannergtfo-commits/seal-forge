@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { CardFace } from "@/components/veil/card";
 import { CARDS, FACTIONS, SEALS, cardOf, type Faction } from "@/veil/cards";
-import { playerClient, usePlayer } from "@/veil/connect";
+import { usePlayer } from "@/veil/connect";
+import { openSession } from "@/veil/game-session";
 import { redactKey } from "@/veil/keys";
 import { deckFits, deckSeal, cleanDeckName } from "@/veil/ranks";
 import { clearSession, readSession, writeSession, type AccountSession } from "@/veil/session";
+import { isApk } from "@/veil/shell";
 
 type Owned = { id: string; name: string; balance: number };
 
@@ -94,24 +96,8 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
     if (!address) return null;
     setError(null);
     try {
-      const challenge = await fetch("/api/veilforge/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "challenge", address }),
-      });
-      const prompt = (await challenge.json()) as { message?: string; error?: string };
-      if (!prompt.message) throw new Error(prompt.error ?? "No prompt.");
-      const { wallet, address: signer } = await playerClient(key);
-      if (signer.toLowerCase() !== address.toLowerCase()) throw new Error("The wallet account changed. Sign in again.");
-      const signature = await wallet.signMessage({ account: signer, message: prompt.message });
-      const opened = await fetch("/api/veilforge/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "sign", address, signature }),
-      });
-      const body = (await opened.json()) as { token?: string; error?: string };
-      if (!body.token) throw new Error(body.error ?? "Sign-in failed.");
-      const next = { token: body.token, address };
+      const opened = await openSession(key, address);
+      const next = { token: opened.token, address };
       writeSession(next);
       setSession(next);
       return next;
@@ -209,7 +195,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
     return copies < 2 && copies < balance;
   });
   const block = !address
-    ? "Connect a wallet."
+    ? isApk() ? "Make a wallet in the game." : "Connect a wallet."
     : holdState === "loading" || holdState === "idle"
       ? "Reading your cards."
       : holdState === "error"
@@ -243,7 +229,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
         <p className="font-mono text-sm text-brass">{deck.length}/20</p>
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
-        {!address && <p className="text-sm text-ash">Connect a wallet. Only card NFTs in that wallet can enter a deck.</p>}
+        {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game. Only card NFTs in that wallet can enter a deck." : "Connect a wallet. Only card NFTs in that wallet can enter a deck."}</p>}
         {address && !session && (
           <section className="rounded-md border border-line bg-panel p-4">
             <p className="text-sm leading-relaxed text-ash">Sign in with {address} so this deck is the one ranked matches use.</p>

@@ -7,8 +7,12 @@ import { ensurePolygon, type Injected } from "./chain";
 import { BZB } from "./deployed";
 import { usePolKey } from "./keys";
 import { addressOf, polygonClient } from "./pol";
+import { isApk } from "./shell";
+import { sendGame } from "./signer";
 
 const HOLD = "veilforge-wallet-hold";
+
+export type WalletKind = "metamask" | "phantom";
 
 type ConnectState = {
   address: Address | null;
@@ -16,7 +20,7 @@ type ConnectState = {
   present: boolean;
   error: string | null;
   listen: () => void;
-  connect: () => Promise<string | null>;
+  connect: (kind?: WalletKind) => Promise<string | null>;
   logout: () => void;
 };
 
@@ -27,6 +31,58 @@ function discover(): Injected | null {
   if (typeof window === "undefined") return null;
   const eth = (window as Window & { ethereum?: Injected }).ethereum;
   return eth ?? null;
+}
+
+type Announced = { rdns: string; provider: Injected };
+
+const announced: Announced[] = [];
+let asked6963 = false;
+
+function arm6963(): void {
+  if (typeof window === "undefined" || asked6963) return;
+  asked6963 = true;
+  window.addEventListener("eip6963:announceProvider", (event: Event) => {
+    const detail = (event as CustomEvent<{ info?: { rdns?: string }; provider?: Injected }>).detail;
+    if (!detail?.provider || !detail.info?.rdns) return;
+    if (!announced.some((item) => item.rdns === detail.info?.rdns)) announced.push({ rdns: detail.info.rdns, provider: detail.provider });
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+}
+
+function injectedList(): Injected[] {
+  const eth = discover() as (Injected & { providers?: Injected[] }) | null;
+  if (eth?.providers && Array.isArray(eth.providers)) return eth.providers;
+  return eth ? [eth] : [];
+}
+
+function flagged(provider: Injected, flag: "isMetaMask" | "isPhantom"): boolean {
+  return Boolean((provider as Injected & { isMetaMask?: boolean; isPhantom?: boolean })[flag]);
+}
+
+async function findWallet(kind: WalletKind): Promise<Injected | null> {
+  arm6963();
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  await new Promise((resolve) => window.setTimeout(resolve, 250));
+  const rdns = kind === "metamask" ? "io.metamask" : "app.phantom";
+  const announcedHit = announced.find((item) => item.rdns === rdns);
+  if (announcedHit) return announcedHit.provider;
+  if (kind === "phantom") {
+    const phantom = (window as Window & { phantom?: { ethereum?: Injected } }).phantom?.ethereum;
+    if (phantom) return phantom;
+    return injectedList().find((provider) => flagged(provider, "isPhantom")) ?? null;
+  }
+  return injectedList().find((provider) => flagged(provider, "isMetaMask") && !flagged(provider, "isPhantom")) ?? injectedList().find((provider) => flagged(provider, "isMetaMask")) ?? null;
+}
+
+function walletLink(kind: WalletKind): string | null {
+  if (typeof window === "undefined") return null;
+  const href = window.location.href;
+  if (!/^https?:/i.test(href)) return kind === "metamask" ? "https://metamask.app.link" : "https://phantom.app";
+  if (kind === "metamask") {
+    const url = new URL(href);
+    return `https://metamask.app.link/dapp/${url.host}${url.pathname}${url.search}`;
+  }
+  return `https://phantom.app/ul/browse/${encodeURIComponent(href)}?ref=${encodeURIComponent(window.location.origin)}`;
 }
 
 function provider(): Injected | null {
@@ -118,10 +174,17 @@ export const useInjected = create<ConnectState>((set) => ({
         .catch(() => undefined);
     });
   },
-  connect: async () => {
-    const eth = discover();
+  connect: async (kind: WalletKind = "metamask") => {
+    const eth = await findWallet(kind);
     if (!eth) {
-      const error = "No wallet extension found. Install MetaMask or another injected wallet.";
+      const link = walletLink(kind);
+      const label = kind === "phantom" ? "Phantom" : "MetaMask";
+      if (link && typeof window !== "undefined" && /^https?:/i.test(window.location.href)) {
+        window.location.assign(link);
+        return null;
+      }
+      if (link && typeof window !== "undefined") window.location.assign(link);
+      const error = `${label} is not open in this browser. Open Seal Forge inside ${label}, then connect.`;
       set({ error, present: false, ready: true });
       return error;
     }
@@ -161,7 +224,7 @@ export const useInjected = create<ConnectState>((set) => ({
 }));
 
 export async function playerClient(localKey: `0x${string}` | null): Promise<{ address: Address; wallet: WalletClient<Transport, typeof polygon, Account> }> {
-  const external = useInjected.getState().address;
+  const external = isApk() ? null : useInjected.getState().address;
   if (external) {
     const eth = provider();
     if (!eth) throw new Error("The wallet extension disconnected.");
@@ -175,7 +238,7 @@ export async function playerClient(localKey: `0x${string}` | null): Promise<{ ad
     const wallet = createWalletClient({ account: address, chain: polygon, transport: custom(eth) });
     return { address, wallet: wallet as WalletClient<Transport, typeof polygon, Account> };
   }
-  if (!localKey) throw new Error("Connect a wallet, or generate one in the game.");
+  if (!localKey) throw new Error(isApk() ? "Make a wallet in the game first." : "Connect a wallet, or generate one in the game.");
   const account = privateKeyToAccount(localKey);
   const wallet = createWalletClient({ account, chain: polygon, transport: http("https://polygon-bor-rpc.publicnode.com") });
   return { address: account.address, wallet };
@@ -191,7 +254,7 @@ export async function sentBy(hash: `0x${string}`, address: Address) {
 
 export async function sendActive(localKey: `0x${string}` | null, to: Address, amount: string): Promise<`0x${string}`> {
   const { address, wallet } = await playerClient(localKey);
-  const hash = await wallet.sendTransaction({ to, value: parseEther(amount) });
+  const hash = await sendGame(localKey, address, (nonce) => wallet.sendTransaction({ to, value: parseEther(amount), nonce }));
   await sentBy(hash, address);
   return hash;
 }
@@ -218,19 +281,22 @@ const erc1155Transfer = [
 
 export async function sendBzb(localKey: `0x${string}` | null, to: Address, amount: string): Promise<`0x${string}`> {
   const { address, wallet } = await playerClient(localKey);
-  const hash = await wallet.writeContract({ address: BZB, abi: erc20Transfer, functionName: "transfer", args: [to, parseUnits(amount, 18)] });
+  const hash = await sendGame(localKey, address, (nonce) => wallet.writeContract({ address: BZB, abi: erc20Transfer, functionName: "transfer", args: [to, parseUnits(amount, 18)], nonce }));
   await sentBy(hash, address);
   return hash;
 }
 
 export async function sendVeilCard(localKey: `0x${string}` | null, contract: Address, tokenId: number, amount: number, to: Address): Promise<`0x${string}`> {
   const { address, wallet } = await playerClient(localKey);
-  const hash = await wallet.writeContract({
-    address: contract,
-    abi: erc1155Transfer,
-    functionName: "safeTransferFrom",
-    args: [address, to, BigInt(tokenId), BigInt(amount), "0x"],
-  });
+  const hash = await sendGame(localKey, address, (nonce) =>
+    wallet.writeContract({
+      address: contract,
+      abi: erc1155Transfer,
+      functionName: "safeTransferFrom",
+      args: [address, to, BigInt(tokenId), BigInt(amount), "0x"],
+      nonce,
+    }),
+  );
   await sentBy(hash, address);
   return hash;
 }
@@ -245,11 +311,12 @@ export function usePlayer() {
     const finish = () => setKeyReady(true);
     const unsub = usePolKey.persist.onFinishHydration(finish);
     void usePolKey.persist.rehydrate();
-    useInjected.getState().listen();
+    if (isApk()) useInjected.setState({ ready: true, present: false, address: null });
+    else useInjected.getState().listen();
     if (usePolKey.persist.hasHydrated()) finish();
     return unsub;
   }, []);
 
-  const address = external ?? (key ? addressOf(key) : null);
-  return { ready: keyReady && extReady, key, address, external };
+  const address = (isApk() ? null : external) ?? (key ? addressOf(key) : null);
+  return { ready: keyReady && (isApk() || extReady), key, address, external: isApk() ? null : external };
 }

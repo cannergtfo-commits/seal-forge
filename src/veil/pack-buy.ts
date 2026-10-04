@@ -4,6 +4,7 @@ import { CARDS, type CardDef, type CardSet } from "./cards";
 import { ASHEN_PACKS, ASHEN_WEI, BLAZAR_PACKS, BLAZAR_WEI, BZB, FORGE_WEI, KAGE_PACKS, KAGE_WEI, PACKS, SEAL_WEI } from "./deployed";
 import { polygonClient } from "./pol";
 import { redactKey } from "./keys";
+import { ensureBzb, gameKeySigns, sendGame } from "./signer";
 
 const WAIT_MS = 15_000;
 const TIMEOUT = "Timed out. The pack did not confirm. You can try again.";
@@ -170,10 +171,23 @@ export async function buySealedPack(key: `0x${string}` | null, edition: CardSet,
     if (orderId === null || openedAt === null) {
       const allowance = await within(polygonClient.readContract({ address: BZB, abi: erc20, functionName: "allowance", args: [address, pack] }));
       if (allowance < cost) {
-        const approved = await within(wallet.writeContract({ address: BZB, abi: erc20, functionName: "approve", args: [pack, cost * 8n] }));
-        await confirm(approved, address);
+        if (gameKeySigns(key)) {
+          await ensureBzb(
+            key,
+            address,
+            pack,
+            cost,
+            (amount, nonce) => wallet.writeContract({ address: BZB, abi: erc20, functionName: "approve", args: [pack, amount], nonce }),
+            (hash) => confirm(hash, address),
+          );
+        } else {
+          const approved = await within(wallet.writeContract({ address: BZB, abi: erc20, functionName: "approve", args: [pack, cost * 8n] }));
+          await confirm(approved, address);
+        }
       }
-      const hash = await within(wallet.writeContract({ address: pack, abi: packsAbi, functionName: "buy", args: [faction] }));
+      const hash = gameKeySigns(key)
+        ? await sendGame(key, address, (nonce) => wallet.writeContract({ address: pack, abi: packsAbi, functionName: "buy", args: [faction], nonce }))
+        : await within(wallet.writeContract({ address: pack, abi: packsAbi, functionName: "buy", args: [faction] }));
       const receipt = await confirm(hash, address);
       for (const log of receipt.logs) {
         if (log.address.toLowerCase() !== pack.toLowerCase()) continue;
@@ -192,7 +206,7 @@ export async function buySealedPack(key: `0x${string}` | null, edition: CardSet,
       openedAt = receipt.blockNumber;
     }
     await waitPast(openedAt);
-    const settled = await within(wallet.writeContract({ address: pack, abi: packsAbi, functionName: "settle", args: [orderId] }));
+    const settled = await sendGame(key, address, (nonce) => wallet.writeContract({ address: pack, abi: packsAbi, functionName: "settle", args: [orderId], nonce }));
     const opened = await confirm(settled, address);
     const cards = openedFrom(pack, opened.logs, address);
     if (!cards) throw new Error("The pack opened, but the cards were not in the receipt.");
