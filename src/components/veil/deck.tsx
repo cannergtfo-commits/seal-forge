@@ -78,7 +78,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
       setDeck(book.deck);
       setDeckName(book.deckName);
       const found = deckSeal(book.deck);
-      if (found.ok) setSeal(found.seal);
+      if (found.ok && found.seal !== "veil") setSeal(found.seal);
       setShowUnbound(book.deck.some((id) => {
         try {
           return cardOf(id).faction === "veil";
@@ -97,7 +97,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
         setDeck(next);
         setDeckName(data.profile?.deckName ?? "");
         const found = deckSeal(next);
-        if (found.ok) setSeal(found.seal);
+        if (found.ok && found.seal !== "veil") setSeal(found.seal);
         setShowUnbound(next.some((id) => {
           try {
             return cardOf(id).faction === "veil";
@@ -203,20 +203,18 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
 
   const balances = new Map(owned.map((card) => [card.id, card.balance]));
   const sealed = deckSeal(deck);
+  const copiesOf = (id: string) => deck.filter((item) => item === id).length;
   const pool = CARDS.filter((card) => {
-    if ((balances.get(card.id) ?? 0) <= 0) return false;
-    if (deck.includes(card.id)) return false;
+    const balance = balances.get(card.id) ?? 0;
+    const copies = copiesOf(card.id);
+    if (balance <= 0 || copies >= 2 || copies >= balance) return false;
     if (!seal) return false;
     if (card.faction === "veil") return showUnbound;
     return card.faction === seal;
   }).sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name));
   const fits = holdState === "ready" && deckFits(deck, balances);
   const deckLegal = deck.length === 20 && sealed.ok && fits;
-  const canAddMore = pool.some((card) => {
-    const balance = balances.get(card.id) ?? 0;
-    const copies = deck.filter((id) => id === card.id).length;
-    return copies < 2 && copies < balance;
-  });
+  const canAddMore = pool.length > 0;
   const block = !address
     ? isApk() ? "Make a wallet in the game." : "Connect a wallet."
     : holdState === "loading" || holdState === "idle"
@@ -230,7 +228,9 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
           : deck.length < 20
             ? canAddMore
               ? `Add ${20 - deck.length} more.`
-              : `Need ${20 - deck.length} more. Two copies is the limit. Turn on Unbound if you hold those.`
+              : showUnbound
+                ? `Need ${20 - deck.length} more. Two copies is the limit.`
+                : `Need ${20 - deck.length} more. Two copies is the limit. Turn on Unbound if you hold those.`
             : !fits
               ? "A card in this deck is not in the wallet."
               : null;
@@ -275,7 +275,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
             </button>
           )}
         </div>
-        {!seal && <p className="text-sm text-ash">Choose one seal. Unbound cards stay hidden until you call them, and they cannot be a deck on their own.</p>}
+        {!seal && <p className="text-sm text-ash">Choose one seal. Unbound stays hidden until you call it. A deck of only unbound cards plays in any seal.</p>}
         <section className="rounded-md border border-line bg-panel p-3">
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -301,7 +301,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-ash">
-            {block ?? (sealed.ok ? `${SEALS.find((item) => item.id === sealed.seal)?.name ?? "Seal"} deck. Ready to seal.` : "Empty forge.")}
+            {block ?? (sealed.ok ? (sealed.seal === "veil" ? "Unbound deck. Plays in any seal. Ready to seal." : `${SEALS.find((item) => item.id === sealed.seal)?.name ?? "Seal"} deck. Ready to seal.`) : "Empty forge.")}
             {!session && deckLegal ? " Sign-in opens when you seal." : ""}
           </p>
           {notice && <p className="mt-2 text-sm text-brass">{notice}</p>}

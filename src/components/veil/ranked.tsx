@@ -226,7 +226,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const [reward, setReward] = useState("none");
   const [busy, setBusy] = useState(false);
   const [useSealed, setUseSealed] = useState(false);
-  const [sealed, setSealed] = useState<{ ids: string[]; seal: Exclude<Faction, "veil">; name: string } | null>(null);
+  const [sealed, setSealed] = useState<{ ids: string[]; seal: Faction; name: string } | null>(null);
   const [hostCode, setHostCode] = useState("");
   const [tables, setTables] = useState<LobbyRow[]>([]);
   const [friendCode, setFriendCode] = useState("");
@@ -394,7 +394,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     if (isApk()) {
       const book = address ? readBook(address) : null;
       const found = book && book.deck.length === 20 ? deckSeal(book.deck) : null;
-      const deck = useSealed && found?.ok && found.seal === faction ? book!.deck : null;
+      const deck = useSealed && found?.ok && (found.seal === faction || found.seal === "veil") ? book!.deck : null;
       return { id: seatId(), name: book?.name || "Duelist", faction, address, deck, stage };
     }
     const session = readSession();
@@ -408,7 +408,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           name = profileBody.profile.name;
           const ids = profileBody.profile.deck;
           const found = ids.length === 20 ? deckSeal(ids) : null;
-          if (useSealed && found?.ok && found.seal === faction) deck = ids;
+          if (useSealed && found?.ok && (found.seal === faction || found.seal === "veil")) deck = ids;
         }
       } catch {
         /* the public lanes still work without the profile server */
@@ -419,13 +419,13 @@ export function Ranked({ onBack }: { onBack: () => void }) {
 
   function noteDeck(deck?: string) {
     if (deck === "needs-nfts") setError("That deck includes cards this wallet does not hold, so the starter deck was used.");
-    else if (deck === "wrong-seal") setError("That deck is not this seal. Unbound cards can join any seal, so the starter deck was used.");
+    else if (deck === "wrong-seal") setError("That deck is sealed to another seal, so the starter deck was used.");
   }
 
   function startLocal() {
     const bot = liveBot();
     const seed = Math.floor(Math.random() * 0xffffffff) || 1;
-    const deck = useSealed && sealed?.seal === faction ? sealed.ids : null;
+    const deck = useSealed && sealed && (sealed.seal === faction || sealed.seal === "veil") ? sealed.ids : null;
     setLocal({ match: startMatch(faction, bot.faction, seed, [deck, null]), bot });
     setId("");
     setWaitMs(null);
@@ -853,7 +853,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
                 disabled={Boolean(id)}
                 onClick={() => {
                   setFaction(item.id);
-                  if (!sealed || item.id !== sealed.seal) setUseSealed(false);
+                  if (!sealed || (sealed.seal !== "veil" && item.id !== sealed.seal)) setUseSealed(false);
                 }}
               >
                 {item.name}
@@ -873,10 +873,10 @@ export function Ranked({ onBack }: { onBack: () => void }) {
                 onClick={() => {
                   if (!sealed) return;
                   setUseSealed(true);
-                  setFaction(sealed.seal);
+                  if (sealed.seal !== "veil") setFaction(sealed.seal);
                 }}
               >
-                {sealed ? `Sealed · ${sealed.name || SEALS.find((item) => item.id === sealed.seal)?.name || "Deck"}` : "No sealed deck"}
+                {sealed ? `Sealed · ${sealed.name || (sealed.seal === "veil" ? "Unbound" : SEALS.find((item) => item.id === sealed.seal)?.name) || "Deck"}` : "No sealed deck"}
               </button>
             </div>
             {!sealed && <p className="mt-2 text-sm text-ash">Seal a deck in the forge, then choose it here. Otherwise the starter deck plays.</p>}

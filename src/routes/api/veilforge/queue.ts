@@ -27,7 +27,7 @@ async function readSeat(body: { name?: string; faction?: string; address?: strin
   let deckNote = deck ? "needs-nfts" : "starter";
   if (deck) {
     const sealed = deckSeal(deck);
-    if (!sealed.ok || sealed.seal !== body.faction) {
+    if (!sealed.ok || (sealed.seal !== "veil" && sealed.seal !== body.faction)) {
       deck = null;
       deckNote = "wrong-seal";
     }

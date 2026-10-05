@@ -324,7 +324,7 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
             <p className="mt-1 text-sm text-ash">
               {(() => {
                 const sealed = deckSeal(profile.deck);
-                return sealed.ok ? "Sealed for ranked play." : "Not a finished deck yet.";
+                return profile.deck.length === 20 && sealed.ok ? "Sealed for ranked play." : "Not a finished deck yet.";
               })()}
             </p>
             <button type="button" className="veil-btn veil-btn-primary mt-3" onClick={onDeck}>

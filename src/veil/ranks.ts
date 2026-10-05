@@ -88,7 +88,8 @@ export function parseDeck(ids: unknown): { ok: true; deck: string[] } | { ok: fa
   return { ok: true, deck: ids as string[] };
 }
 
-export function deckSeal(ids: string[]): { ok: true; seal: Exclude<Faction, "veil"> } | { ok: false; error: string } {
+export function deckSeal(ids: string[]): { ok: true; seal: Faction } | { ok: false; error: string } {
+  if (ids.length === 0) return { ok: false, error: "A deck is 20 cards." };
   let seal: Exclude<Faction, "veil"> | null = null;
   for (const id of ids) {
     let card;
@@ -101,7 +102,8 @@ export function deckSeal(ids: string[]): { ok: true; seal: Exclude<Faction, "vei
     if (!seal) seal = card.faction;
     else if (seal !== card.faction) return { ok: false, error: "A deck is one seal. Unbound cards can join any seal." };
   }
-  if (!seal) return { ok: false, error: "Unbound is not a deck. Add cards from one seal." };
+  // Unbound cards join whatever seal is played. A deck of only those is legal in every seal.
+  if (!seal) return { ok: true, seal: "veil" };
   return { ok: true, seal };
 }
 
