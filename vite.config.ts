@@ -116,7 +116,7 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview
-      ? [nitro({ preset: "vercel", serverDir: "./server" })]
+      ? [nitro({ preset: process.env.SEAL_FORGE_TARGET === "node" ? "node-server" : "vercel", serverDir: "./server" })]
       : []),
     viteReact(),
   ],
