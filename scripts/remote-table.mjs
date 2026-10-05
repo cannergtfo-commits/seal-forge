@@ -4,6 +4,19 @@ import https from "node:https";
 const ORIGIN = process.env.SEAL_FORGE_ORIGIN || "https://play.blazarforce.net";
 const TABLE = process.env.SEAL_FORGE_TABLE === "1";
 
+function originHost() {
+  try {
+    return new URL(ORIGIN).hostname;
+  } catch {
+    return "play.blazarforce.net";
+  }
+}
+
+function requestHost(req) {
+  const raw = String(req.headers["x-forwarded-host"] || req.headers.host || "");
+  return raw.split(",")[0].trim().replace(/:\d+$/, "").toLowerCase();
+}
+
 export function remoteTablePlugin() {
   let online = false;
   let checked = 0;
@@ -12,10 +25,12 @@ export function remoteTablePlugin() {
     apply: "serve",
     configureServer(server) {
       if (TABLE) return;
+      const mine = originHost();
       server.middlewares.use(async (req, res, next) => {
         const raw = req.url || "";
         const path = raw.split("?")[0];
         if (!path.startsWith("/api/veilforge")) return next();
+        if (requestHost(req) === mine) return next();
         const now = Date.now();
         if (now - checked > 15000) {
           checked = now;
