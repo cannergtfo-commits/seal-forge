@@ -63,7 +63,12 @@ type Lobby = {
   at: number;
 };
 
-const WAIT_MS = 20_000;
+const FRESH_MS = 8_000;
+
+function waitingRival(selfId: string): Ticket | undefined {
+  const now = Date.now();
+  return [...tickets.values()].find((ticket) => ticket.roomId === null && ticket.lobby === null && ticket.id !== selfId && now - ticket.at < FRESH_MS);
+}
 const LOBBY_MS = 15 * 60 * 1000;
 const tickets = new Map<string, Ticket>();
 const rooms = new Map<string, Room>();
@@ -260,7 +265,7 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     existing.lobby = null;
   }
   if (existing) existing.at = Date.now();
-  const waiting = [...tickets.values()].find((ticket) => ticket.roomId === null && ticket.lobby === null && ticket.id !== input.id && Date.now() - ticket.at < WAIT_MS);
+  const waiting = waitingRival(input.id);
   const self: Ticket = existing ?? {
     id: input.id,
     name: input.name.slice(0, 24) || "Duelist",
@@ -290,7 +295,7 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     self.roomId = room.id;
     return { status: "play", waitMs: 0, view: publicMatch(room, 1) };
   }
-  return { status: "wait", waitMs: Math.max(0, WAIT_MS - (Date.now() - self.at)), view: null };
+  return { status: "wait", waitMs: 0, view: null };
 }
 
 function openBot(ticket: Ticket): Room {
@@ -318,10 +323,8 @@ export function pollQueue(id: string): { status: "wait" | "play" | "missing" | "
     if (lobbies.has(ticket.lobby)) return { status: "lobby", waitMs: 0, view: null, code: ticket.lobby };
     ticket.lobby = null;
   }
-  const left = WAIT_MS - (Date.now() - ticket.at);
-  if (left > 0) return { status: "wait", waitMs: left, view: null };
-  const room = openBot(ticket);
-  return { status: "play", waitMs: 0, view: publicMatch(room, 0) };
+  ticket.at = Date.now();
+  return { status: "wait", waitMs: 0, view: null };
 }
 
 export function seatBot(id: string): { status: "wait" | "play" | "missing"; waitMs: number; view: ReturnType<typeof publicMatch> | null; error?: string } {
@@ -409,7 +412,7 @@ export function scoreboard(id: string): { address: string; win: boolean }[] {
   return out;
 }
 
-export const QUEUE_MS = WAIT_MS;
+export const QUEUE_MS = 20_000;
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 

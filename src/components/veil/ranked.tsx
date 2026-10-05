@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Table, type TableAct } from "@/components/veil/table";
 import { SEALS, type Faction } from "@/veil/cards";
 import { playerClient, sentBy, usePlayer } from "@/veil/connect";
-import { hostFriend, joinFriend, seekRival } from "@/veil/friend-wire";
+import { hostFriend, joinFriend } from "@/veil/friend-wire";
 import { sendGame } from "@/veil/signer";
 import { armArenaMusic } from "@/veil/arena-music";
 import { liveBot, type Bot } from "@/veil/bots";
@@ -225,7 +225,6 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const [useSealed, setUseSealed] = useState(false);
   const [sealed, setSealed] = useState<{ ids: string[]; seal: Exclude<Faction, "veil">; name: string } | null>(null);
   const [hostCode, setHostCode] = useState("");
-  const [joinCode, setJoinCode] = useState("");
   const [tables, setTables] = useState<LobbyRow[]>([]);
   const [friendCode, setFriendCode] = useState("");
   const [hostingFriend, setHostingFriend] = useState("");
@@ -243,7 +242,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const friendWire = useRef<{ send: (action: TableAct) => void; close: () => void } | null>(null);
   const friendGen = useRef(0);
   const queueSeat = useRef("");
-  const peerLive = useRef(false);
+  const seekingPlayer = useRef(false);
+  const enterRef = useRef<(code: string) => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     if (isApk()) {
@@ -312,8 +312,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       void fetch(`/api/veilforge/queue?id=${id}`)
         .then((res) => res.json())
         .then((data: { status?: string; waitMs?: number; view?: View | null; claim?: Claim | null; reward?: string; code?: string; error?: string }) => {
-          if (peerLive.current) return;
           if (data.view) {
+            seekingPlayer.current = false;
             friendWire.current?.close();
             friendWire.current = null;
             setView((prev) => (prev && sameBoard(prev, data.view!) ? prev : data.view!));
@@ -337,7 +337,14 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       void fetch("/api/veilforge/queue?list=1")
         .then((res) => res.json())
         .then((data: { lobbies?: LobbyRow[] }) => {
-          if (!cancel) setTables(data.lobbies ?? []);
+          if (cancel) return;
+          const rows = data.lobbies ?? [];
+          setTables(rows);
+          if (!seekingPlayer.current) return;
+          const open = rows[0];
+          if (!open) return;
+          seekingPlayer.current = false;
+          void enterRef.current(open.code);
         })
         .catch(() => undefined);
     };
@@ -392,72 +399,28 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     setError(null);
   }
 
-  function dropQueue() {
-    const seat = queueSeat.current;
-    queueSeat.current = "";
-    if (!seat) return;
-    void fetch("/api/veilforge/queue", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ op: "leave", id: seat }),
-    }).catch(() => undefined);
-  }
-
-  function seekOpen(body: { name: string; faction: Faction; deck: string[] | null; address: string; stage: number }) {
-    peerLive.current = false;
-    closeFriend();
-    const begun = Date.now();
-    const tick = window.setInterval(() => setWaitMs(Math.max(0, 20_000 - (Date.now() - begun))), 250);
-    const wire = seekRival(
-      { name: body.name, faction: body.faction, deck: body.deck, address: body.address, stage: body.stage },
-      {
-        onFrame: (frame) => {
-          window.clearInterval(tick);
-          peerLive.current = true;
-          dropQueue();
-          setFriend({ match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction, stage: frame.stage });
-          setId("");
-          setWaitMs(null);
-          setError(null);
-        },
-        onStatus: (text) => {
-          if (text === "No rival answered.") {
-            window.clearInterval(tick);
-            if (queueSeat.current) return;
-            startLocal();
-            return;
-          }
-          setError(text);
-        },
-        onClose: () => {
-          window.clearInterval(tick);
-          peerLive.current = false;
-          setFriend(null);
-          setId("");
-          setError("The rival left the table.");
-        },
-      },
-    );
-    friendWire.current = wire;
-  }
-
   async function join(now = false) {
     armArenaMusic();
     setBusy(true);
     setError(null);
-    setWaitMs(20_000);
+    seekingPlayer.current = false;
     try {
       const body = await seatBody();
       if (!now) {
-        setId(body.id);
-        seekOpen(body);
+        const listed = await fetch("/api/veilforge/queue?list=1");
+        const open = ((await listed.json()) as { lobbies?: LobbyRow[] }).lobbies?.[0];
+        if (open) {
+          setBusy(false);
+          await enter(open.code);
+          return;
+        }
       }
       const res = await fetch("/api/veilforge/queue", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "join", ...body }),
       });
-      const data = (await res.json()) as { view?: View | null; waitMs?: number; error?: string; deck?: string };
+      const data = (await res.json()) as { view?: View | null; error?: string; deck?: string };
       if (data.error) {
         setError(data.error);
         return;
@@ -466,7 +429,6 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       queueSeat.current = now ? "" : body.id;
       setHostCode("");
       setId(body.id);
-      if (typeof data.waitMs === "number") setWaitMs(data.waitMs);
       if (now) {
         const botRes = await fetch("/api/veilforge/queue", {
           method: "POST",
@@ -475,17 +437,18 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         });
         const botData = (await botRes.json()) as { view?: View | null; error?: string };
         if (botData.error) setError(botData.error);
-        else if (botData.view && !peerLive.current) setView(botData.view);
+        else if (botData.view) setView(botData.view);
         return;
       }
-      if (data.view && !peerLive.current) {
+      seekingPlayer.current = !data.view;
+      if (data.view) {
         friendWire.current?.close();
         friendWire.current = null;
         setView(data.view);
       }
     } catch {
       if (now) startLocal();
-      else if (!friendWire.current) setError("Could not join the queue.");
+      else setError("Could not join the queue.");
     } finally {
       setBusy(false);
     }
@@ -507,7 +470,10 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       else {
         noteDeck(data.deck);
         setId(body.id);
-        if (data.code) setHostCode(data.code);
+        if (data.code) {
+          setHostCode(data.code);
+          setTables((prev) => (prev.some((row) => row.code === data.code) ? prev : [{ code: data.code, name: body.name, faction: body.faction }, ...prev]));
+        }
         if (data.view) setView(data.view);
       }
     } catch {
@@ -545,8 +511,10 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     }
   }
 
+  enterRef.current = enter;
+
   async function leave() {
-    peerLive.current = false;
+    seekingPlayer.current = false;
     friendWire.current?.close();
     friendWire.current = null;
     const seat = queueSeat.current || (id && id !== "seeking" ? id : "");
@@ -769,7 +737,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         <section className="rounded-md border border-brass bg-panel p-4">
           <p className="text-sm leading-relaxed text-ash">
-            Find a match looks for another person on this seal, whether they are on the phone app or in the browser. If nobody sits, a live bot takes the seat. A friend code works between the app and the browser.
+            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Auto start is the only way to play a bot.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -844,7 +812,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" className="veil-btn veil-btn-primary" disabled={busy || Boolean(id)} onClick={() => void join()}>
-              {id && !hostCode ? `Waiting ${Math.ceil((waitMs ?? 0) / 1000)}s` : "Find a match"}
+              {id && !hostCode ? "Looking for a player" : "Find a match"}
             </button>
             <button type="button" className="veil-btn" disabled={busy || Boolean(view) || Boolean(hostCode)} onClick={() => void join(true)}>
               Auto start
@@ -901,50 +869,49 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           )}
         </section>
         <section className="rounded-md border border-line bg-panel p-4">
-          <h2 className="text-sm tracking-widest text-brass">TABLES</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ash">Host a table and share the code, or sit at one that is already open. A bot does not take the other seat.</p>
+          <h2 className="text-sm tracking-widest text-brass">OPEN TABLES</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ash">Host a table and it shows up in this list. Anyone on the site or the phone app can click your box to sit. A bot does not take the seat.</p>
           {hostCode ? (
-            <p className="mt-3 font-mono text-2xl tracking-[0.35em] text-brass">{hostCode}</p>
+            <button type="button" className="veil-btn mt-3" disabled={busy} onClick={() => void leave()}>
+              Close table
+            </button>
           ) : (
             <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy || Boolean(id)} onClick={() => void host()}>
-              Host a table
+              Host
             </button>
           )}
-          {hostCode && <p className="mt-2 text-sm text-ash">Waiting for a rival.</p>}
-          <div className="mt-4 grid gap-2">
-            {tables.filter((table) => table.code !== hostCode).map((table) => (
-              <div key={table.code} className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2">
-                <p className="text-sm">
-                  {table.name} · {SEALS.find((item) => item.id === table.faction)?.name ?? table.faction}
-                  <span className="ml-2 font-mono text-brass">{table.code}</span>
-                </p>
-                <button type="button" className="veil-btn" disabled={busy || Boolean(id)} onClick={() => void enter(table.code)}>
-                  Sit
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {tables.map((table) => {
+              const mine = table.code === hostCode;
+              const seal = SEALS.find((item) => item.id === table.faction)?.name ?? table.faction;
+              const box = (
+                <>
+                  <span className="text-xs tracking-widest text-brass">{mine ? "YOUR TABLE" : seal.toUpperCase()}</span>
+                  <span className="mt-1 text-base text-bone">{table.name}</span>
+                  <span className="mt-2 text-sm text-ash">{mine ? "Waiting for someone to sit" : "Click to join"}</span>
+                </>
+              );
+              if (mine) {
+                return (
+                  <div key={table.code} className="flex min-h-28 flex-col items-start rounded-md border border-brass bg-ink px-4 py-3 text-left">
+                    {box}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={table.code}
+                  type="button"
+                  className="flex min-h-28 flex-col items-start rounded-md border border-line bg-ink px-4 py-3 text-left"
+                  disabled={busy || Boolean(id)}
+                  onClick={() => void enter(table.code)}
+                >
+                  {box}
                 </button>
-              </div>
-            ))}
-            {tables.filter((table) => table.code !== hostCode).length === 0 && <p className="text-sm text-ash">No open tables.</p>}
+              );
+            })}
+            {tables.length === 0 && <div className="rounded-md border border-dashed border-line px-4 py-6 text-sm text-ash">No open tables yet.</div>}
           </div>
-          <form
-            className="mt-4 flex flex-wrap gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void enter(joinCode);
-            }}
-          >
-            <input
-              className="veil-field deck-name font-mono uppercase"
-              value={joinCode}
-              maxLength={4}
-              placeholder="Code"
-              aria-label="Table code"
-              disabled={Boolean(id)}
-              onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            />
-            <button type="submit" className="veil-btn" disabled={busy || Boolean(id) || joinCode.trim().length < 4}>
-              Sit
-            </button>
-          </form>
         </section>
         {error && <p className="text-sm text-danger">{error}</p>}
         <p className="text-xs text-ash">Rewards live at {REWARDS}. A win is {WIN_WEI.toString()} wei, which is 0.25 BzB.</p>
