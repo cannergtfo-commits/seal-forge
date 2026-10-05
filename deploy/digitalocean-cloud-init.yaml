@@ -21,6 +21,7 @@ write_files:
 
       [Service]
       WorkingDirectory=/opt/seal-forge
+      Environment=SEAL_FORGE_TABLE=1
       EnvironmentFile=-/etc/seal-forge.env
       ExecStart=/usr/bin/npm run dev
       Restart=on-failure
