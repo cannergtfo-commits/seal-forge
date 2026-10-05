@@ -90,6 +90,9 @@ function flip(side: 0 | 1, you: 0 | 1): 0 | 1 {
 function orientLog(line: string, you: 0 | 1): string {
   if (you === 0) return line;
   return line
+    .replaceAll("You concede.", "§CONCEDE")
+    .replaceAll("The rival concedes.", "You concede.")
+    .replaceAll("§CONCEDE", "The rival concedes.")
     .replaceAll("You win.", "§WIN")
     .replaceAll("You lose.", "You win.")
     .replaceAll("§WIN", "You lose.")
@@ -244,6 +247,11 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const queueSeat = useRef("");
   const seekingPlayer = useRef(false);
   const enterRef = useRef<(code: string) => Promise<void>>(async () => undefined);
+  const pollGen = useRef(0);
+  const gate = useRef(Promise.resolve());
+  const seatEpoch = useRef(0);
+  const friendNow = useRef<typeof friend>(null);
+  friendNow.current = friend;
 
   useEffect(() => {
     if (isApk()) {
@@ -307,11 +315,36 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   }, [address]);
 
   useEffect(() => {
+    const onHide = () => {
+      const seat = queueSeat.current;
+      const epoch = seatEpoch.current;
+      if (!seat) return;
+      queueSeat.current = "";
+      void fetch("/api/veilforge/queue", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "leave", id: seat, epoch }),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, []);
+
+  useEffect(() => {
     if (!id || id === "seeking") return;
+    const gen = pollGen.current;
     const timer = window.setInterval(() => {
       void fetch(`/api/veilforge/queue?id=${id}`)
         .then((res) => res.json())
-        .then((data: { status?: string; waitMs?: number; view?: View | null; claim?: Claim | null; reward?: string; code?: string; error?: string }) => {
+        .then((data: { status?: string; waitMs?: number; view?: View | null; claim?: Claim | null; reward?: string; code?: string; error?: string; epoch?: number }) => {
+          if (gen !== pollGen.current) return;
+          if (typeof data.epoch === "number" && data.epoch > 0) seatEpoch.current = data.epoch;
+          if (data.status === "missing") {
+            setView((prev) => (prev && prev.winner !== null ? prev : null));
+            setId("");
+            return;
+          }
           if (data.view) {
             seekingPlayer.current = false;
             friendWire.current?.close();
@@ -399,7 +432,14 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     setError(null);
   }
 
+  function lostBoard(prev: View): View {
+    const other = prev.you === 0 ? 1 : 0;
+    const line = prev.you === 0 ? "You concede." : "The rival concedes.";
+    return { ...prev, winner: other, phase: "over", seq: (prev.seq ?? 0) + 1, log: [line, ...(prev.log ?? [])].slice(0, 14) };
+  }
+
   async function join(now = false) {
+    await gate.current;
     armArenaMusic();
     setBusy(true);
     setError(null);
@@ -420,13 +460,14 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "join", ...body }),
       });
-      const data = (await res.json()) as { view?: View | null; error?: string; deck?: string };
+      const data = (await res.json()) as { view?: View | null; error?: string; deck?: string; epoch?: number };
       if (data.error) {
         setError(data.error);
         return;
       }
       noteDeck(data.deck);
-      queueSeat.current = now ? "" : body.id;
+      if (typeof data.epoch === "number" && data.epoch > 0) seatEpoch.current = data.epoch;
+      queueSeat.current = body.id;
       setHostCode("");
       setId(body.id);
       if (now) {
@@ -435,7 +476,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ op: "bot", id: body.id }),
         });
-        const botData = (await botRes.json()) as { view?: View | null; error?: string };
+        const botData = (await botRes.json()) as { view?: View | null; error?: string; epoch?: number };
+        if (typeof botData.epoch === "number" && botData.epoch > 0) seatEpoch.current = botData.epoch;
         if (botData.error) setError(botData.error);
         else if (botData.view) setView(botData.view);
         return;
@@ -444,8 +486,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       if (data.view) {
         friendWire.current?.close();
         friendWire.current = null;
-        setView(data.view);
       }
+      setView(data.view ?? null);
     } catch {
       if (now) startLocal();
       else setError("Could not join the queue.");
@@ -455,6 +497,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   }
 
   async function host() {
+    await gate.current;
     armArenaMusic();
     setBusy(true);
     setError(null);
@@ -465,14 +508,17 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "host", ...body }),
       });
-      const data = (await res.json()) as { view?: View | null; code?: string | null; error?: string; deck?: string };
+      const data = (await res.json()) as { view?: View | null; code?: string | null; error?: string; deck?: string; epoch?: number };
       if (data.error) setError(data.error);
       else {
         noteDeck(data.deck);
+        if (typeof data.epoch === "number" && data.epoch > 0) seatEpoch.current = data.epoch;
+        queueSeat.current = body.id;
         setId(body.id);
-        if (data.code) {
-          setHostCode(data.code);
-          setTables((prev) => (prev.some((row) => row.code === data.code) ? prev : [{ code: data.code, name: body.name, faction: body.faction }, ...prev]));
+        const code = data.code;
+        if (code) {
+          setHostCode(code);
+          setTables((prev) => (prev.some((row) => row.code === code) ? prev : [{ code, name: body.name, faction: body.faction }, ...prev]));
         }
         if (data.view) setView(data.view);
       }
@@ -486,6 +532,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   async function enter(code: string) {
     const next = code.trim().toUpperCase();
     if (!next) return;
+    await gate.current;
     armArenaMusic();
     setBusy(true);
     setError(null);
@@ -496,10 +543,12 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "enter", ...body, code: next }),
       });
-      const data = (await res.json()) as { view?: View | null; error?: string; deck?: string };
+      const data = (await res.json()) as { view?: View | null; error?: string; deck?: string; epoch?: number };
       if (data.error) setError(data.error);
       else {
         noteDeck(data.deck);
+        if (typeof data.epoch === "number" && data.epoch > 0) seatEpoch.current = data.epoch;
+        queueSeat.current = body.id;
         setHostCode("");
         setId(body.id);
         if (data.view) setView(data.view);
@@ -513,30 +562,61 @@ export function Ranked({ onBack }: { onBack: () => void }) {
 
   enterRef.current = enter;
 
-  async function leave() {
+  async function leave(opts?: { keepBoard?: boolean }) {
+    pollGen.current += 1;
     seekingPlayer.current = false;
     friendWire.current?.close();
     friendWire.current = null;
+    setHostingFriend("");
     const seat = queueSeat.current || (id && id !== "seeking" ? id : "");
     queueSeat.current = "";
-    if (seat) {
-      await fetch("/api/veilforge/queue", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "leave", id: seat }),
-      }).catch(() => undefined);
+    if (!opts?.keepBoard) {
+      setView(null);
+      setClaim(null);
     }
     setId("");
     setHostCode("");
     setWaitMs(null);
+    const epoch = seatEpoch.current;
+    const task = seat
+      ? fetch("/api/veilforge/queue", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ op: "leave", id: seat, epoch }),
+        }).then(
+          () => undefined,
+          () => undefined,
+        )
+      : Promise.resolve();
+    const pending = gate.current.then(() => task, () => task);
+    gate.current = pending;
+    await pending;
   }
 
   function closeFriend() {
+    const current = friendNow.current;
     friendGen.current += 1;
     friendWire.current?.close();
     friendWire.current = null;
-    setFriend(null);
     setHostingFriend("");
+    if (current && current.match.winner === null) {
+      const next = {
+        ...current,
+        leftMs: 0,
+        match: {
+          ...current.match,
+          winner: 1 as const,
+          phase: "over" as const,
+          seq: current.match.seq + 1,
+          log: ["You concede.", ...current.match.log].slice(0, 14),
+        },
+      };
+      friendNow.current = next;
+      setFriend(next);
+      return;
+    }
+    friendNow.current = null;
+    setFriend(null);
   }
 
   function freshFriendCode(): string {
@@ -577,7 +657,9 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       const hooks = {
         onFrame: (frame: { match: Match; leftMs: number; rivalName: string; rivalFaction: Faction; stage?: number }) => {
           if (friendGen.current !== mine) return;
-          setFriend({ match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction, stage: frame.stage });
+          const next = { match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction, stage: frame.stage };
+          friendNow.current = next;
+          setFriend(next);
           setError(null);
         },
         onStatus: (text: string) => {
@@ -593,9 +675,27 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         },
         onClose: () => {
           if (friendGen.current !== mine) return;
-          setFriend(null);
           setHostingFriend("");
-          setError("The rival left the table.");
+          const prev = friendNow.current;
+          if (!prev) {
+            setError("The rival left the table.");
+            return;
+          }
+          if (prev.match.winner !== null) return;
+          const next = {
+            ...prev,
+            leftMs: 0,
+            match: {
+              ...prev.match,
+              winner: 0 as const,
+              phase: "over" as const,
+              seq: prev.match.seq + 1,
+              log: ["The rival concedes.", ...prev.match.log].slice(0, 14),
+            },
+          };
+          friendNow.current = next;
+          setError(null);
+          setFriend(next);
         },
       };
       const wire = role === "host"
@@ -690,14 +790,18 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         bot={ghost}
         link={{ send: (action: TableAct) => void send(action), leftMs: view.leftMs ?? (view.phase === "trap" || view.phase === "defend" ? 6_000 : 60_000), you: view.you, fault: error }}
         onHall={() => {
-          void leave();
-          onBack();
+          if (view.winner !== null) {
+            void leave();
+            onBack();
+            return;
+          }
+          setView((prev) => (prev && prev.winner === null ? lostBoard(prev) : prev));
+          void leave({ keepBoard: true });
         }}
         stage={view.stage ?? (stageOwned.includes(stageOn) ? stageOn : 0)}
         onRematch={() => {
+          void leave();
           setView(null);
-          setId("");
-          setHostCode("");
           setClaim(null);
         }}
         winnerExtra={
@@ -724,7 +828,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     <>
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
-          <button type="button" className="veil-btn" onClick={onBack}>
+          <button type="button" className="veil-btn" onClick={() => { void leave(); onBack(); }}>
             Back
           </button>
           <div>
@@ -737,7 +841,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         <section className="rounded-md border border-brass bg-panel p-4">
           <p className="text-sm leading-relaxed text-ash">
-            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Auto start is the only way to play a bot.
+            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start is the only way to play a bot.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
           <div className="mt-3 flex flex-wrap gap-2">

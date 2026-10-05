@@ -55,6 +55,8 @@ type Ticket = {
   eligible: boolean;
   lobby: string | null;
   stage: number;
+  seen: number;
+  epoch: number;
 };
 
 type Lobby = {
@@ -62,6 +64,53 @@ type Lobby = {
   hostId: string;
   at: number;
 };
+
+const pendingScores: { address: string; win: boolean }[] = [];
+
+function scoreRoom(room: Room): { address: string; win: boolean }[] {
+  if (room.match.winner === null || room.scored) return [];
+  room.scored = true;
+  const out: { address: string; win: boolean }[] = [];
+  for (const side of [0, 1] as const) {
+    const seat = room.seats[side];
+    if (seat.bot || !/^0x[0-9a-fA-F]{40}$/.test(seat.address)) continue;
+    out.push({ address: seat.address, win: room.match.winner === side });
+  }
+  return out;
+}
+
+function concedeRoom(room: Room, loser: Side): void {
+  if (room.match.winner !== null) return;
+  room.match.winner = loser === 0 ? 1 : 0;
+  room.match.phase = "over";
+  room.match.seq += 1;
+  const line = loser === 0 ? "You concede." : "The rival concedes.";
+  room.match.log = [line, ...room.match.log].slice(0, 14);
+  pendingScores.push(...scoreRoom(room));
+}
+
+function dropLiveGame(id: string): void {
+  const ticket = tickets.get(id);
+  if (!ticket?.roomId) return;
+  const room = rooms.get(ticket.roomId);
+  ticket.roomId = null;
+  if (!room) return;
+  const seat: Side | null = room.seats[0].id === id ? 0 : room.seats[1].id === id ? 1 : null;
+  if (seat === null) return;
+  if (room.match.winner === null) concedeRoom(room, seat);
+  const other = room.seats[seat === 0 ? 1 : 0];
+  const otherTicket = other.bot ? undefined : tickets.get(other.id);
+  if (!otherTicket || otherTicket.roomId !== room.id) rooms.delete(room.id);
+}
+
+function nextEpoch(ticket: Ticket): number {
+  ticket.epoch = (ticket.epoch || 0) + 1;
+  return ticket.epoch;
+}
+
+export function drainScores(): { address: string; win: boolean }[] {
+  return pendingScores.splice(0);
+}
 
 const FRESH_MS = 8_000;
 
@@ -252,14 +301,11 @@ function stageOf(value: number | undefined): number {
 export function joinQueue(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): {
   status: "wait" | "play";
   waitMs: number;
+  epoch: number;
   view: ReturnType<typeof publicMatch> | null;
 } {
   const existing = tickets.get(input.id);
-  const playing = existing ? liveRoom(existing) : null;
-  if (existing && playing) {
-    const seat = playing.seats[0].id === input.id ? 0 : 1;
-    return { status: "play", waitMs: 0, view: publicMatch(playing, seat) };
-  }
+  dropLiveGame(input.id);
   if (existing?.lobby) {
     lobbies.delete(existing.lobby);
     existing.lobby = null;
@@ -277,6 +323,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     eligible: Boolean(input.eligible),
     lobby: null,
     stage: stageOf(input.stage),
+    seen: Date.now(),
+    epoch: 0,
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
@@ -285,6 +333,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
   self.eligible = Boolean(input.eligible);
   self.lobby = null;
   self.stage = stageOf(input.stage);
+  self.seen = Date.now();
+  const epoch = nextEpoch(self);
   tickets.set(self.id, self);
   if (waiting) {
     const room = openRoom(
@@ -293,9 +343,11 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     );
     waiting.roomId = room.id;
     self.roomId = room.id;
-    return { status: "play", waitMs: 0, view: publicMatch(room, 1) };
+    waiting.seen = Date.now();
+    self.seen = Date.now();
+    return { status: "play", waitMs: 0, epoch, view: publicMatch(room, 1) };
   }
-  return { status: "wait", waitMs: 0, view: null };
+  return { status: "wait", waitMs: 0, epoch, view: null };
 }
 
 function openBot(ticket: Ticket): Room {
@@ -305,42 +357,55 @@ function openBot(ticket: Ticket): Room {
     { id: bot.id, name: bot.name, faction: bot.faction, address: "", bot, deck: null, eligible: false, stage: 0 },
   );
   ticket.roomId = room.id;
+  ticket.seen = Date.now();
   return room;
 }
 
-export function pollQueue(id: string): { status: "wait" | "play" | "missing" | "lobby"; waitMs: number; view: ReturnType<typeof publicMatch> | null; code?: string } {
+export function pollQueue(id: string): { status: "wait" | "play" | "missing" | "lobby"; waitMs: number; view: ReturnType<typeof publicMatch> | null; code?: string; epoch?: number } {
   const ticket = tickets.get(id);
   if (!ticket) return { status: "missing", waitMs: 0, view: null };
   if (ticket.roomId) {
     const room = rooms.get(ticket.roomId);
     if (!room) return { status: "missing", waitMs: 0, view: null };
-    const seat = room.seats[0].id === id ? 0 : 1;
+    const seat: Side = room.seats[0].id === id ? 0 : 1;
+    ticket.seen = Date.now();
+    if (room.match.winner === null) {
+      const otherSide: Side = seat === 0 ? 1 : 0;
+      const other = room.seats[otherSide];
+      if (!other.bot) {
+        const otherTicket = tickets.get(other.id);
+        const last = otherTicket?.seen ?? otherTicket?.at ?? 0;
+        const gone = !otherTicket || otherTicket.roomId !== room.id || Date.now() - last > 20_000;
+        if (gone) concedeRoom(room, otherSide);
+      }
+    }
     advance(room, true);
-    return { status: "play", waitMs: 0, view: publicMatch(room, seat) };
+    return { status: "play", waitMs: 0, epoch: ticket.epoch, view: publicMatch(room, seat) };
   }
   if (ticket.lobby) {
     pruneLobbies();
-    if (lobbies.has(ticket.lobby)) return { status: "lobby", waitMs: 0, view: null, code: ticket.lobby };
+    if (lobbies.has(ticket.lobby)) return { status: "lobby", waitMs: 0, view: null, code: ticket.lobby, epoch: ticket.epoch };
     ticket.lobby = null;
   }
   ticket.at = Date.now();
-  return { status: "wait", waitMs: 0, view: null };
+  ticket.seen = Date.now();
+  return { status: "wait", waitMs: 0, epoch: ticket.epoch, view: null };
 }
 
-export function seatBot(id: string): { status: "wait" | "play" | "missing"; waitMs: number; view: ReturnType<typeof publicMatch> | null; error?: string } {
+export function seatBot(id: string): { status: "wait" | "play" | "missing"; waitMs: number; epoch?: number; view: ReturnType<typeof publicMatch> | null; error?: string } {
   const ticket = tickets.get(id);
   if (!ticket) return { status: "missing", waitMs: 0, view: null, error: "Join the queue first." };
   const playing = liveRoom(ticket);
   if (playing) {
     const seat = playing.seats[0].id === id ? 0 : 1;
-    return { status: "play", waitMs: 0, view: publicMatch(playing, seat) };
+    return { status: "play", waitMs: 0, epoch: ticket.epoch, view: publicMatch(playing, seat) };
   }
   if (ticket.lobby) {
     lobbies.delete(ticket.lobby);
     ticket.lobby = null;
   }
   const room = openBot(ticket);
-  return { status: "play", waitMs: 0, view: publicMatch(room, 0) };
+  return { status: "play", waitMs: 0, epoch: ticket.epoch, view: publicMatch(room, 0) };
 }
 
 function sideToAct(match: Match): Side {
@@ -352,6 +417,7 @@ export function act(id: string, action: Act): { error?: string; view: ReturnType
   const ticket = tickets.get(id);
   const room = ticket?.roomId ? rooms.get(ticket.roomId) : undefined;
   if (!ticket || !room) return { error: "No match.", view: null, claim: null };
+  ticket.seen = Date.now();
   const seat: Side = room.seats[0].id === id ? 0 : 1;
   if (room.match.winner !== null) return { view: publicMatch(room, seat), claim: room.prize };
   if (sideToAct(room.match) !== seat) return { error: "Not your step.", view: publicMatch(room, seat), claim: null };
@@ -401,15 +467,8 @@ export function rewardGate(id: string): "none" | "needs-card" | "ready" {
 export function scoreboard(id: string): { address: string; win: boolean }[] {
   const ticket = tickets.get(id);
   const room = ticket?.roomId ? rooms.get(ticket.roomId) : undefined;
-  if (!ticket || !room || room.match.winner === null || room.scored) return [];
-  room.scored = true;
-  const out: { address: string; win: boolean }[] = [];
-  for (const side of [0, 1] as const) {
-    const seat = room.seats[side];
-    if (seat.bot || !/^0x[0-9a-fA-F]{40}$/.test(seat.address)) continue;
-    out.push({ address: seat.address, win: room.match.winner === side });
-  }
-  return out;
+  if (!ticket || !room) return [];
+  return scoreRoom(room);
 }
 
 export const QUEUE_MS = 20_000;
@@ -448,6 +507,8 @@ function seatTicket(input: { id: string; name: string; faction: Faction; address
     eligible: Boolean(input.eligible),
     lobby: null,
     stage: stageOf(input.stage),
+    seen: Date.now(),
+    epoch: 0,
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
@@ -455,6 +516,7 @@ function seatTicket(input: { id: string; name: string; faction: Faction; address
   self.deck = input.deck ?? null;
   self.eligible = Boolean(input.eligible);
   self.stage = stageOf(input.stage);
+  self.seen = Date.now();
   tickets.set(self.id, self);
   return self;
 }
@@ -479,32 +541,29 @@ export function hostLobby(input: { id: string; name: string; faction: Faction; a
   status: "lobby" | "play";
   code: string | null;
   waitMs: number;
+  epoch: number;
   view: ReturnType<typeof publicMatch> | null;
 } {
-  const existing = tickets.get(input.id);
-  const playing = existing ? liveRoom(existing) : null;
-  if (existing && playing) {
-    const seat = playing.seats[0].id === input.id ? 0 : 1;
-    return { status: "play", code: null, waitMs: 0, view: publicMatch(playing, seat) };
-  }
+  dropLiveGame(input.id);
   const self = seatTicket(input);
+  const epoch = nextEpoch(self);
   if (self.lobby && lobbies.has(self.lobby)) {
     const lobby = lobbies.get(self.lobby)!;
     lobby.at = Date.now();
-    return { status: "lobby", code: self.lobby, waitMs: 0, view: null };
+    return { status: "lobby", code: self.lobby, waitMs: 0, epoch, view: null };
   }
   const code = freshCode();
   self.lobby = code;
   self.roomId = null;
   self.at = Date.now();
   lobbies.set(code, { code, hostId: self.id, at: Date.now() });
-  return { status: "lobby", code, waitMs: 0, view: null };
+  return { status: "lobby", code, waitMs: 0, epoch, view: null };
 }
 
 export function joinLobby(
   code: string,
   input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number },
-): { error?: string; status: "play" | "missing"; view: ReturnType<typeof publicMatch> | null } {
+): { error?: string; status: "play" | "missing"; epoch?: number; view: ReturnType<typeof publicMatch> | null } {
   pruneLobbies();
   const key = code.trim().toUpperCase();
   const lobby = lobbies.get(key);
@@ -515,12 +574,8 @@ export function joinLobby(
     lobbies.delete(key);
     return { error: "That table is gone.", status: "missing", view: null };
   }
+  dropLiveGame(input.id);
   const guestExisting = tickets.get(input.id);
-  const guestPlaying = guestExisting ? liveRoom(guestExisting) : null;
-  if (guestExisting && guestPlaying) {
-    const seat = guestPlaying.seats[0].id === input.id ? 0 : 1;
-    return { error: "You are already in a match.", status: "play", view: publicMatch(guestPlaying, seat) };
-  }
   if (guestExisting?.lobby) {
     lobbies.delete(guestExisting.lobby);
     guestExisting.lobby = null;
@@ -528,18 +583,23 @@ export function joinLobby(
   lobbies.delete(key);
   host.lobby = null;
   const guest = seatTicket(input);
+  const epoch = nextEpoch(guest);
   const room = openRoom(
     { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible, stage: host.stage },
     { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible, stage: guest.stage },
   );
   host.roomId = room.id;
   guest.roomId = room.id;
-  return { status: "play", view: publicMatch(room, 1) };
+  host.seen = Date.now();
+  guest.seen = Date.now();
+  return { status: "play", epoch, view: publicMatch(room, 1) };
 }
 
-export function leaveSeat(id: string): void {
+export function leaveSeat(id: string, epoch?: number): void {
   const ticket = tickets.get(id);
-  if (!ticket || ticket.roomId) return;
+  if (!ticket) return;
+  if (typeof epoch === "number" && epoch > 0 && ticket.epoch !== epoch) return;
+  dropLiveGame(id);
   if (ticket.lobby) lobbies.delete(ticket.lobby);
   tickets.delete(id);
 }

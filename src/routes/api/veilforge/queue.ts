@@ -5,13 +5,13 @@ import type { Faction } from "@/veil/cards";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { signPrize } from "@/veil/keeper-sign";
 import { deckSeal, parseDeck } from "@/veil/ranks";
-import { act, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
+import { act, drainScores, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
 import { ownsStage } from "@/veil/stages";
 
 const factions = new Set<Faction>(["elf", "human", "goblin", "robot", "demon"]);
 
 async function finish(id: string) {
-  const scored = scoreboard(id);
+  const scored = [...drainScores(), ...scoreboard(id)];
   if (scored.length) await applyXp(scored);
 }
 
@@ -71,11 +71,13 @@ export const Route = createFileRoute("/api/veilforge/queue")({
           code?: string;
           action?: Act;
           stage?: unknown;
+          epoch?: number;
         };
         const id = body.id ?? "";
         if (!id || id.length > 40) return Response.json({ error: "Missing player." }, { status: 400 });
         if (body.op === "leave") {
-          leaveSeat(id);
+          leaveSeat(id, body.epoch);
+          await finish(id);
           return Response.json({ ok: true });
         }
         if (body.op === "join" || body.op === "host" || body.op === "enter") {
@@ -83,14 +85,17 @@ export const Route = createFileRoute("/api/veilforge/queue")({
           if ("error" in seat && "status" in seat) return Response.json({ error: seat.error }, { status: seat.status });
           if (body.op === "host") {
             const found = hostLobby({ id, ...seat });
+            await finish(id);
             return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
           }
           if (body.op === "enter") {
             const found = joinLobby(body.code ?? "", { id, ...seat });
+            await finish(id);
             if (found.error && found.status !== "play") return Response.json({ error: found.error }, { status: 400 });
             return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
           }
           const found = joinQueue({ id, ...seat });
+          await finish(id);
           return Response.json({ ...found, eligible: seat.eligible, deck: seat.deckNote });
         }
         if (body.op === "bot") {
