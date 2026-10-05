@@ -8,6 +8,7 @@ if ! swapon --show | grep -q /swapfile; then
   swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
+systemctl stop seal-forge || true
 cd /opt/seal-forge
 git pull --ff-only
 chown -R sealforge:sealforge /opt/seal-forge
