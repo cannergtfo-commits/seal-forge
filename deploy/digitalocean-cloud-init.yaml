@@ -23,7 +23,7 @@ write_files:
       WorkingDirectory=/opt/seal-forge
       Environment=SEAL_FORGE_TABLE=1
       EnvironmentFile=-/etc/seal-forge.env
-      ExecStart=/usr/bin/npm run dev
+      ExecStart=/usr/bin/node .output/server/index.mjs
       Restart=on-failure
       RestartSec=3
       User=sealforge
@@ -44,6 +44,5 @@ runcmd:
   - touch /etc/seal-forge.env
   - chown root:sealforge /etc/seal-forge.env
   - chmod 640 /etc/seal-forge.env
-  - systemctl daemon-reload
-  - systemctl enable --now seal-forge
+  - bash /opt/seal-forge/deploy/host.sh
   - systemctl reload caddy || systemctl restart caddy
