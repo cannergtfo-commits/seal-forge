@@ -5,9 +5,13 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/seal-forge
 Environment=SEAL_FORGE_TABLE=1
-Environment=SEAL_FORGE_SIGNER=
+Environment=NODE_ENV=production
+Environment=HOST=0.0.0.0
+Environment=PORT=8080
+Environment=NITRO_PORT=8080
+Environment=NODE_OPTIONS=--max-old-space-size=640
 EnvironmentFile=-/etc/seal-forge.env
-ExecStart=/usr/bin/npm run dev
+ExecStart=/usr/bin/node .output/server/index.mjs
 Restart=on-failure
 RestartSec=3
 User=sealforge
