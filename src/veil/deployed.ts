@@ -1,3 +1,5 @@
+export const GIFT = "0xB1f82577AE9079fBDA9Cd8AB2d8340798783e6a2" as const;
+export const STAGE = "0x84Dc34F12aea192f895b5D7C06b013d3931dcFED" as const;
 export const BZB = "0x462d8d82c2b2d2ddabf7f8a93928de09d47a5807" as const;
 export const CARDS_NFT = "0x7a8adc62073798df9d7e7fd856cbb30ee3ca5e8a" as const;
 export const REWARDS = "0xc802dd850fc3ada4ebc6075300d73df0aec665cf" as const;

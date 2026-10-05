@@ -8,7 +8,11 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
@@ -46,6 +50,50 @@ public final class VaultBridge {
             if (on) activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
             else activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         });
+    }
+
+    @JavascriptInterface
+    public String request(String method, String path, String body) {
+        if (path == null || !path.startsWith("/api/veilforge") || path.contains("..") || path.contains("://")) {
+            return "{\"status\":400,\"body\":\"\"}";
+        }
+        String verb = method == null ? "GET" : method.toUpperCase();
+        if (!verb.equals("GET") && !verb.equals("POST")) return "{\"status\":405,\"body\":\"\"}";
+        byte[] payload = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
+        if (payload.length > 200000) return "{\"status\":413,\"body\":\"\"}";
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL("https://play.blazarforce.net" + path).openConnection();
+            conn.setConnectTimeout(12000);
+            conn.setReadTimeout(30000);
+            conn.setRequestMethod(verb);
+            conn.setRequestProperty("Accept", "application/json");
+            if (verb.equals("POST")) {
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.getOutputStream().write(payload);
+            }
+            int status = conn.getResponseCode();
+            InputStream stream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+            return "{\"status\":" + status + ",\"body\":" + org.json.JSONObject.quote(readStream(stream)) + "}";
+        } catch (Exception ignored) {
+            return "{\"status\":0,\"body\":\"\"}";
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private static String readStream(InputStream stream) throws Exception {
+        if (stream == null) return "";
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int count;
+        while ((count = stream.read(buf)) >= 0) {
+            out.write(buf, 0, count);
+            if (out.size() > 1000000) break;
+        }
+        stream.close();
+        return out.toString(StandardCharsets.UTF_8);
     }
 
     /** Saves the password-locked key file. Refuses a raw private key. */

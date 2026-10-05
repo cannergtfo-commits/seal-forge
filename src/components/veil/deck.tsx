@@ -3,6 +3,8 @@ import { CardFace } from "@/components/veil/card";
 import { CARDS, FACTIONS, SEALS, cardOf, type Faction } from "@/veil/cards";
 import { usePlayer } from "@/veil/connect";
 import { openSession } from "@/veil/game-session";
+import { veilBalances } from "@/veil/holds";
+import { readBook, saveBook } from "@/veil/phone-book";
 import { redactKey } from "@/veil/keys";
 import { deckFits, deckSeal, cleanDeckName } from "@/veil/ranks";
 import { clearSession, readSession, writeSession, type AccountSession } from "@/veil/session";
@@ -53,11 +55,10 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
     }
     let cancel = false;
     setHoldState("loading");
-    void fetch(`/api/veilforge/profile?address=${address}`)
-      .then((res) => res.json())
-      .then((data: { owned?: Owned[] }) => {
+    void veilBalances(address)
+      .then((counts) => {
         if (cancel) return;
-        setOwned(data.owned ?? []);
+        setOwned(CARDS.flatMap((card, index) => ((counts[index] ?? 0) > 0 ? [{ id: card.id, name: card.name, balance: counts[index]! }] : [])));
         setHoldState("ready");
       })
       .catch(() => {
@@ -71,6 +72,22 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
   }, [address]);
 
   useEffect(() => {
+    if (isApk()) {
+      if (!address || touched.current) return;
+      const book = readBook(address);
+      setDeck(book.deck);
+      setDeckName(book.deckName);
+      const found = deckSeal(book.deck);
+      if (found.ok) setSeal(found.seal);
+      setShowUnbound(book.deck.some((id) => {
+        try {
+          return cardOf(id).faction === "veil";
+        } catch {
+          return false;
+        }
+      }));
+      return;
+    }
     if (!session) return;
     void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
       .then((res) => res.json())
@@ -90,7 +107,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
         }));
       })
       .catch(() => setError("The account did not load."));
-  }, [session]);
+  }, [session, address]);
 
   async function signIn(): Promise<AccountSession | null> {
     if (!address) return null;
@@ -117,6 +134,12 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setError(null);
     try {
+      if (isApk()) {
+        if (!address) throw new Error("Make a wallet in the game.");
+        saveBook(address, { deck, deckName: named });
+        setNotice("Deck sealed.");
+        return;
+      }
       const active = session ?? (await signIn());
       if (!active) return;
       const res = await fetch("/api/veilforge/profile", {

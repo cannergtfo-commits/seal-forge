@@ -30,6 +30,7 @@ type SeatInfo = {
   bot: Bot | null;
   deck: string[] | null;
   eligible: boolean;
+  stage: number;
 };
 
 type Room = {
@@ -53,6 +54,7 @@ type Ticket = {
   deck: string[] | null;
   eligible: boolean;
   lobby: string | null;
+  stage: number;
 };
 
 type Lobby = {
@@ -70,6 +72,24 @@ const wins = new Map<string, { day: string; n: number }>();
 
 function dayKey(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** One shared daily cap for website matches and phone claims. */
+export function takeDailyWin(address: string): boolean {
+  const id = address.toLowerCase();
+  const day = dayKey();
+  const prior = wins.get(id);
+  const count = prior && prior.day === day ? prior.n : 0;
+  if (count >= 4) return false;
+  wins.set(id, { day, n: count + 1 });
+  return true;
+}
+
+export function refundDailyWin(address: string): void {
+  const id = address.toLowerCase();
+  const prior = wins.get(id);
+  if (!prior || prior.n <= 0) return;
+  wins.set(id, { day: prior.day, n: prior.n - 1 });
 }
 
 function publicMatch(room: Room, seat: Side) {
@@ -116,6 +136,7 @@ function publicMatch(room: Room, seat: Side) {
     attacked: match.attacked,
     seq: match.seq,
     leftMs: Math.max(0, room.deadline - Date.now()),
+    stage: room.seats[0].stage && !room.seats[0].bot ? room.seats[0].stage : room.seats[1].stage && !room.seats[1].bot ? room.seats[1].stage : 0,
     seats: [show(0), show(1)] as const,
   };
 }
@@ -218,7 +239,12 @@ function liveRoom(ticket: Ticket): Room | null {
   return null;
 }
 
-export function joinQueue(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean }): {
+function stageOf(value: number | undefined): number {
+  if (!value || !Number.isInteger(value) || value < 1 || value > 64) return 0;
+  return value;
+}
+
+export function joinQueue(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): {
   status: "wait" | "play";
   waitMs: number;
   view: ReturnType<typeof publicMatch> | null;
@@ -245,6 +271,7 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     deck: input.deck ?? null,
     eligible: Boolean(input.eligible),
     lobby: null,
+    stage: stageOf(input.stage),
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
@@ -252,11 +279,12 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
   self.deck = input.deck ?? null;
   self.eligible = Boolean(input.eligible);
   self.lobby = null;
+  self.stage = stageOf(input.stage);
   tickets.set(self.id, self);
   if (waiting) {
     const room = openRoom(
-      { id: waiting.id, name: waiting.name, faction: waiting.faction, address: waiting.address, bot: null, deck: waiting.deck, eligible: waiting.eligible },
-      { id: self.id, name: self.name, faction: self.faction, address: self.address, bot: null, deck: self.deck, eligible: self.eligible },
+      { id: waiting.id, name: waiting.name, faction: waiting.faction, address: waiting.address, bot: null, deck: waiting.deck, eligible: waiting.eligible, stage: waiting.stage },
+      { id: self.id, name: self.name, faction: self.faction, address: self.address, bot: null, deck: self.deck, eligible: self.eligible, stage: self.stage },
     );
     waiting.roomId = room.id;
     self.roomId = room.id;
@@ -268,8 +296,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
 function openBot(ticket: Ticket): Room {
   const bot = liveBot();
   const room = openRoom(
-    { id: ticket.id, name: ticket.name, faction: ticket.faction, address: ticket.address, bot: null, deck: ticket.deck, eligible: ticket.eligible },
-    { id: bot.id, name: bot.name, faction: bot.faction, address: "", bot, deck: null, eligible: false },
+    { id: ticket.id, name: ticket.name, faction: ticket.faction, address: ticket.address, bot: null, deck: ticket.deck, eligible: ticket.eligible, stage: ticket.stage },
+    { id: bot.id, name: bot.name, faction: bot.faction, address: "", bot, deck: null, eligible: false, stage: 0 },
   );
   ticket.roomId = room.id;
   return room;
@@ -343,11 +371,7 @@ function claimFor(room: Room, seat: Side): { matchId: `0x${string}`; player: `0x
   if (!room.seats[seat].eligible) return null;
   const address = room.seats[seat].address;
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
-  const day = dayKey();
-  const prior = wins.get(address.toLowerCase());
-  const count = prior && prior.day === day ? prior.n : 0;
-  if (count >= 4) return null;
-  wins.set(address.toLowerCase(), { day, n: count + 1 });
+  if (!takeDailyWin(address)) return null;
   const hex = Buffer.from(room.id).toString("hex").padEnd(64, "0").slice(0, 64);
   room.prize = { matchId: `0x${hex}`, player: address as `0x${string}` };
   return room.prize;
@@ -408,7 +432,7 @@ function pruneLobbies(): void {
   }
 }
 
-function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean }): Ticket {
+function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): Ticket {
   const existing = tickets.get(input.id);
   const self: Ticket = existing ?? {
     id: input.id,
@@ -420,12 +444,14 @@ function seatTicket(input: { id: string; name: string; faction: Faction; address
     deck: input.deck ?? null,
     eligible: Boolean(input.eligible),
     lobby: null,
+    stage: stageOf(input.stage),
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
   self.address = input.address;
   self.deck = input.deck ?? null;
   self.eligible = Boolean(input.eligible);
+  self.stage = stageOf(input.stage);
   tickets.set(self.id, self);
   return self;
 }
@@ -446,7 +472,7 @@ export function listLobbies(): LobbyRow[] {
   return rows;
 }
 
-export function hostLobby(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean }): {
+export function hostLobby(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): {
   status: "lobby" | "play";
   code: string | null;
   waitMs: number;
@@ -474,7 +500,7 @@ export function hostLobby(input: { id: string; name: string; faction: Faction; a
 
 export function joinLobby(
   code: string,
-  input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean },
+  input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number },
 ): { error?: string; status: "play" | "missing"; view: ReturnType<typeof publicMatch> | null } {
   pruneLobbies();
   const key = code.trim().toUpperCase();
@@ -500,8 +526,8 @@ export function joinLobby(
   host.lobby = null;
   const guest = seatTicket(input);
   const room = openRoom(
-    { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible },
-    { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible },
+    { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible, stage: host.stage },
+    { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible, stage: guest.stage },
   );
   host.roomId = room.id;
   guest.roomId = room.id;

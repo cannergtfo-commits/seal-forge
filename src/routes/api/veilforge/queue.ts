@@ -1,52 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { readFileSync } from "node:fs";
-import { createPublicClient, http, isAddress } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { polygon } from "viem/chains";
+import { isAddress } from "viem";
 import { applyXp } from "@/veil/accounts";
 import type { Faction } from "@/veil/cards";
-import { REWARDS } from "@/veil/deployed";
 import { deckOwned, veilBalances } from "@/veil/holds";
+import { signPrize } from "@/veil/keeper-sign";
 import { deckSeal, parseDeck } from "@/veil/ranks";
 import { act, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
-
-const rewardsAbi = [
-  {
-    type: "function",
-    name: "inner",
-    stateMutability: "view",
-    inputs: [
-      { name: "player", type: "address" },
-      { name: "matchId", type: "bytes32" },
-    ],
-    outputs: [{ type: "bytes32" }],
-  },
-] as const;
+import { ownsStage } from "@/veil/stages";
 
 const factions = new Set<Faction>(["elf", "human", "goblin", "robot", "demon"]);
-
-async function sign(player: `0x${string}`, matchId: `0x${string}`): Promise<`0x${string}` | null> {
-  if (REWARDS.length !== 42) return null;
-  try {
-    const fromEnv = process.env.SEAL_FORGE_SIGNER;
-    const key = (fromEnv && fromEnv.startsWith("0x") ? fromEnv : JSON.parse(readFileSync("/workspace/.secrets/deployer.json", "utf8")).key) as `0x${string}`;
-    const account = privateKeyToAccount(key);
-    const client = createPublicClient({ chain: polygon, transport: http("https://polygon-bor-rpc.publicnode.com") });
-    const digest = await client.readContract({ address: REWARDS, abi: rewardsAbi, functionName: "inner", args: [player, matchId] });
-    return account.signMessage({ message: { raw: digest } });
-  } catch {
-    return null;
-  }
-}
 
 async function finish(id: string) {
   const scored = scoreboard(id);
   if (scored.length) await applyXp(scored);
 }
 
-async function readSeat(body: { name?: string; faction?: string; address?: string; deck?: unknown }): Promise<
+async function readSeat(body: { name?: string; faction?: string; address?: string; deck?: unknown; stage?: unknown }): Promise<
   | { error: string; status: number }
-  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string }
+  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string; stage: number }
 > {
   if (!body.faction || !factions.has(body.faction as Faction)) return { error: "Pick a seal.", status: 400 };
   const address = body.address && isAddress(body.address) ? body.address : "";
@@ -71,7 +42,9 @@ async function readSeat(body: { name?: string; faction?: string; address?: strin
       else deckNote = "yours";
     }
   }
-  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote };
+  const asked = typeof body.stage === "number" ? body.stage : Number(body.stage);
+  const stage = address && Number.isInteger(asked) && asked >= 1 && asked <= 64 && (await ownsStage(address, asked).catch(() => false)) ? asked : 0;
+  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote, stage };
 }
 
 export const Route = createFileRoute("/api/veilforge/queue")({
@@ -84,7 +57,7 @@ export const Route = createFileRoute("/api/veilforge/queue")({
         const found = pollQueue(id);
         await finish(id);
         const prize = prizeFor(id);
-        const signature = prize ? await sign(prize.player, prize.matchId) : null;
+        const signature = prize ? await signPrize(prize.player, prize.matchId) : null;
         return Response.json({ ...found, reward: rewardGate(id), claim: prize && signature ? { ...prize, signature } : null });
       },
       POST: async ({ request }) => {
@@ -97,6 +70,7 @@ export const Route = createFileRoute("/api/veilforge/queue")({
           deck?: unknown;
           code?: string;
           action?: Act;
+          stage?: unknown;
         };
         const id = body.id ?? "";
         if (!id || id.length > 40) return Response.json({ error: "Missing player." }, { status: 400 });
@@ -128,7 +102,7 @@ export const Route = createFileRoute("/api/veilforge/queue")({
           const result = act(id, body.action);
           await finish(id);
           const prize = prizeFor(id);
-          const signature = prize ? await sign(prize.player, prize.matchId) : null;
+          const signature = prize ? await signPrize(prize.player, prize.matchId) : null;
           return Response.json({ ...result, reward: rewardGate(id), claim: prize && signature ? { ...prize, signature } : null });
         }
         return Response.json({ error: "Unknown request." }, { status: 400 });

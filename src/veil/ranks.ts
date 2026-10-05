@@ -37,14 +37,17 @@ const RANKS = [
   { name: "Sovereign", min: 1400 },
 ] as const;
 
-export function rankFor(xp: number): { name: string; min: number; next: number | null } {
+export function rankFor(xp: number): { level: number; name: string; min: number; next: number | null } {
   const safe = Math.max(0, Math.floor(xp));
   let index = 0;
   for (let i = 0; i < RANKS.length; i++) if (safe >= RANKS[i].min) index = i;
   const current = RANKS[index] ?? RANKS[0];
   const next = RANKS[index + 1]?.min ?? null;
-  return { name: current.name, min: current.min, next };
+  return { level: index + 1, name: current.name, min: current.min, next };
 }
+
+/** Ash, the second rank. One Founding Forge pack. */
+export const GIFT_LEVEL = 2;
 
 export function cleanName(value: string): string | null {
   const name = value.trim().replace(/\s+/g, " ");

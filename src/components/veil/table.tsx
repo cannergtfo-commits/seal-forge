@@ -3,7 +3,7 @@ import { ArenaScene } from "@/components/veil/arena-scene";
 import { CardBack, CardFace } from "@/components/veil/card";
 import { SealMark } from "@/components/veil/deck";
 import { stepRival } from "@/veil/ai";
-import { armArenaMusic, toggleArenaMusic } from "@/veil/arena-music";
+import { musicWanted, playArenaTrack, toggleArenaMusic } from "@/veil/arena-music";
 import type { Bot } from "@/veil/bots";
 import { FACTIONS, cardOf, needsTarget, trapNeedsTarget, type Faction } from "@/veil/cards";
 import {
@@ -22,6 +22,7 @@ import {
   type Target,
   type Unit,
 } from "@/veil/logic";
+import { stageVisual } from "@/veil/stages";
 
 const TURN_SECONDS = 60;
 const REACT_SECONDS = 6;
@@ -315,6 +316,7 @@ export function Table({
   onRematch,
   link,
   winnerExtra,
+  stage = 0,
 }: {
   match: Match;
   setMatch: (match: Match) => void;
@@ -325,6 +327,7 @@ export function Table({
   onRematch?: () => void;
   link?: TableLink;
   winnerExtra?: ReactNode;
+  stage?: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [attackers, setAttackers] = useState<string[]>([]);
@@ -333,7 +336,11 @@ export function Table({
   const [error, setError] = useState<string | null>(null);
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
-  const [music, setMusic] = useState(true);
+  const [music, setMusic] = useState(musicWanted);
+  const backdrop = stageVisual(stage);
+  useEffect(() => {
+    playArenaTrack(backdrop?.music ?? null);
+  }, [backdrop?.music]);
   const [born, setBorn] = useState<string[]>([]);
   const [struck, setStruck] = useState<string[]>([]);
   const attackKey = match.attackers.join("|");
@@ -567,8 +574,12 @@ export function Table({
 
   return (
     <div className="arena">
-      <div className="arena-back" aria-hidden="true">
-        <video className="arena-video" autoPlay muted loop playsInline poster="/assets/veil/arena/rift.jpg" src="/assets/veil/arena/rift.mp4" />
+      <div className={backdrop ? "arena-back arena-stage-dim" : "arena-back"} aria-hidden="true">
+        {backdrop ? (
+          <img className="arena-video" src={backdrop.src} alt="" draggable={false} />
+        ) : (
+          <video className="arena-video" autoPlay muted loop playsInline poster="/assets/veil/arena/rift.jpg" src="/assets/veil/arena/rift.mp4" />
+        )}
       </div>
       <ArenaScene />
       <div className="arena-fit">
@@ -583,15 +594,12 @@ export function Table({
           <button
             type="button"
             className="arena-btn"
-            aria-label={music ? "Music on" : "Music off"}
-            onClick={() => {
-              armArenaMusic();
-              setMusic(toggleArenaMusic());
-            }}
+            aria-label={music ? "Mute music" : "Unmute music"}
+            onClick={() => setMusic(toggleArenaMusic())}
           >
-            <span className="arena-music-label">{music ? "Music on" : "Music off"}</span>
+            <span className="arena-music-label">{music ? "Mute" : "Unmute"}</span>
             <span className="arena-music-mark" aria-hidden>
-              {music ? "On" : "Off"}
+              {music ? "Mute" : "Off"}
             </span>
           </button>
         </div>

@@ -106,12 +106,13 @@ function createNeonSql(): Promise<Sql> {
 }
 
 async function createPgliteSql(): Promise<Sql> {
-  // Embedded Postgres, imported on demand so it never loads on the Neon path.
-  // One in-memory instance per process, shared across HMR module instances, so
-  // data survives source edits (it resets on dev-server restart).
+  // One file-backed database per machine. A restart or an update keeps the profiles.
   globalRef.__pgliteInstance__ ??= (async () => {
+    const { mkdirSync } = await import("node:fs");
     const { PGlite } = await import("@electric-sql/pglite");
-    const pg = new PGlite({
+    const dir = process.env.VEIL_DB_DIR || `${process.cwd()}/.pglite`;
+    mkdirSync(dir, { recursive: true });
+    const pg = new PGlite(dir, {
       parsers: {
         [OID_INT8]: Number,
         [OID_DATE]: identity,
@@ -160,11 +161,33 @@ async function createPgliteSql(): Promise<Sql> {
     .then(migrate);
   globalRef.__pgliteMigrateChain__ = pass;
   await pass;
-
-  return toSql(async <T>(text: string, params: unknown[]) => {
+  const sql = toSql(async <T>(text: string, params: unknown[]) => {
     const result = await pg.query<T>(text, params);
     return result.rows;
   });
+  await restoreProfilesIfEmpty(sql);
+  return sql;
+}
+
+async function restoreProfilesIfEmpty(sql: Sql) {
+  try {
+    const count = await sql<{ n: number }>`select count(*)::int as n from veil_profiles`;
+    if (Number(count[0]?.n ?? 0) > 0) return;
+    const { readFileSync } = await import("node:fs");
+    const parsed = JSON.parse(readFileSync("data/profile-backups/latest.json", "utf8")) as { rows?: Array<Record<string, unknown>> };
+    for (const row of parsed.rows ?? []) {
+      const address = String(row.address ?? "").toLowerCase();
+      if (!/^0x[a-f0-9]{40}$/.test(address)) continue;
+      const xp = Math.max(0, Math.min(1_000_000, Math.floor(Number(row.xp) || 0)));
+      const wins = Math.max(0, Math.min(100_000, Math.floor(Number(row.wins) || 0)));
+      const losses = Math.max(0, Math.min(100_000, Math.floor(Number(row.losses) || 0)));
+      await sql`insert into veil_profiles (address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards)
+        values (${address}, ${String(row.name ?? "Duelist").slice(0, 18)}, ${String(row.portrait ?? "lysara").slice(0, 40)}, ${xp}, ${wins}, ${losses}, ${String(row.deck ?? "").slice(0, 2000)}, ${String(row.deck_name ?? "").slice(0, 18)}, ${Number(row.gifted) ? 1 : 0}, ${String(row.gift_order ?? "").slice(0, 80)}, ${String(row.gift_cards ?? "").slice(0, 200)})
+        on conflict (address) do nothing`;
+    }
+  } catch {
+    /* a new game has no backup yet */
+  }
 }
 
 let sqlPromise: Promise<Sql> | null = null;

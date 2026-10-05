@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Table, type TableAct } from "@/components/veil/table";
 import { SEALS, type Faction } from "@/veil/cards";
 import { playerClient, sentBy, usePlayer } from "@/veil/connect";
-import { hostFriend, joinFriend } from "@/veil/friend-wire";
+import { hostFriend, joinFriend, seekRival } from "@/veil/friend-wire";
 import { sendGame } from "@/veil/signer";
 import { armArenaMusic } from "@/veil/arena-music";
+import { liveBot, type Bot } from "@/veil/bots";
 import { redactKey } from "@/veil/keys";
+import { startMatch, type Match, type Unit } from "@/veil/logic";
+import { readBook } from "@/veil/phone-book";
+import { askPrize, type Prize } from "@/veil/prize-client";
 import { deckSeal } from "@/veil/ranks";
-import type { Bot } from "@/veil/bots";
-import type { Match, Unit } from "@/veil/logic";
 import { readSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
+import { ownedStageIds, saveStagePick, stagePick, STAGES } from "@/veil/stages";
 import { REWARDS, WIN_WEI } from "@/veil/deployed";
 
 type UnitView = {
@@ -51,6 +54,7 @@ type View = {
   attacked?: boolean;
   seq?: number;
   leftMs?: number;
+  stage?: number;
   seats: [SeatView, SeatView];
 };
 
@@ -154,6 +158,59 @@ function viewAsMatch(view: View): Match {
   };
 }
 
+function RewardClaim({ won, address, signer }: { won: boolean; address: string; signer: `0x${string}` | null }) {
+  const [prize, setPrize] = useState<Prize | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!won || !address) return;
+    let cancel = false;
+    void askPrize(address as `0x${string}`).then((result) => {
+      if (cancel) return;
+      if ("prize" in result) setPrize(result.prize);
+      else if (result.error === "needs-card") setNote("No BzB. Rewards go only to wallets that hold a Seal Forge card NFT.");
+      else if (result.error === "cap") setNote("No payout. The daily cap is four.");
+      else setNote("The reward server did not answer.");
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [won, address]);
+
+  async function claim() {
+    if (!prize || !address) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { address: payer, wallet } = await playerClient(signer);
+      const hash = await sendGame(signer, payer, (nonce) => wallet.writeContract({ address: REWARDS, abi: rewardsAbi, functionName: "claim", args: [prize.matchId, prize.signature], nonce }));
+      await sentBy(hash, payer);
+      setPrize(null);
+      setNote("0.25 BzB claimed.");
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "The reward did not send.", signer));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!won) return null;
+  return (
+    <div className="mt-3">
+      {!address && <p className="text-sm text-ash">Make a wallet before the win if you want the 0.25 BzB.</p>}
+      {prize && (
+        <button type="button" className="veil-btn veil-btn-primary" disabled={busy} onClick={() => void claim()}>
+          {busy ? "Claiming…" : "Claim 0.25 BzB"}
+        </button>
+      )}
+      {note && <p className="mt-2 text-sm text-ash">{note}</p>}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
+
 export function Ranked({ onBack }: { onBack: () => void }) {
   const { key, address: player } = usePlayer();
   const address = player ?? "";
@@ -178,11 +235,32 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     you: Faction;
     rivalName: string;
     rivalFaction: Faction;
+    stage?: number;
   } | null>(null);
+  const [stageOwned, setStageOwned] = useState<number[]>([]);
+  const [stageOn, setStageOn] = useState(0);
+  const [local, setLocal] = useState<{ match: Match; bot: Bot } | null>(null);
   const friendWire = useRef<{ send: (action: TableAct) => void; close: () => void } | null>(null);
   const friendGen = useRef(0);
+  const queueSeat = useRef("");
+  const peerLive = useRef(false);
 
   useEffect(() => {
+    if (isApk()) {
+      if (!address) {
+        setSealed(null);
+        setUseSealed(false);
+        return;
+      }
+      const book = readBook(address);
+      const found = book.deck.length === 20 ? deckSeal(book.deck) : null;
+      if (found?.ok) setSealed({ ids: book.deck, seal: found.seal, name: book.deckName });
+      else {
+        setSealed(null);
+        setUseSealed(false);
+      }
+      return;
+    }
     const session = readSession();
     if (!session || !address || session.address.toLowerCase() !== address.toLowerCase()) {
       setSealed(null);
@@ -211,18 +289,43 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   }, [address]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!address) {
+      setStageOwned([]);
+      setStageOn(0);
+      return;
+    }
+    const saved = stagePick(address);
+    let cancel = false;
+    void ownedStageIds(address as `0x${string}`).then((ids) => {
+      if (cancel) return;
+      setStageOwned(ids);
+      setStageOn(ids.includes(saved) ? saved : 0);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [address]);
+
+  useEffect(() => {
+    if (!id || id === "seeking") return;
     const timer = window.setInterval(() => {
       void fetch(`/api/veilforge/queue?id=${id}`)
         .then((res) => res.json())
         .then((data: { status?: string; waitMs?: number; view?: View | null; claim?: Claim | null; reward?: string; code?: string; error?: string }) => {
-          if (data.view) setView((prev) => (prev && sameBoard(prev, data.view!) ? prev : data.view!));
+          if (peerLive.current) return;
+          if (data.view) {
+            friendWire.current?.close();
+            friendWire.current = null;
+            setView((prev) => (prev && sameBoard(prev, data.view!) ? prev : data.view!));
+          }
           if (typeof data.waitMs === "number") setWaitMs((prev) => (prev === data.waitMs ? prev : data.waitMs!));
           if (data.status === "lobby" && data.code) setHostCode((prev) => (prev === data.code ? prev : data.code!));
           if (data.claim) setClaim((prev) => (prev && prev.matchId === data.claim!.matchId && prev.signature === data.claim!.signature ? prev : data.claim!));
           if (data.reward) setReward((prev) => (prev === data.reward ? prev : data.reward!));
         })
-        .catch(() => setError("The queue did not answer."));
+        .catch(() => {
+          if (!friendWire.current) setError("The queue did not answer.");
+        });
     }, 1000);
     return () => window.clearInterval(timer);
   }, [id]);
@@ -246,21 +349,32 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     };
   }, [view]);
 
-  async function seatBody(): Promise<{ id: string; name: string; faction: Faction; address: string; deck: string[] | null }> {
+  async function seatBody(): Promise<{ id: string; name: string; faction: Faction; address: string; deck: string[] | null; stage: number }> {
+    const stage = stageOwned.includes(stageOn) ? stageOn : 0;
+    if (isApk()) {
+      const book = address ? readBook(address) : null;
+      const found = book && book.deck.length === 20 ? deckSeal(book.deck) : null;
+      const deck = useSealed && found?.ok && found.seal === faction ? book!.deck : null;
+      return { id: seatId(), name: book?.name || "Duelist", faction, address, deck, stage };
+    }
     const session = readSession();
     let name = address ? address.slice(0, 6) : "Duelist";
     let deck: string[] | null = null;
     if (session && address && session.address.toLowerCase() === address.toLowerCase()) {
-      const profileRes = await fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`);
-      const profileBody = (await profileRes.json()) as { profile?: { name: string; deck: string[] } };
-      if (profileBody.profile) {
-        name = profileBody.profile.name;
-        const ids = profileBody.profile.deck;
-        const found = ids.length === 20 ? deckSeal(ids) : null;
-        if (useSealed && found?.ok && found.seal === faction) deck = ids;
+      try {
+        const profileRes = await fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`);
+        const profileBody = (await profileRes.json()) as { profile?: { name: string; deck: string[] } };
+        if (profileBody.profile) {
+          name = profileBody.profile.name;
+          const ids = profileBody.profile.deck;
+          const found = ids.length === 20 ? deckSeal(ids) : null;
+          if (useSealed && found?.ok && found.seal === faction) deck = ids;
+        }
+      } catch {
+        /* the public lanes still work without the profile server */
       }
     }
-    return { id: seatId(), name, faction, address, deck };
+    return { id: seatId(), name, faction, address, deck, stage };
   }
 
   function noteDeck(deck?: string) {
@@ -268,25 +382,92 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     else if (deck === "wrong-seal") setError("That deck is not this seal. Unbound cards can join any seal, so the starter deck was used.");
   }
 
+  function startLocal() {
+    const bot = liveBot();
+    const seed = Math.floor(Math.random() * 0xffffffff) || 1;
+    const deck = useSealed && sealed?.seal === faction ? sealed.ids : null;
+    setLocal({ match: startMatch(faction, bot.faction, seed, [deck, null]), bot });
+    setId("");
+    setWaitMs(null);
+    setError(null);
+  }
+
+  function dropQueue() {
+    const seat = queueSeat.current;
+    queueSeat.current = "";
+    if (!seat) return;
+    void fetch("/api/veilforge/queue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ op: "leave", id: seat }),
+    }).catch(() => undefined);
+  }
+
+  function seekOpen(body: { name: string; faction: Faction; deck: string[] | null; address: string; stage: number }) {
+    peerLive.current = false;
+    closeFriend();
+    const begun = Date.now();
+    const tick = window.setInterval(() => setWaitMs(Math.max(0, 20_000 - (Date.now() - begun))), 250);
+    const wire = seekRival(
+      { name: body.name, faction: body.faction, deck: body.deck, address: body.address, stage: body.stage },
+      {
+        onFrame: (frame) => {
+          window.clearInterval(tick);
+          peerLive.current = true;
+          dropQueue();
+          setFriend({ match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction, stage: frame.stage });
+          setId("");
+          setWaitMs(null);
+          setError(null);
+        },
+        onStatus: (text) => {
+          if (text === "No rival answered.") {
+            window.clearInterval(tick);
+            if (queueSeat.current) return;
+            startLocal();
+            return;
+          }
+          setError(text);
+        },
+        onClose: () => {
+          window.clearInterval(tick);
+          peerLive.current = false;
+          setFriend(null);
+          setId("");
+          setError("The rival left the table.");
+        },
+      },
+    );
+    friendWire.current = wire;
+  }
+
   async function join(now = false) {
     armArenaMusic();
     setBusy(true);
     setError(null);
+    setWaitMs(20_000);
     try {
       const body = await seatBody();
+      if (!now) {
+        setId(body.id);
+        seekOpen(body);
+      }
       const res = await fetch("/api/veilforge/queue", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "join", ...body }),
       });
       const data = (await res.json()) as { view?: View | null; waitMs?: number; error?: string; deck?: string };
-      if (data.error) setError(data.error);
-      else noteDeck(data.deck);
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      noteDeck(data.deck);
+      queueSeat.current = now ? "" : body.id;
       setHostCode("");
       setId(body.id);
-      setWaitMs(data.waitMs ?? 20000);
-      if (data.view) setView(data.view);
-      else if (now && !data.error) {
+      if (typeof data.waitMs === "number") setWaitMs(data.waitMs);
+      if (now) {
         const botRes = await fetch("/api/veilforge/queue", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -294,10 +475,17 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         });
         const botData = (await botRes.json()) as { view?: View | null; error?: string };
         if (botData.error) setError(botData.error);
-        else if (botData.view) setView(botData.view);
+        else if (botData.view && !peerLive.current) setView(botData.view);
+        return;
+      }
+      if (data.view && !peerLive.current) {
+        friendWire.current?.close();
+        friendWire.current = null;
+        setView(data.view);
       }
     } catch {
-      setError("Could not join the queue.");
+      if (now) startLocal();
+      else if (!friendWire.current) setError("Could not join the queue.");
     } finally {
       setBusy(false);
     }
@@ -358,11 +546,16 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   }
 
   async function leave() {
-    if (id) {
+    peerLive.current = false;
+    friendWire.current?.close();
+    friendWire.current = null;
+    const seat = queueSeat.current || (id && id !== "seeking" ? id : "");
+    queueSeat.current = "";
+    if (seat) {
       await fetch("/api/veilforge/queue", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "leave", id }),
+        body: JSON.stringify({ op: "leave", id: seat }),
       }).catch(() => undefined);
     }
     setId("");
@@ -414,9 +607,9 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     try {
       const body = await seatBody();
       const hooks = {
-        onFrame: (frame: { match: Match; leftMs: number; rivalName: string; rivalFaction: Faction }) => {
+        onFrame: (frame: { match: Match; leftMs: number; rivalName: string; rivalFaction: Faction; stage?: number }) => {
           if (friendGen.current !== mine) return;
-          setFriend({ match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction });
+          setFriend({ match: frame.match, leftMs: frame.leftMs, you: body.faction, rivalName: frame.rivalName, rivalFaction: frame.rivalFaction, stage: frame.stage });
           setError(null);
         },
         onStatus: (text: string) => {
@@ -438,8 +631,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         },
       };
       const wire = role === "host"
-        ? hostFriend(next, { name: body.name, faction: body.faction, deck: body.deck }, hooks)
-        : joinFriend(next, { name: body.name, faction: body.faction, deck: body.deck }, hooks);
+        ? hostFriend(next, { name: body.name, faction: body.faction, deck: body.deck, address: body.address, stage: body.stage }, hooks)
+        : joinFriend(next, { name: body.name, faction: body.faction, deck: body.deck, address: body.address, stage: body.stage }, hooks);
       friendWire.current = wire;
       if (role === "host") setHostingFriend(next);
     } catch {
@@ -480,6 +673,22 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     }
   }
 
+  if (local) {
+    return (
+      <Table
+        match={local.match}
+        setMatch={(match) => setLocal({ match, bot: local.bot })}
+        you={faction}
+        rival={local.bot.faction}
+        bot={local.bot}
+        onHall={() => setLocal(null)}
+        onRematch={startLocal}
+        stage={stageOwned.includes(stageOn) ? stageOn : 0}
+        winnerExtra={<RewardClaim won={local.match.winner === 0} address={address} signer={key} />}
+      />
+    );
+  }
+
   if (friend) {
     const ghost: Bot = { id: "friend", name: friend.rivalName, faction: friend.rivalFaction, style: "guard", line: "" };
     return (
@@ -491,6 +700,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         bot={ghost}
         link={{ send: (action) => friendWire.current?.send(action), leftMs: friend.leftMs, you: 0, fault: error }}
         onHall={closeFriend}
+        stage={friend.stage ?? 0}
+        winnerExtra={<RewardClaim won={friend.match.winner === 0} address={address} signer={key} />}
       />
     );
   }
@@ -510,7 +721,11 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         rival={them.faction}
         bot={ghost}
         link={{ send: (action: TableAct) => void send(action), leftMs: view.leftMs ?? (view.phase === "trap" || view.phase === "defend" ? 6_000 : 60_000), you: view.you, fault: error }}
-        onHall={onBack}
+        onHall={() => {
+          void leave();
+          onBack();
+        }}
+        stage={view.stage ?? (stageOwned.includes(stageOn) ? stageOn : 0)}
         onRematch={() => {
           setView(null);
           setId("");
@@ -554,7 +769,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         <section className="rounded-md border border-brass bg-panel p-4">
           <p className="text-sm leading-relaxed text-ash">
-            Wait for another player. Signed-in accounts gain 20 XP for a win and lose 10 XP for a loss. 0.25 BzB is paid only if this wallet holds a Seal Forge card NFT.
+            Find a match looks for another person on this seal, whether they are on the phone app or in the browser. If nobody sits, a live bot takes the seat. A friend code works between the app and the browser.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -594,6 +809,39 @@ export function Ranked({ onBack }: { onBack: () => void }) {
             </div>
             {!sealed && <p className="mt-2 text-sm text-ash">Seal a deck in the forge, then choose it here. Otherwise the starter deck plays.</p>}
           </div>
+          {stageOwned.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-ash">Backdrop</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={stageOn === 0 ? "veil-btn veil-btn-primary" : "veil-btn"}
+                  disabled={Boolean(id)}
+                  onClick={() => {
+                    setStageOn(0);
+                    if (address) saveStagePick(address, 0);
+                  }}
+                >
+                  Off
+                </button>
+                {stageOwned.map((dropId) => (
+                  <button
+                    key={dropId}
+                    type="button"
+                    className={stageOn === dropId ? "veil-btn veil-btn-spark" : "veil-btn"}
+                    disabled={Boolean(id)}
+                    onClick={() => {
+                      setStageOn(dropId);
+                      if (address) saveStagePick(address, dropId);
+                    }}
+                  >
+                    {STAGES.find((item) => item.id === dropId)?.name ?? `Stage ${dropId}`}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-ash">If both players bring a backdrop, the host's plays. Skyhold also changes the match music.</p>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" className="veil-btn veil-btn-primary" disabled={busy || Boolean(id)} onClick={() => void join()}>
               {id && !hostCode ? `Waiting ${Math.ceil((waitMs ?? 0) / 1000)}s` : "Find a match"}
@@ -610,7 +858,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         </section>
         <section className="rounded-md border border-brass bg-panel p-4">
           <h2 className="text-sm tracking-widest text-brass">A FRIEND</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on another phone. They sit with that code. The duel runs between your two devices.</p>
+          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on the phone app or in the browser. They sit with that code. The duel runs between the two devices.</p>
           {hostingFriend ? (
             <>
               <p className="friend-code">{hostingFriend}</p>

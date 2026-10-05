@@ -7,6 +7,7 @@ import { DeckForge, SealMark } from "@/components/veil/deck";
 import { Market } from "@/components/veil/market";
 import { NewPlayer } from "@/components/veil/new-player";
 import { Ranked } from "@/components/veil/ranked";
+import { StageShop } from "@/components/veil/stages";
 import { PackOpen } from "@/components/veil/pack-open";
 import { PackSupply } from "@/components/veil/pack-supply";
 import { PolygonWallet } from "@/components/veil/polygon-wallet";
@@ -30,7 +31,7 @@ import { isApk } from "@/veil/shell";
 import { readSession } from "@/veil/session";
 import { isAddress } from "viem";
 
-type Screen = "home" | "start" | "duel" | "ranked" | "fight" | "packs" | "binder" | "codex" | "market" | "profile" | "deck" | "wallet" | "rules";
+type Screen = "home" | "start" | "duel" | "ranked" | "fight" | "packs" | "binder" | "codex" | "market" | "profile" | "deck" | "stages" | "wallet" | "rules";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -256,6 +257,9 @@ export function VeilApp() {
                 <Shield className="h-4 w-4" aria-hidden />
                 Deck
               </button>
+              <button type="button" className="veil-btn veil-btn-spark" disabled={!ready} onClick={() => setScreen("stages")}>
+                NFTS
+              </button>
             </div>
             <div className="mt-3 hall-actions">
               <button type="button" className="veil-btn" onClick={() => setScreen("binder")}>
@@ -457,6 +461,7 @@ export function VeilApp() {
       )}
 
       {screen === "deck" && <DeckForge onBack={() => setScreen("home")} />}
+      {screen === "stages" && <StageShop onBack={() => setScreen("home")} />}
 
       {screen === "binder" && (
         <Binder seal={binderSeal} setSeal={setBinderSeal} onBack={() => setScreen("home")} />

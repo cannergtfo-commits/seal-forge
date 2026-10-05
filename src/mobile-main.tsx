@@ -33,6 +33,26 @@ Element.prototype.setAttribute = function (name: string, value: string) {
 };
 
 function boot() {
+  const bridge = window.SealVault?.request?.bind(window.SealVault);
+  if (bridge) {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const path = raw.startsWith("/api/veilforge")
+        ? raw
+        : raw.startsWith("https://play.blazarforce.net/api/veilforge")
+          ? raw.slice("https://play.blazarforce.net".length)
+          : "";
+      if (!path || path.includes("..")) return nativeFetch(input, init);
+      const method = (init?.method || "GET").toUpperCase();
+      const body = typeof init?.body === "string" ? init.body : "";
+      const packed = JSON.parse(bridge(method, path, body)) as { status?: number; body?: string };
+      return new Response(packed.body ?? "", {
+        status: packed.status && packed.status > 0 ? packed.status : 502,
+        headers: { "content-type": "application/json" },
+      });
+    };
+  }
   const root = document.getElementById("root");
   if (root) createRoot(root).render(<VeilApp />);
 }

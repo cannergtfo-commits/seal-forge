@@ -5,7 +5,9 @@ import { openSession } from "@/veil/game-session";
 import { veilBalances } from "@/veil/holds";
 import { gameKeySigns } from "@/veil/signer";
 import { redactKey } from "@/veil/keys";
-import { PORTRAITS, deckSeal, rankFor } from "@/veil/ranks";
+import { bookProfile, saveBook } from "@/veil/phone-book";
+import { PORTRAITS, GIFT_LEVEL, cleanName, deckSeal, rankFor } from "@/veil/ranks";
+import { localProfile, readProgress, writeProgress, type ProgressSeal } from "@/veil/progress";
 import { clearSession, readSession, writeSession, type AccountSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
 
@@ -23,6 +25,8 @@ type Profile = {
   nextRank: number | null;
   deck: string[];
   deckName?: string;
+  gifted?: boolean;
+  giftReady?: boolean;
 };
 
 type Owned = { id: string; name: string; balance: number };
@@ -30,6 +34,22 @@ type BoardRow = Profile;
 
 function face(profile: { portrait: string; nftImage: string | null }): string {
   return profile.nftImage || `/assets/veil/cards/${profile.portrait}.jpg`;
+}
+
+function keep(address: string, profile: Profile, seal: string | null | undefined) {
+  if (!seal) return;
+  const saved: ProgressSeal = {
+    address,
+    name: profile.name,
+    portrait: profile.portrait,
+    xp: profile.xp,
+    wins: profile.wins,
+    losses: profile.losses,
+    deck: profile.deck,
+    deckName: profile.deckName ?? "",
+    signature: seal,
+  };
+  writeProgress(saved);
 }
 
 export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => void }) {
@@ -43,6 +63,7 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
   const [nftToken, setNftToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [giftNote, setGiftNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -56,6 +77,7 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
     void veilBalances(address)
       .then((balances) => setOwned(CARDS.map((card, index) => ({ id: card.id, name: card.name, balance: balances[index] ?? 0 })).filter((card) => card.balance > 0)))
       .catch(() => setOwned([]));
+    if (isApk()) return;
     void fetch("/api/veilforge/profile?board=1")
       .then((res) => res.json())
       .then((data: { board?: BoardRow[] }) => setBoard(data.board ?? []))
@@ -63,20 +85,54 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
   }, [address, profile]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!address) return;
+    const local = localProfile(address);
+    if (!session) {
+      setProfile(local);
+      setName(local.name);
+      return;
+    }
+    if (session.token === "device") {
+      setProfile(local);
+      setName(local.name);
+      return;
+    }
+    const backup = readProgress(address);
     void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
       .then((res) => res.json())
-      .then((data: { profile?: Profile; error?: string }) => {
+      .then(async (data: { profile?: Profile; seal?: string; error?: string }) => {
         if (!data.profile) {
           clearSession();
           setSession(null);
+          setProfile(local);
           return;
+        }
+        keep(address, data.profile, data.seal);
+        const serverGames = data.profile.wins + data.profile.losses;
+        const backupGames = backup ? backup.wins + backup.losses : 0;
+        if (backup && backupGames > serverGames && backup.xp >= data.profile.xp) {
+          const restored = await fetch("/api/veilforge/profile", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ op: "restore", token: session.token, ...backup }),
+          });
+          const body = (await restored.json()) as { profile?: Profile; seal?: string };
+          if (body.profile) {
+            keep(address, body.profile, body.seal);
+            setProfile(body.profile);
+            setName(body.profile.name);
+            return;
+          }
         }
         setProfile(data.profile);
         setName(data.profile.name);
       })
-      .catch(() => setError("The account did not load."));
-  }, [session]);
+      .catch(() => {
+        setProfile(local);
+        setName(local.name);
+        setError("The account did not load. This device still has your saved rank.");
+      });
+  }, [session, address]);
 
   async function signIn() {
     if (!address) return;
@@ -90,6 +146,8 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
       setSession(next);
       setProfile(opened.profile as Profile);
       setName((opened.profile as Profile).name);
+      const seal = (opened as { seal?: string }).seal;
+      if (seal) keep(address, opened.profile as Profile, seal);
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "Sign-in failed.", key));
     } finally {
@@ -98,6 +156,22 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
   }
 
   async function save(extra: { portrait?: string; deck?: string[]; nft?: { contract: string; tokenId: string } | null }) {
+    if (isApk()) {
+      if (!address) return;
+      const named = cleanName(name);
+      if (!named) {
+        setError("Names are 2 to 18 letters or numbers.");
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      const book = saveBook(address, { name: named, portrait: extra.portrait });
+      const next = bookProfile(address, book);
+      setProfile(next);
+      setName(next.name);
+      setBusy(false);
+      return;
+    }
     if (!session) return;
     setBusy(true);
     setError(null);
@@ -107,10 +181,12 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "save", token: session.token, name, ...extra }),
       });
-      const body = (await res.json()) as { profile?: Profile; error?: string };
+      const body = (await res.json()) as { profile?: Profile; seal?: string; error?: string };
       if (!body.profile) throw new Error(body.error ?? "Could not save.");
       setProfile(body.profile);
       setName(body.profile.name);
+      const seal = (body as { seal?: string }).seal;
+      if (address) keep(address, body.profile, seal);
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "Could not save.", key));
     } finally {
@@ -118,7 +194,36 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
     }
   }
 
+  async function claimPack() {
+    if (!session || session.token === "device") {
+      await signIn();
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setGiftNote(null);
+    try {
+      const res = await fetch("/api/veilforge/gift", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: session.token }),
+      });
+      const body = (await res.json()) as { profile?: Profile; seal?: string; note?: string; error?: string };
+      if (body.profile && address) keep(address, body.profile, body.seal);
+      if (body.profile) setProfile(body.profile);
+      if (body.error) throw new Error(body.error);
+      setGiftNote(body.note ?? "The pack is on its way.");
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "The pack was not gifted.", key));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const rank = profile ? rankFor(profile.xp) : null;
+  const span = rank?.next ? rank.next - rank.min : 1;
+  const filled = rank ? Math.max(0, profile ? profile.xp - rank.min : 0) : 0;
+  const width = rank?.next ? Math.min(100, (filled / span) * 100) : 100;
 
   return (
     <>
@@ -132,7 +237,7 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
             <h1 className="text-lg font-medium leading-tight">{profile?.name ?? (isApk() ? "Make a wallet" : "Connect a wallet")}</h1>
           </div>
         </div>
-        {profile && <p className="font-mono text-sm text-brass">{profile.rank} · {profile.xp} XP</p>}
+        {profile && <p className="font-mono text-sm text-brass">Level {rankFor(profile.xp).level} · {profile.xp} XP</p>}
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game. Signing in never sends a key to the server." : "Connect a wallet extension, or generate one in the game. Signing in never sends a key to the server."}</p>}
@@ -150,9 +255,24 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
             <div>
               <p className="font-mono text-xs text-ash">{profile.address}</p>
               <p className="mt-1 text-sm text-bone">
-                {profile.wins} wins · {profile.losses} losses
-                {rank?.next ? ` · ${rank.next - profile.xp} XP to the next rank` : ""}
+                Level {rank?.level} · {rank?.name} · {profile.wins} wins · {profile.losses} losses
               </p>
+              <div className="level-track" role="progressbar" aria-valuemin={rank?.min ?? 0} aria-valuemax={rank?.next ?? profile.xp} aria-valuenow={profile.xp} aria-label="Experience">
+                <span className="level-fill" style={{ width: `${width}%` }} />
+              </div>
+              <p className="mt-1 text-xs text-ash">{rank?.next ? `${rank.next - profile.xp} XP to level ${(rank?.level ?? 1) + 1}` : "Highest rank"}</p>
+              {rank && rank.level >= GIFT_LEVEL && !profile.gifted && session && session.token !== "device" && (
+                <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void claimPack()}>
+                  {busy ? "Gifting…" : "Claim the level 2 pack"}
+                </button>
+              )}
+              {profile.gifted && <p className="mt-2 text-sm text-ash">The level 2 Founding Forge pack was already gifted to this profile.</p>}
+              {(!session || session.token === "device") && (
+                <button type="button" className="veil-btn mt-3" disabled={busy} onClick={() => void signIn()}>
+                  Sign in to keep this rank
+                </button>
+              )}
+              {giftNote && <p className="mt-2 text-sm text-bone">{giftNote}</p>}
               <label className="mt-3 block text-xs text-ash" htmlFor="duelist-name">
                 Name
               </label>

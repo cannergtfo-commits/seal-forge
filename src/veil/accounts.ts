@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { getAddress, isAddress, verifyMessage, type Hex } from "viem";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { getAddress, isAddress, verifyMessage, type Address, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { getSql } from "@/lib/db";
 import { CARDS } from "./cards";
-import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT } from "./deployed";
+import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
-import { LOSS_XP, WIN_XP, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
+import { GIFT_LEVEL, LOSS_XP, WIN_XP, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
   address: string;
@@ -20,6 +22,9 @@ export type Profile = {
   nextRank: number | null;
   deck: string[];
   deckName: string;
+  gifted: boolean;
+  giftOrder: string;
+  giftReady: boolean;
 };
 
 type Row = {
@@ -34,6 +39,9 @@ type Row = {
   losses: number;
   deck: string;
   deck_name: string;
+  gifted: number;
+  gift_order: string;
+  gift_cards: string;
 };
 
 const challenges = new Map<string, { nonce: string; message: string; at: number }>();
@@ -55,7 +63,90 @@ function toProfile(row: Row): Profile {
     nextRank: rank.next,
     deck: row.deck ? row.deck.split(",") : [],
     deckName: row.deck_name ?? "",
+    gifted: Number(row.gifted) === 1,
+    giftOrder: row.gift_order ?? "",
+    giftReady: rankFor(xp).level >= GIFT_LEVEL,
   };
+}
+
+const BACKUP_DIR = "data/profile-backups";
+
+export function progressMessage(input: { address: string; xp: number; wins: number; losses: number; name: string; portrait: string; deck: string[]; deckName: string }) {
+  return [
+    "Seal Forge progress",
+    getAddress(input.address),
+    String(Math.max(0, Math.floor(input.xp))),
+    String(Math.max(0, Math.floor(input.wins))),
+    String(Math.max(0, Math.floor(input.losses))),
+    input.name,
+    input.portrait,
+    input.deck.join(","),
+    input.deckName,
+  ].join("\n");
+}
+
+function keeperAccount() {
+  const fromEnv = process.env.SEAL_FORGE_SIGNER;
+  const key = (fromEnv && /^0x[0-9a-fA-F]{64}$/.test(fromEnv) ? fromEnv : (JSON.parse(readFileSync("/workspace/.secrets/deployer.json", "utf8")) as { key: Hex }).key) as Hex;
+  const account = privateKeyToAccount(key);
+  if (getAddress(account.address) !== getAddress(KEEPER)) throw new Error("keeper mismatch");
+  return account;
+}
+
+export async function sealProfile(profile: Profile): Promise<Hex | null> {
+  try {
+    return await keeperAccount().signMessage({ message: progressMessage(profile) });
+  } catch {
+    return null;
+  }
+}
+
+export async function snapshotProfiles(): Promise<void> {
+  try {
+    const sql = await getSql();
+    const rows = await sql`select address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards from veil_profiles order by address`;
+    mkdirSync(BACKUP_DIR, { recursive: true });
+    const body = JSON.stringify({ at: new Date().toISOString(), rows });
+    writeFileSync(`${BACKUP_DIR}/latest.json`, body);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    writeFileSync(`${BACKUP_DIR}/${stamp}.json`, body);
+    const old = readdirSync(BACKUP_DIR)
+      .filter((name) => name.endsWith(".json") && name !== "latest.json")
+      .sort();
+    for (const name of old.slice(0, Math.max(0, old.length - 12))) rmSync(`${BACKUP_DIR}/${name}`, { force: true });
+  } catch {
+    /* a missed backup must not fail the match */
+  }
+}
+
+export async function restoreProgress(
+  token: string,
+  input: { address?: string; xp?: number; wins?: number; losses?: number; name?: string; portrait?: string; deck?: string[]; deckName?: string; signature?: string },
+): Promise<{ profile: Profile } | { error: string }> {
+  const row = await byToken(token);
+  if (!row) return { error: "Sign in again." };
+  if (!input.address || !isAddress(input.address) || !input.signature?.startsWith("0x")) return { error: "That backup is incomplete." };
+  if (getAddress(input.address).toLowerCase() !== row.address) return { error: "That backup is for a different wallet." };
+  const xp = Math.max(0, Math.floor(Number(input.xp) || 0));
+  const wins = Math.max(0, Math.floor(Number(input.wins) || 0));
+  const losses = Math.max(0, Math.floor(Number(input.losses) || 0));
+  if (xp > 1_000_000 || wins > 100_000 || losses > 100_000) return { error: "That backup is not a real profile." };
+  const name = cleanName(input.name ?? "") ?? row.name;
+  const portrait = input.portrait && isPortrait(input.portrait) ? input.portrait : row.portrait;
+  const deckList = Array.isArray(input.deck) ? input.deck : [];
+  const deckName = cleanDeckName(input.deckName ?? "") ?? row.deck_name ?? "";
+  const message = progressMessage({ address: row.address, xp, wins, losses, name, portrait, deck: deckList, deckName });
+  const signed = await verifyMessage({ address: getAddress(KEEPER) as Address, message, signature: input.signature as Hex });
+  if (!signed) return { error: "That backup was not signed by the game." };
+  const serverGames = (Number(row.wins) || 0) + (Number(row.losses) || 0);
+  if (wins + losses <= serverGames) return { profile: toProfile(row) };
+  const parsed = deckList.length ? parseDeck(deckList) : { ok: true as const, deck: [] as string[] };
+  const deck = parsed.ok ? parsed.deck.join(",") : row.deck;
+  const sql = await getSql();
+  await sql`update veil_profiles set xp = ${Math.max(Number(row.xp) || 0, xp)}, wins = ${Math.max(Number(row.wins) || 0, wins)}, losses = ${Math.max(Number(row.losses) || 0, losses)}, name = ${name}, portrait = ${portrait}, deck = ${deck}, deck_name = ${deckName} where address = ${row.address}`;
+  const next = await sql<Row>`select * from veil_profiles where address = ${row.address}`;
+  await snapshotProfiles();
+  return { profile: toProfile(next[0]!) };
 }
 
 export function challengeFor(address: string): { message: string; nonce: string } | null {
@@ -192,6 +283,7 @@ export async function saveProfile(
   const sql = await getSql();
   await sql`update veil_profiles set name = ${name}, portrait = ${portrait}, nft_contract = ${nftContract}, nft_token = ${nftToken}, nft_image = ${nftImage}, deck = ${deck}, deck_name = ${deckName} where address = ${row.address}`;
   const next = await sql<Row>`select * from veil_profiles where address = ${row.address}`;
+  await snapshotProfiles();
   return { profile: toProfile(next[0]!) };
 }
 
@@ -243,6 +335,7 @@ export async function applyXp(results: { address: string; win: boolean }[]): Pro
       await sql`update veil_profiles set xp = greatest(0, xp + ${delta}), losses = losses + 1 where address = ${address}`;
     }
   }
+  await snapshotProfiles();
 }
 
 export async function leaderboard(): Promise<Profile[]> {
