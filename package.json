@@ -18,7 +18,9 @@
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:host": "SEAL_FORGE_TARGET=node node scripts/with-app-env.mjs vite build",
+    "start:host": "NODE_ENV=production PORT=8080 NITRO_PORT=8080 HOST=0.0.0.0 node .output/server/index.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
