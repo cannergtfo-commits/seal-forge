@@ -211,8 +211,8 @@ export function VeilApp() {
               muted
               loop
               playsInline
-              poster="/assets/veil/hall/terrace.jpg?v=2"
-              src="/assets/veil/hall/terrace.mp4?v=2"
+              poster="/assets/veil/hall/terrace.jpg?v=3"
+              src="/assets/veil/hall/terrace.mp4?v=3"
             />
             <div className="hall-vignette" />
             <div className="hall-weather" />
