@@ -2,6 +2,7 @@ import http from "node:http";
 import https from "node:https";
 
 const ORIGIN = process.env.SEAL_FORGE_ORIGIN || "https://play.blazarforce.net";
+const TABLE = process.env.SEAL_FORGE_TABLE === "1";
 
 export function remoteTablePlugin() {
   let online = false;
@@ -10,6 +11,7 @@ export function remoteTablePlugin() {
     name: "seal-forge-remote-table",
     apply: "serve",
     configureServer(server) {
+      if (TABLE) return;
       server.middlewares.use(async (req, res, next) => {
         const raw = req.url || "";
         const path = raw.split("?")[0];
