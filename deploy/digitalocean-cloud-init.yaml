@@ -1,0 +1,48 @@
+#cloud-config
+package_update: true
+packages:
+  - git
+  - curl
+  - ca-certificates
+  - debian-keyring
+  - debian-archive-keyring
+  - apt-transport-https
+write_files:
+  - path: /etc/caddy/Caddyfile
+    content: |
+      play.blazarforce.net {
+        reverse_proxy 127.0.0.1:8080
+      }
+  - path: /etc/systemd/system/seal-forge.service
+    content: |
+      [Unit]
+      Description=Seal Forge table
+      After=network.target
+
+      [Service]
+      WorkingDirectory=/opt/seal-forge
+      EnvironmentFile=-/etc/seal-forge.env
+      ExecStart=/usr/bin/npm run dev
+      Restart=on-failure
+      RestartSec=3
+      User=sealforge
+
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  - apt-get update
+  - apt-get install -y caddy
+  - id sealforge || useradd --system --create-home --home-dir /opt/seal-forge sealforge
+  - git clone https://github.com/cannergtfo-commits/seal-forge.git /opt/seal-forge
+  - chown -R sealforge:sealforge /opt/seal-forge
+  - sudo -u sealforge bash -lc 'cd /opt/seal-forge && npm install'
+  - touch /etc/seal-forge.env
+  - chown root:sealforge /etc/seal-forge.env
+  - chmod 640 /etc/seal-forge.env
+  - systemctl daemon-reload
+  - systemctl enable --now seal-forge
+  - systemctl reload caddy || systemctl restart caddy
