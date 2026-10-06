@@ -116,7 +116,15 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview
-      ? [nitro({ preset: process.env.SEAL_FORGE_TARGET === "node" ? "node-server" : "vercel", serverDir: "./server" })]
+      ? [nitro({
+          preset: process.env.SEAL_FORGE_TARGET === "node" ? "node-server" : "vercel",
+          serverDir: "./server",
+          // PGLite loads pglite.data and pglite.wasm from beside its own module.
+          // Bundling it makes the host look in .output and sign-in dies with a 500.
+          ...(process.env.SEAL_FORGE_TARGET === "node"
+            ? { rolldownConfig: { external: [/^@electric-sql\/pglite/] }, rollupConfig: { external: [/^@electric-sql\/pglite/] } }
+            : {}),
+        })]
       : []),
     viteReact(),
   ],
