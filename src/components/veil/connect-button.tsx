@@ -59,7 +59,7 @@ export function ConnectButton() {
         disabled={busy}
         aria-expanded={address ? open : pick}
         aria-haspopup="menu"
-        title={error ?? "MetaMask or Phantom on Polygon"}
+        title={error ?? "MetaMask, Rabby, or Phantom on Polygon"}
         onClick={() => {
           if (address) setOpen((value) => !value);
           else setPick((value) => !value);
@@ -77,6 +77,9 @@ export function ConnectButton() {
         <div role="menu" className="wallet-sheet">
           <button type="button" role="menuitem" className="veil-btn w-full" onClick={() => void connect("metamask")}>
             MetaMask
+          </button>
+          <button type="button" role="menuitem" className="veil-btn w-full" onClick={() => void connect("rabby")}>
+            Rabby
           </button>
           <button type="button" role="menuitem" className="veil-btn w-full" onClick={() => void connect("phantom")}>
             Phantom

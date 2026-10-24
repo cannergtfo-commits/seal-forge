@@ -12,7 +12,7 @@ import { sendGame } from "./signer";
 
 const HOLD = "veilforge-wallet-hold";
 
-export type WalletKind = "metamask" | "phantom";
+export type WalletKind = "metamask" | "phantom" | "rabby";
 
 type ConnectState = {
   address: Address | null;
@@ -55,28 +55,41 @@ function injectedList(): Injected[] {
   return eth ? [eth] : [];
 }
 
-function flagged(provider: Injected, flag: "isMetaMask" | "isPhantom"): boolean {
-  return Boolean((provider as Injected & { isMetaMask?: boolean; isPhantom?: boolean })[flag]);
+function flagged(provider: Injected, flag: "isMetaMask" | "isPhantom" | "isRabby"): boolean {
+  return Boolean((provider as Injected & { isMetaMask?: boolean; isPhantom?: boolean; isRabby?: boolean })[flag]);
+}
+
+const WALLET_RDNS: Record<WalletKind, string> = {
+  metamask: "io.metamask",
+  phantom: "app.phantom",
+  rabby: "io.rabby",
+};
+
+function walletName(kind: WalletKind): string {
+  if (kind === "phantom") return "Phantom";
+  if (kind === "rabby") return "Rabby";
+  return "MetaMask";
 }
 
 async function findWallet(kind: WalletKind): Promise<Injected | null> {
   arm6963();
   window.dispatchEvent(new Event("eip6963:requestProvider"));
   await new Promise((resolve) => window.setTimeout(resolve, 250));
-  const rdns = kind === "metamask" ? "io.metamask" : "app.phantom";
-  const announcedHit = announced.find((item) => item.rdns === rdns);
+  const announcedHit = announced.find((item) => item.rdns === WALLET_RDNS[kind]);
   if (announcedHit) return announcedHit.provider;
   if (kind === "phantom") {
     const phantom = (window as Window & { phantom?: { ethereum?: Injected } }).phantom?.ethereum;
     if (phantom) return phantom;
     return injectedList().find((provider) => flagged(provider, "isPhantom")) ?? null;
   }
-  return injectedList().find((provider) => flagged(provider, "isMetaMask") && !flagged(provider, "isPhantom")) ?? injectedList().find((provider) => flagged(provider, "isMetaMask")) ?? null;
+  if (kind === "rabby") return injectedList().find((provider) => flagged(provider, "isRabby")) ?? null;
+  return injectedList().find((provider) => flagged(provider, "isMetaMask") && !flagged(provider, "isPhantom") && !flagged(provider, "isRabby")) ?? null;
 }
 
 function walletLink(kind: WalletKind): string | null {
   if (typeof window === "undefined") return null;
   const href = window.location.href;
+  if (kind === "rabby") return "https://rabby.io";
   if (!/^https?:/i.test(href)) return kind === "metamask" ? "https://metamask.app.link" : "https://phantom.app";
   if (kind === "metamask") {
     const url = new URL(href);
@@ -178,7 +191,7 @@ export const useInjected = create<ConnectState>((set) => ({
     const eth = await findWallet(kind);
     if (!eth) {
       const link = walletLink(kind);
-      const label = kind === "phantom" ? "Phantom" : "MetaMask";
+      const label = walletName(kind);
       if (link && typeof window !== "undefined" && /^https?:/i.test(window.location.href)) {
         window.location.assign(link);
         return null;
