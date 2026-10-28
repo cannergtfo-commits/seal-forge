@@ -711,15 +711,19 @@ export function Table({
           </section>
 
           <EdgeRow className="arena-hand">
-            {yours.hand.map((card) => {
+            {yours.hand.map((card, index) => {
               const def = cardOf(card.defId);
+              const playable = yourTurn && def.cost <= yours.mana;
               return (
                 <CardFace
                   key={card.uid}
                   defId={card.defId}
                   size="hand"
                   selected={selected === card.uid}
-                  dim={def.cost > yours.mana || !yourTurn}
+                  dim={!playable}
+                  playable={playable}
+                  fanIndex={index}
+                  fanCount={yours.hand.length}
                   onClick={() => onHand(card.uid)}
                 />
               );

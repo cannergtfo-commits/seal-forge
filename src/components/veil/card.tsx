@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { cardOf, schoolOf, type Faction } from "@/veil/cards";
 import { power, type Match, type Unit } from "@/veil/logic";
 import { rarityLabel, rarityTier } from "@/veil/pack-score";
@@ -13,6 +14,9 @@ export function CardFace({
   size = "hand",
   selected = false,
   dim = false,
+  playable = false,
+  fanIndex,
+  fanCount,
   onClick,
 }: {
   defId: string;
@@ -21,6 +25,9 @@ export function CardFace({
   size?: "hand" | "board" | "fill";
   selected?: boolean;
   dim?: boolean;
+  playable?: boolean;
+  fanIndex?: number;
+  fanCount?: number;
   onClick?: () => void;
 }) {
   const card = cardOf(defId);
@@ -37,9 +44,14 @@ export function CardFace({
     size === "hand" && "w-36 sm:w-44",
     size === "board" && "w-28 sm:w-32",
     size === "fill" && "w-full",
-    selected && "ring-2 ring-brass",
-    dim && "opacity-45",
+    selected && "veil-card-selected",
+    dim && "veil-card-dim",
+    playable && !dim && "veil-card-playable",
   );
+  const fanStyle =
+    fanIndex != null && fanCount != null && fanCount > 0
+      ? ({ ["--fan-i"]: String(fanIndex), ["--fan-n"]: String(fanCount) } as CSSProperties)
+      : undefined;
   const body = (
     <>
       <img src={card.art} alt="" draggable={false} decoding="async" className="veil-art" />
@@ -60,13 +72,13 @@ export function CardFace({
   );
   if (!onClick) {
     return (
-      <div data-faction={card.faction} data-rarity={card.rarity} data-tier={tier} className={cls} title={card.text}>
+      <div data-faction={card.faction} data-rarity={card.rarity} data-tier={tier} className={cls} style={fanStyle} title={card.text}>
         {body}
       </div>
     );
   }
   return (
-    <button type="button" data-faction={card.faction} data-rarity={card.rarity} data-tier={tier} className={cls} title={card.text} aria-pressed={selected} onClick={onClick} aria-label={`${card.name}. ${rarityName}. ${card.text}`}>
+    <button type="button" data-faction={card.faction} data-rarity={card.rarity} data-tier={tier} className={cls} style={fanStyle} title={card.text} aria-pressed={selected} onClick={onClick} aria-label={`${card.name}. ${rarityName}. ${card.text}`}>
       {body}
     </button>
   );
