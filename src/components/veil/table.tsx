@@ -26,6 +26,10 @@ import { stageVisual } from "@/veil/stages";
 
 const TURN_SECONDS = 60;
 const REACT_SECONDS = 6;
+/** Matches logic.ts BOARD — capacity marks only; do not invent rules. */
+const BOARD_SLOTS = 6;
+
+type DmgPop = { uid: string; amount: number; key: number };
 
 const BUST: Record<Faction, { src: string; focus: string }> = {
   elf: { src: "/assets/veil/elf.jpg", focus: "center 22%" },
@@ -133,14 +137,31 @@ function coach(match: Match): string {
   if (match.winner === 0) return "The rival is at 0 life.";
   if (match.winner === 1) return "Your life hit 0.";
   if (match.turn === 0 && match.phase === "main" && match.turnCount <= 1) {
-    return "First turn: play cards, no attacks. One mana unlocks at the start of each of your turns.";
+    return "First turn: play cards, no attacks. One mana unlocks each of your turns.";
   }
-  if (match.turn === 0 && match.phase === "main") return "Play from hand. Attack once with any ready units, or end the turn.";
-  if (match.turn === 1 && match.phase === "trap") return "The rival is attacking. Six seconds to spring one trap, or pass.";
-  if (match.turn === 1 && match.phase === "defend") return "Six seconds to assign defenders. A unit that attacked cannot block until its next turn.";
-  if (match.turn === 0 && match.phase === "trap") return "The rival has six seconds to spring a trap.";
-  if (match.turn === 0 && match.phase === "defend") return "The rival has six seconds to choose blockers.";
+  if (match.turn === 0 && match.phase === "main") {
+    return "Play from hand. Tap ready units, then Attack, or End Turn.";
+  }
+  if (match.turn === 1 && match.phase === "trap") return "Rival is attacking. Six seconds to spring one trap, or Pass.";
+  if (match.turn === 1 && match.phase === "defend") return "Six seconds to assign defenders. Rested units cannot block.";
+  if (match.turn === 0 && match.phase === "trap") return "Rival has six seconds to spring a trap.";
+  if (match.turn === 0 && match.phase === "defend") return "Rival has six seconds to choose blockers.";
   return "The rival is acting.";
+}
+
+function coachTone(match: Match): "yours" | "react" | "wait" | "over" {
+  if (match.winner !== null) return "over";
+  if (match.turn === 0 && match.phase === "main") return "yours";
+  if (match.turn === 1 && (match.phase === "trap" || match.phase === "defend")) return "react";
+  return "wait";
+}
+
+function SlotGhost({ label }: { label: string }) {
+  return (
+    <div className="arena-slot-ghost" aria-hidden="true" title={label}>
+      <span className="arena-slot-ghost-mark" />
+    </div>
+  );
 }
 
 function unitStatus(match: Match, unit: Unit): string | null {
@@ -343,6 +364,13 @@ export function Table({
   }, [backdrop?.music]);
   const [born, setBorn] = useState<string[]>([]);
   const [struck, setStruck] = useState<string[]>([]);
+  const [dmgPops, setDmgPops] = useState<DmgPop[]>([]);
+  const [hoverTarget, setHoverTarget] = useState<string | null>(null);
+  const playRef = useRef<HTMLDivElement>(null);
+  const tokenRefs = useRef(new Map<string, HTMLDivElement | null>());
+  const sourceRef = useRef<HTMLDivElement>(null);
+  const [aimLine, setAimLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const dmgKey = useRef(0);
   const attackKey = match.attackers.join("|");
   const clockKey = `${match.turn}:${match.phase}:${match.turnCount}:${match.winner ?? "play"}`;
   const live = useRef({ match, bot });
@@ -372,19 +400,31 @@ export function Table({
   useEffect(() => {
     const nextBorn: string[] = [];
     const nextHit: string[] = [];
+    const pops: DmgPop[] = [];
     const seen = new Set<string>();
     for (const seat of match.players) {
       for (const unit of seat.units) {
         seen.add(unit.uid);
         const before = hpRef.current.get(unit.uid);
         if (before === undefined) nextBorn.push(unit.uid);
-        else if (unit.hp < before) nextHit.push(unit.uid);
+        else if (unit.hp < before) {
+          nextHit.push(unit.uid);
+          dmgKey.current += 1;
+          pops.push({ uid: unit.uid, amount: before - unit.hp, key: dmgKey.current });
+        }
         hpRef.current.set(unit.uid, unit.hp);
       }
     }
     for (const id of hpRef.current.keys()) if (!seen.has(id)) hpRef.current.delete(id);
     setBorn((prev) => (sameIds(prev, nextBorn) ? prev : nextBorn));
     setStruck((prev) => (sameIds(prev, nextHit) ? prev : nextHit));
+    if (pops.length) {
+      setDmgPops((prev) => [...prev, ...pops].slice(-12));
+      const keys = new Set(pops.map((p) => p.key));
+      window.setTimeout(() => {
+        setDmgPops((prev) => prev.filter((p) => !keys.has(p.key)));
+      }, 900);
+    }
   }, [match]);
 
   const rivalActing =
@@ -427,6 +467,7 @@ export function Table({
     }
     setError(null);
     setSelected(null);
+    setHoverTarget(null);
     setAttackers([]);
     setTrapUid(null);
     setMatch(result.state);
@@ -445,6 +486,7 @@ export function Table({
       }
       setError(null);
       setSelected(null);
+      setHoverTarget(null);
       setAttackers([]);
       setTrapUid(null);
       link.send(absolutize(action));
@@ -464,6 +506,7 @@ export function Table({
     }
     setError(null);
     setSelected(null);
+    setHoverTarget(null);
     setAttackers([]);
     setTrapUid(null);
     setMatch(next);
@@ -548,6 +591,63 @@ export function Table({
   const reacting = match.phase === "trap" || match.phase === "defend";
   const clockLabel = match.winner !== null ? "Over" : reacting ? (yourTime ? (match.phase === "trap" ? "Your trap" : "Your block") : match.phase === "trap" ? "Rival trap" : "Rival block") : yourTime ? "Your time" : "Rival time";
   const status = error || link?.fault || (targeting ? "Choose a target, or cancel." : blurb);
+  const tone = coachTone(match);
+
+  useEffect(() => {
+    if (!targeting) {
+      setHoverTarget(null);
+      setAimLine(null);
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelected(null);
+        setHoverTarget(null);
+        setError(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [targeting]);
+
+  useLayoutEffect(() => {
+    if (!targeting) {
+      setAimLine(null);
+      return;
+    }
+    const root = playRef.current;
+    if (!root) return;
+    const update = () => {
+      const rect = root.getBoundingClientRect();
+      const srcEl = sourceRef.current;
+      const tgtEl = hoverTarget ? tokenRefs.current.get(hoverTarget) ?? null : null;
+      let x1: number;
+      let y1: number;
+      if (srcEl) {
+        const s = srcEl.getBoundingClientRect();
+        x1 = s.left + s.width / 2 - rect.left;
+        y1 = s.top + s.height * 0.15 - rect.top;
+      } else {
+        x1 = rect.width / 2;
+        y1 = rect.height * 0.84;
+      }
+      if (tgtEl) {
+        const t = tgtEl.getBoundingClientRect();
+        setAimLine({
+          x1,
+          y1,
+          x2: t.left + t.width / 2 - rect.left,
+          y2: t.top + t.height / 2 - rect.top,
+        });
+      } else {
+        setAimLine({ x1, y1, x2: x1, y2: Math.max(24, y1 - 56) });
+      }
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [targeting, hoverTarget, selected, yours.units, theirs.units]);
+
   onDoneRef.current = () => {
     const wire = linkRef.current;
     const current = live.current.match;
@@ -604,8 +704,30 @@ export function Table({
           </button>
         </div>
 
-        <div className="arena-play">
-          <p className="arena-coach">{coach(match)}</p>
+        <div className="arena-play" ref={playRef}>
+          {targeting && aimLine && (
+            <svg className="arena-target-line" aria-hidden="true">
+              <defs>
+                <marker id="arena-aim-head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 Z" className="arena-target-line-head" />
+                </marker>
+              </defs>
+              <line
+                x1={aimLine.x1}
+                y1={aimLine.y1}
+                x2={aimLine.x2}
+                y2={aimLine.y2}
+                className="arena-target-line-stroke"
+                markerEnd="url(#arena-aim-head)"
+              />
+            </svg>
+          )}
+          <div className={cx("arena-coach", `arena-coach-${tone}`)} role="status">
+            <span className="arena-coach-phase">
+              {tone === "yours" ? "YOUR TURN" : tone === "react" ? "REACT" : tone === "wait" ? "WAIT" : "OVER"}
+            </span>
+            <p className="arena-coach-text">{coach(match)}</p>
+          </div>
           <section className="arena-seat">
             <div className="arena-seat-bar">
               <SeatPlate faction={rival} name={bot.name} />
@@ -623,34 +745,58 @@ export function Table({
                 Target rival
               </button>
             )}
-            {(theirs.hand.length > 0 || theirs.traps.length > 0) && (
+            <div className="arena-rival-hand" aria-label={`Rival hand ${theirs.hand.length}`}>
+              <span className="arena-hand-count">{theirs.hand.length}</span>
               <EdgeRow className="arena-backs">
-                {theirs.hand.map((card) => (
-                  <CardBack key={card.uid} />
-                ))}
-                {theirs.traps.map((item) => (
-                  <CardBack key={item.uid} size="trap" />
-                ))}
+                {theirs.hand.length === 0 ? (
+                  <span className="arena-backs-empty">No cards</span>
+                ) : (
+                  theirs.hand.map((card) => <CardBack key={card.uid} />)
+                )}
               </EdgeRow>
-            )}
+              {theirs.traps.length > 0 && (
+                <EdgeRow className="arena-backs arena-backs-traps">
+                  {theirs.traps.map((item) => (
+                    <CardBack key={item.uid} size="trap" />
+                  ))}
+                </EdgeRow>
+              )}
+            </div>
             <EdgeRow className="arena-lane">
-              {theirs.units.length === 0 && <p className="text-sm text-ash">No units</p>}
               {theirs.units.map((unit) => {
                 const lunging = (match.phase === "trap" || match.phase === "defend") && match.attackers.includes(unit.uid);
+                const legal = targeting && legalUnit(unit);
                 return (
                   <div
                     key={unit.uid}
+                    ref={(el) => {
+                      tokenRefs.current.set(unit.uid, el);
+                    }}
                     className={cx(
                       "arena-token",
                       born.includes(unit.uid) && "arena-arrive",
                       struck.includes(unit.uid) && "arena-struck",
                       lunging && "arena-lunge-rival",
+                      legal && "arena-legal-target",
                     )}
+                    onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
+                    onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
+                    onFocus={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                   >
                     <CardFace defId={unit.defId} match={match} unit={unit} size="board" dim={targeting && !legalUnit(unit)} onClick={() => onUnit(unit)} />
+                    {dmgPops
+                      .filter((pop) => pop.uid === unit.uid)
+                      .map((pop) => (
+                        <span key={pop.key} className="arena-dmg-pop" aria-hidden>
+                          −{pop.amount}
+                        </span>
+                      ))}
                   </div>
                 );
               })}
+              {Array.from({ length: Math.max(0, BOARD_SLOTS - theirs.units.length) }, (_, i) => (
+                <SlotGhost key={`rival-slot-${i}`} label="Empty rival slot" />
+              ))}
             </EdgeRow>
           </section>
 
@@ -672,20 +818,27 @@ export function Table({
               </button>
             )}
             <EdgeRow className="arena-lane">
-              {yours.units.length === 0 && <p className="text-sm text-ash">No units</p>}
               {yours.units.map((unit) => {
                 const status = unitStatus(match, unit);
                 const lunging = (match.phase === "trap" || match.phase === "defend") && match.attackers.includes(unit.uid);
+                const legal = targeting && legalUnit(unit);
                 return (
                   <div
                     key={unit.uid}
+                    ref={(el) => {
+                      tokenRefs.current.set(unit.uid, el);
+                    }}
                     className={cx(
                       "arena-token",
                       born.includes(unit.uid) && "arena-arrive",
                       struck.includes(unit.uid) && "arena-struck",
                       attackers.includes(unit.uid) && "arena-lift",
                       lunging && "arena-lunge-you",
+                      legal && "arena-legal-target",
                     )}
+                    onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
+                    onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
+                    onFocus={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                   >
                     <CardFace
                       defId={unit.defId}
@@ -697,9 +850,19 @@ export function Table({
                       onClick={() => onUnit(unit)}
                     />
                     {status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>}
+                    {dmgPops
+                      .filter((pop) => pop.uid === unit.uid)
+                      .map((pop) => (
+                        <span key={pop.key} className="arena-dmg-pop" aria-hidden>
+                          −{pop.amount}
+                        </span>
+                      ))}
                   </div>
                 );
               })}
+              {Array.from({ length: Math.max(0, BOARD_SLOTS - yours.units.length) }, (_, i) => (
+                <SlotGhost key={`you-slot-${i}`} label="Empty unit slot" />
+              ))}
             </EdgeRow>
             {yours.traps.length > 0 && (
               <EdgeRow className="arena-traps">
@@ -710,29 +873,32 @@ export function Table({
             )}
           </section>
 
-          <EdgeRow className="arena-hand">
-            {yours.hand.map((card, index) => {
-              const def = cardOf(card.defId);
-              const playable = yourTurn && def.cost <= yours.mana;
-              return (
-                <CardFace
-                  key={card.uid}
-                  defId={card.defId}
-                  size="hand"
-                  selected={selected === card.uid}
-                  dim={!playable}
-                  playable={playable}
-                  fanIndex={index}
-                  fanCount={yours.hand.length}
-                  onClick={() => onHand(card.uid)}
-                />
-              );
-            })}
-          </EdgeRow>
+          <div className="arena-hand-wrap">
+            {targeting && <div ref={sourceRef} className="arena-aim-source" aria-hidden="true" />}
+            <EdgeRow className="arena-hand">
+              {yours.hand.map((card, index) => {
+                const def = cardOf(card.defId);
+                const playable = yourTurn && def.cost <= yours.mana;
+                return (
+                  <CardFace
+                    key={card.uid}
+                    defId={card.defId}
+                    size="hand"
+                    selected={selected === card.uid}
+                    dim={!playable}
+                    playable={playable}
+                    fanIndex={index}
+                    fanCount={yours.hand.length}
+                    onClick={() => onHand(card.uid)}
+                  />
+                );
+              })}
+            </EdgeRow>
+          </div>
         </div>
 
         <div className="veil-dock arena-dock">
-          <div className="flex flex-col gap-1">
+          <div className="arena-dock-main flex flex-col gap-1">
             {status && <p className={cx("truncate text-sm", error || link?.fault ? "text-danger" : "text-ash")}>{status}</p>}
             {match.phase === "defend" && match.turn === 1 && match.winner === null && (
               <EdgeRow className="arena-dock-row">
@@ -796,33 +962,44 @@ export function Table({
                 </ArenaBtn>
               </EdgeRow>
             )}
-            <EdgeRow className="arena-dock-row">
-              {targeting && (
-                <button type="button" className="veil-btn" onClick={() => setSelected(null)}>
-                  Cancel
-                </button>
-              )}
-              {yourTurn && attackers.length > 0 && (
-                <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "attack", ids: attackers }, declareAttack(match, attackers))}>
-                  {`Attack with ${attackers.length}`}
-                </ArenaBtn>
-              )}
-              {match.phase === "defend" && match.turn === 1 && match.winner === null && (
-                <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "block", blocks }, assignDefenders(match, blocks))}>
-                  Confirm blocks
-                </ArenaBtn>
-              )}
+            <div className="arena-dock-actions">
+              <EdgeRow className="arena-dock-row">
+                {targeting && (
+                  <button
+                    type="button"
+                    className="veil-btn arena-cancel-target"
+                    onClick={() => {
+                      setSelected(null);
+                      setHoverTarget(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+                {yourTurn && attackers.length > 0 && (
+                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "attack", ids: attackers }, declareAttack(match, attackers))}>
+                    {`Attack with ${attackers.length}`}
+                  </ArenaBtn>
+                )}
+                {match.phase === "defend" && match.turn === 1 && match.winner === null && (
+                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "block", blocks }, assignDefenders(match, blocks))}>
+                    Confirm blocks
+                  </ArenaBtn>
+                )}
+                {!linked && match.turn === 1 && match.phase === "main" && match.winner === null && (
+                  <ArenaBtn icon="/assets/veil/arena/icon-end.jpg" hot onClick={() => rush(match, bot.style)}>
+                    Skip rival
+                  </ArenaBtn>
+                )}
+              </EdgeRow>
               {yourTurn && (
-                <ArenaBtn icon="/assets/veil/arena/icon-end.jpg" onClick={() => commit({ t: "end" }, endTurn(match))}>
-                  End turn
-                </ArenaBtn>
+                <div className="arena-end-turn">
+                  <ArenaBtn icon="/assets/veil/arena/icon-end.jpg" onClick={() => commit({ t: "end" }, endTurn(match))}>
+                    End turn
+                  </ArenaBtn>
+                </div>
               )}
-              {!linked && match.turn === 1 && match.phase === "main" && match.winner === null && (
-                <ArenaBtn icon="/assets/veil/arena/icon-end.jpg" hot onClick={() => rush(match, bot.style)}>
-                  Skip rival
-                </ArenaBtn>
-              )}
-            </EdgeRow>
+            </div>
           </div>
         </div>
       </div>
