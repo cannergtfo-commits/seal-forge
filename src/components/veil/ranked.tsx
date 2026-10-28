@@ -174,7 +174,7 @@ function RewardClaim({ won, address, signer }: { won: boolean; address: string; 
       if (cancel) return;
       if ("prize" in result) setPrize(result.prize);
       else if (result.error === "needs-card") setNote("No BzB. Rewards go only to wallets that hold a Seal Forge card NFT.");
-      else if (result.error === "cap") setNote("No payout. The daily cap is four.");
+      else if (result.error === "cap") setNote("You’ve hit your daily reward cap (4 wins today). Each player gets their own four.");
       else setNote("The reward server did not answer.");
     });
     return () => {
@@ -208,6 +208,7 @@ function RewardClaim({ won, address, signer }: { won: boolean; address: string; 
           {busy ? "Claiming…" : "Claim 0.25 BzB"}
         </button>
       )}
+      {prize && <p className="mt-2 text-xs text-ash">Your daily rewards: up to four 0.25 BzB wins today.</p>}
       {note && <p className="mt-2 text-sm text-ash">{note}</p>}
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </div>
@@ -812,11 +813,14 @@ export function Ranked({ onBack }: { onBack: () => void }) {
                 Claim 0.25 BzB
               </button>
             )}
+            {view.winner === view.you && claim && (
+              <p className="mt-2 text-xs text-ash">Your daily rewards: up to four 0.25 BzB wins today.</p>
+            )}
             {view.winner === view.you && reward === "needs-card" && (
               <p className="mt-2 text-sm text-ash">No BzB. Rewards go only to wallets that hold a Seal Forge card NFT.</p>
             )}
             {view.winner === view.you && !claim && reward !== "needs-card" && (
-              <p className="mt-2 text-sm text-ash">No payout. The daily cap is four, or the wallet was not connected. XP still applies if you are signed in.</p>
+              <p className="mt-2 text-sm text-ash">No payout. Either you’ve hit your daily reward cap (4 wins today; each player gets their own four), or the wallet was not connected. XP still applies if you are signed in.</p>
             )}
           </div>
         }
@@ -836,12 +840,12 @@ export function Ranked({ onBack }: { onBack: () => void }) {
             <h1 className="text-lg font-medium leading-tight">Find a match</h1>
           </div>
         </div>
-        <p className="font-mono text-xs text-ash">0.25 BzB · 4 a day</p>
+        <p className="font-mono text-xs text-ash">Daily rewards · 0.25 BzB × 4 per player</p>
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         <section className="rounded-md border border-brass bg-panel p-4">
           <p className="text-sm leading-relaxed text-ash">
-            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start is the only way to play a bot.
+            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start is the only way to play a bot. Each player can claim up to four 0.25 BzB wins a day, with a Seal Forge card NFT and a wallet.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -1018,7 +1022,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           </div>
         </section>
         {error && <p className="text-sm text-danger">{error}</p>}
-        <p className="text-xs text-ash">Rewards live at {REWARDS}. A win is {WIN_WEI.toString()} wei, which is 0.25 BzB.</p>
+        <p className="text-xs text-ash">Rewards live at {REWARDS}. A win is {WIN_WEI.toString()} wei, which is 0.25 BzB, per wallet, up to four claims a day.</p>
       </main>
     </>
   );
