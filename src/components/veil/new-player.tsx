@@ -39,7 +39,7 @@ export function FundGuide() {
       <li>Withdraw to the address on this page. Choose the Polygon network, not Ethereum.</li>
       <li>Send a small amount first. Receiving does not cost you gas. This page shows the balance after the transfer lands.</li>
       <li>Keep a little POL in the wallet. Sending later pays a network fee from that balance.</li>
-      <li>BzB is the token for packs and match rewards. Send it to this same address on Polygon.</li>
+      <li>BzB is the token for packs and match rewards. A win pays 0.25 BzB, up to four wins a day for each player. Send it to this same address on Polygon.</li>
     </ol>
   );
 }
