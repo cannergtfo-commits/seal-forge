@@ -539,8 +539,11 @@ a.veil-btn {
   margin: 0;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wrap to two lines instead of clipping coach advice. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
   font-size: 0.8rem;
   line-height: 1.25;
 }
@@ -2557,3 +2560,20 @@ a.veil-btn {
   .arena-trap-ready::before,
   .arena-react-frame::before { animation: none; }
 }
+
+/* ── Coaching + face targeting ────────────────────────────────────── */
+.arena-dock-error { margin: 0; line-height: 1.25; }
+.arena-pending-chip { color: #f0b060 !important; white-space: normal; line-height: 1.1; }
+.arena-life-target {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: crosshair;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brass) 85%, white), 0 0 16px color-mix(in srgb, var(--color-brass) 55%, transparent);
+  animation: arena-react-pulse 1s ease-in-out infinite alternate;
+}
+.arena-life-target:hover,
+.arena-life-target:focus-visible { box-shadow: 0 0 0 3px #f0b060, 0 0 22px rgb(240 176 96 / 75%); outline: none; }
+@media (prefers-reduced-motion: reduce) { .arena-life-target { animation: none; } }

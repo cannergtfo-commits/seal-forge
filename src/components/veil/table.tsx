@@ -429,6 +429,7 @@ export function Table({
   const fxKey = useRef(0);
   const [lifePops, setLifePops] = useState<LifePop[]>([]);
   const [scenePulse, setScenePulse] = useState(0);
+  const [youAttacked, setYouAttacked] = useState(false);
   const [wardSoak, setWardSoak] = useState<[number, number]>([0, 0]);
   const [trapFlips, setTrapFlips] = useState<TrapFlip[]>([]);
   const [fallen, setFallen] = useState<FallenUnit[]>([]);
@@ -749,7 +750,11 @@ export function Table({
   const span = clockSpan(match);
   const reacting = match.phase === "trap" || match.phase === "defend";
   const clockLabel = match.winner !== null ? "Over" : reacting ? (yourTime ? (match.phase === "trap" ? "Your trap" : "Your block") : match.phase === "trap" ? "Rival trap" : "Rival block") : yourTime ? "Your time" : "Rival time";
-  const status = error || link?.fault || (targeting ? "Choose a target, or cancel." : blurb);
+  const fault = error || link?.fault || null;
+  const hint = targeting ? (targetingHit ? "Choose a target (or a life plate), or cancel." : "Choose a target, or cancel.") : blurb;
+  // First turn you can swing: nothing chosen yet and some unit is ready.
+  const firstAttack =
+    !youAttacked && yourTurn && attackers.length === 0 && !targeting && yours.units.some((unit) => canAttack(match, unit));
   const tone = coachTone(match);
 
   useEffect(() => {
@@ -921,7 +926,7 @@ export function Table({
             <span className="arena-coach-phase">
               {tone === "yours" ? "YOUR TURN" : tone === "react" ? "REACT" : tone === "wait" ? "WAIT" : "OVER"}
             </span>
-            <p className="arena-coach-text">{coach(match)}</p>
+            <p className="arena-coach-text">{firstAttack ? "Your units are ready: tap ready units, then Attack." : coach(match)}</p>
           </div>
           {trapFlips.length > 0 && (
             <div className="arena-resolve-stack" role="status" aria-live="polite">
@@ -944,7 +949,18 @@ export function Table({
             <div className="arena-seat-bar">
               <SeatPlate faction={rival} name={bot.name} />
               <div className="arena-vitals">
-                <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                {targetingHit ? (
+                  <button
+                    type="button"
+                    className="arena-life-target"
+                    aria-label={"Target rival"}
+                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 1 } }, playCard(match, selected, { kind: "face", side: 1 }))}
+                  >
+                    <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                  </button>
+                ) : (
+                    <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                )}
                 <Mana max={theirs.manaMax} current={theirs.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${theirs.grave.length}`} onClick={() => setGraveSide(1)}>
@@ -1030,7 +1046,18 @@ export function Table({
             <div className="arena-seat-bar">
               <SeatPlate faction={you} name="You" />
               <div className="arena-vitals">
-                <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                {targetingHit ? (
+                  <button
+                    type="button"
+                    className="arena-life-target"
+                    aria-label={"Target yourself"}
+                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 0 } }, playCard(match, selected, { kind: "face", side: 0 }))}
+                  >
+                    <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                  </button>
+                ) : (
+                    <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                )}
                 <Mana max={yours.manaMax} current={yours.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${yours.grave.length}`} onClick={() => setGraveSide(0)}>
@@ -1077,7 +1104,11 @@ export function Table({
                       dim={targeting && !legalUnit(unit)}
                       onClick={() => onUnit(unit)}
                     />
-                    {defending && blockerOf(unit.uid) ? (
+                    {match.turn === 0 && reacting && match.attackers.includes(unit.uid) ? (
+                      <p className="arena-status arena-pending-chip">Hits face unless blocked</p>
+                    ) : attackers.includes(unit.uid) ? (
+                      <p className="arena-status arena-pending-chip">Attacking · hits face unless blocked</p>
+                    ) : defending && blockerOf(unit.uid) ? (
                       <p className="arena-status arena-block-chip-you">Blocking {cardOf(findUnit(match, blockerOf(unit.uid)!)?.defId ?? unit.defId).name}</p>
                     ) : (
                       status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>
@@ -1152,7 +1183,8 @@ export function Table({
 
         <div className="veil-dock arena-dock">
           <div className="arena-dock-main flex flex-col gap-1">
-            {status && <p className={cx("truncate text-sm", error || link?.fault ? "text-danger" : "text-ash")}>{status}</p>}
+            {fault && <p className="arena-dock-error text-sm text-danger" role="alert">{fault}</p>}
+            {hint && <p className="truncate text-sm text-ash">{hint}</p>}
             {blockWarn && <p className="arena-block-warn text-sm text-danger" role="alert">{blockWarn}</p>}
             {match.phase === "defend" && match.turn === 1 && match.winner === null && (
               <EdgeRow className="arena-dock-row">
@@ -1228,7 +1260,10 @@ export function Table({
                   </button>
                 )}
                 {yourTurn && attackers.length > 0 && (
-                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "attack", ids: attackers }, declareAttack(match, attackers))}>
+                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => {
+                      setYouAttacked(true);
+                      commit({ t: "attack", ids: attackers }, declareAttack(match, attackers));
+                    }}>
                     {`Attack with ${attackers.length}`}
                   </ArenaBtn>
                 )}
