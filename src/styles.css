@@ -2351,3 +2351,118 @@ a.veil-btn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ---- Arena resolve VFX (state-diff driven; overlays/modifiers only) ---- */
+.arena-life-fx {
+  position: relative;
+  display: inline-flex;
+}
+
+.arena-life-hit {
+  animation: arena-life-hit 0.45s ease-out;
+}
+
+.arena-life-pop {
+  position: absolute;
+  left: 50%;
+  top: -0.2rem;
+  z-index: 5;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--color-danger);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 85%);
+  animation: arena-life-pop 1s ease-out both;
+}
+
+.arena-life-pop-heal {
+  color: #7fe0a0;
+}
+
+.arena-ward-soak-ring {
+  position: absolute;
+  inset: -4px;
+  z-index: 4;
+  border-radius: 0.5rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #8fd0ff, 0 0 18px 4px rgb(120 190 255 / 60%);
+  animation: arena-ward-soak 0.7s ease-out both;
+}
+
+.arena-fallen {
+  pointer-events: none;
+  animation: arena-fall 0.65s ease-in both;
+}
+
+.arena-resolve-stack {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.arena-trap-flip-card {
+  perspective: 600px;
+}
+
+.arena-trap-flip-card .veil-card {
+  animation: arena-trap-flip 0.55s ease-out both;
+  backface-visibility: hidden;
+}
+
+.arena-trap-flip-rival {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+}
+
+@keyframes arena-life-hit {
+  0% { transform: none; filter: none; }
+  25% { transform: translateX(-4px); filter: brightness(1.5) saturate(1.4); }
+  55% { transform: translateX(3px); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes arena-life-pop {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, -4px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(1); }
+}
+
+@keyframes arena-ward-soak {
+  0% { opacity: 0; transform: scale(0.9); }
+  30% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+
+@keyframes arena-fall {
+  0% { opacity: 1; transform: none; filter: none; }
+  35% { opacity: 0.9; filter: grayscale(1) brightness(1.4); }
+  100% { opacity: 0; transform: translateY(10px) scale(0.85); filter: grayscale(1) brightness(0.5); }
+}
+
+@keyframes arena-trap-flip {
+  0% { transform: rotateY(180deg) scale(0.9); filter: brightness(0.3); }
+  60% { transform: rotateY(-8deg) scale(1.05); filter: brightness(1.3); }
+  100% { transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-life-hit,
+  .arena-life-pop,
+  .arena-ward-soak-ring,
+  .arena-fallen,
+  .arena-trap-flip-card .veil-card {
+    animation: none;
+  }
+  .arena-life-pop {
+    transform: translate(-50%, -18px);
+  }
+  .arena-fallen {
+    opacity: 0.35;
+    filter: grayscale(1);
+  }
+}
