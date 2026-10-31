@@ -2540,7 +2540,7 @@ a.veil-btn {
 }
 
 /* ── Trap spring from the board ───────────────────────────────────── */
-.arena-trap-slot { position: relative; flex: none; }
+.arena-trap-slot { position: relative; flex: none; height: 100%; display: flex; }
 .arena-trap-ready { cursor: pointer; }
 .arena-trap-ready::before,
 .arena-react-frame::before {
@@ -2577,3 +2577,12 @@ a.veil-btn {
 .arena-life-target:hover,
 .arena-life-target:focus-visible { box-shadow: 0 0 0 3px #f0b060, 0 0 22px rgb(240 176 96 / 75%); outline: none; }
 @media (prefers-reduced-motion: reduce) { .arena-life-target { animation: none; } }
+
+/* Set traps share the seat with the lane instead of crushing it on short
+   viewports (the fixed-height trap row left the unit lane ~30px tall). */
+.arena-seat .arena-traps {
+  height: auto;
+  flex: 0.55 1 0;
+  min-height: 2.6rem;
+  max-height: 6.75rem;
+}

@@ -680,7 +680,7 @@ export function Table({
   function onDefendClick(unit: Unit) {
     if (unit.owner === 1) {
       if (!match.attackers.includes(unit.uid)) return;
-      setBlockFocus((prev) => (prev === unit.uid ? null : unit.uid));
+      setBlockFocus(unit.uid);
       return;
     }
     const current = Object.keys(blocks).find((id) => blocks[id] === unit.uid) ?? null;
