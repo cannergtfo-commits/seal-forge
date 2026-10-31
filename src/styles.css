@@ -384,10 +384,24 @@ a.veil-btn {
   right: 0;
   left: 0;
   z-index: 0;
-  height: 62%;
+  height: 100%;
   width: 100%;
   contain: layout paint;
   pointer-events: none;
+  /* Melt the 3D dais into the painted backdrop: no hard edge, soft focus,
+     lowered contrast so cards keep the hierarchy. */
+  opacity: 0.92;
+  filter: saturate(0.9) contrast(0.92);
+  -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 38%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 62% 48% at 50% 38%, #000 30%, transparent 100%);
+}
+
+@media (max-width: 640px) {
+  .arena-canvas {
+    opacity: 0.75;
+    -webkit-mask-image: radial-gradient(ellipse 80% 36% at 50% 34%, #000 25%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 36% at 50% 34%, #000 25%, transparent 100%);
+  }
 }
 
 .arena-hud {
@@ -525,8 +539,11 @@ a.veil-btn {
   margin: 0;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wrap to two lines instead of clipping coach advice. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
   font-size: 0.8rem;
   line-height: 1.25;
 }
@@ -2350,4 +2367,222 @@ a.veil-btn {
   .veil-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* ---- Arena resolve VFX (state-diff driven; overlays/modifiers only) ---- */
+.arena-life-fx {
+  position: relative;
+  display: inline-flex;
+}
+
+.arena-life-hit {
+  animation: arena-life-hit 0.45s ease-out;
+}
+
+.arena-life-pop {
+  position: absolute;
+  left: 50%;
+  top: -0.2rem;
+  z-index: 5;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--color-danger);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 85%);
+  animation: arena-life-pop 1s ease-out both;
+}
+
+.arena-life-pop-heal {
+  color: #7fe0a0;
+}
+
+.arena-ward-soak-ring {
+  position: absolute;
+  inset: -4px;
+  z-index: 4;
+  border-radius: 0.5rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #8fd0ff, 0 0 18px 4px rgb(120 190 255 / 60%);
+  animation: arena-ward-soak 0.7s ease-out both;
+}
+
+.arena-fallen {
+  pointer-events: none;
+  animation: arena-fall 0.65s ease-in both;
+}
+
+.arena-resolve-stack {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.arena-trap-flip-card {
+  perspective: 600px;
+}
+
+.arena-trap-flip-card .veil-card {
+  animation: arena-trap-flip 0.55s ease-out both;
+  backface-visibility: hidden;
+}
+
+.arena-trap-flip-rival {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+}
+
+@keyframes arena-life-hit {
+  0% { transform: none; filter: none; }
+  25% { transform: translateX(-4px); filter: brightness(1.5) saturate(1.4); }
+  55% { transform: translateX(3px); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes arena-life-pop {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, -4px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(1); }
+}
+
+@keyframes arena-ward-soak {
+  0% { opacity: 0; transform: scale(0.9); }
+  30% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+
+@keyframes arena-fall {
+  0% { opacity: 1; transform: none; filter: none; }
+  35% { opacity: 0.9; filter: grayscale(1) brightness(1.4); }
+  100% { opacity: 0; transform: translateY(10px) scale(0.85); filter: grayscale(1) brightness(0.5); }
+}
+
+@keyframes arena-trap-flip {
+  0% { transform: rotateY(180deg) scale(0.9); filter: brightness(0.3); }
+  60% { transform: rotateY(-8deg) scale(1.05); filter: brightness(1.3); }
+  100% { transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-life-hit,
+  .arena-life-pop,
+  .arena-ward-soak-ring,
+  .arena-fallen,
+  .arena-trap-flip-card .veil-card {
+    animation: none;
+  }
+  .arena-life-pop {
+    transform: translate(-50%, -18px);
+  }
+  .arena-fallen {
+    opacity: 0.35;
+    filter: grayscale(1);
+  }
+}
+
+/* ── Board-click blocks (defend window) ───────────────────────────── */
+.arena-block-pick { cursor: pointer; }
+.arena-block-focus { z-index: 4; }
+.arena-block-focus::before,
+.arena-block-can::before,
+.arena-block-paired::before {
+  content: "";
+  position: absolute;
+  inset: -0.26rem;
+  z-index: 0;
+  border-radius: 0.4rem;
+  pointer-events: none;
+}
+.arena-block-focus::before {
+  box-shadow: 0 0 0 2px #e05a44, 0 0 16px rgb(224 90 68 / 60%);
+  animation: arena-block-throb 0.9s ease-in-out infinite alternate;
+}
+.arena-block-can { cursor: pointer; }
+.arena-block-can::before {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brass) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-brass) 80%, white);
+}
+.arena-block-paired::before {
+  box-shadow: 0 0 0 2px #6fb7d8, 0 0 12px rgb(111 183 216 / 55%);
+}
+.arena-block-line {
+  stroke: #8fd0ec;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 6 5;
+  filter: drop-shadow(0 0 4px rgb(111 183 216 / 70%));
+}
+.arena-block-chip {
+  position: absolute;
+  top: 0.2rem;
+  left: 50%;
+  z-index: 3;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgb(10 8 12 / 82%);
+  color: #f0c9a8;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.arena-block-paired .arena-block-chip,
+.arena-block-chip-you { color: #9fd8f0; }
+.arena-block-warn { margin: 0; }
+@keyframes arena-block-throb { to { box-shadow: 0 0 0 3px #f07a5e, 0 0 22px rgb(240 122 94 / 75%); } }
+@media (prefers-reduced-motion: reduce) {
+  .arena-block-focus::before { animation: none; }
+}
+
+/* ── Trap spring from the board ───────────────────────────────────── */
+.arena-trap-slot { position: relative; flex: none; height: 100%; display: flex; }
+.arena-trap-ready { cursor: pointer; }
+.arena-trap-ready::before,
+.arena-react-frame::before {
+  content: "";
+  position: absolute;
+  inset: -0.24rem;
+  border-radius: 0.45rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #c0563f, 0 0 14px rgb(192 86 63 / 55%);
+  animation: arena-react-pulse 1s ease-in-out infinite alternate;
+}
+.arena-trap-armed::before { box-shadow: 0 0 0 3px #f0b060, 0 0 20px rgb(240 176 96 / 70%); }
+.arena-react-frame { position: relative; }
+.arena-react-frame::before { inset: 0; border-radius: 0.5rem; }
+@keyframes arena-react-pulse { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .arena-trap-ready::before,
+  .arena-react-frame::before { animation: none; }
+}
+
+/* ── Coaching + face targeting ────────────────────────────────────── */
+.arena-dock-error { margin: 0; line-height: 1.25; }
+.arena-pending-chip { color: #f0b060 !important; white-space: normal; line-height: 1.1; }
+.arena-life-target {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: crosshair;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brass) 85%, white), 0 0 16px color-mix(in srgb, var(--color-brass) 55%, transparent);
+  animation: arena-react-pulse 1s ease-in-out infinite alternate;
+}
+.arena-life-target:hover,
+.arena-life-target:focus-visible { box-shadow: 0 0 0 3px #f0b060, 0 0 22px rgb(240 176 96 / 75%); outline: none; }
+@media (prefers-reduced-motion: reduce) { .arena-life-target { animation: none; } }
+
+/* Set traps share the seat with the lane instead of crushing it on short
+   viewports (the fixed-height trap row left the unit lane ~30px tall). */
+.arena-seat .arena-traps {
+  height: auto;
+  flex: 0.55 1 0;
+  min-height: 2.6rem;
+  max-height: 6.75rem;
 }
