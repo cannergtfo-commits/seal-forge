@@ -384,10 +384,24 @@ a.veil-btn {
   right: 0;
   left: 0;
   z-index: 0;
-  height: 62%;
+  height: 100%;
   width: 100%;
   contain: layout paint;
   pointer-events: none;
+  /* Melt the 3D dais into the painted backdrop: no hard edge, soft focus,
+     lowered contrast so cards keep the hierarchy. */
+  opacity: 0.92;
+  filter: saturate(0.9) contrast(0.92);
+  -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 38%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 62% 48% at 50% 38%, #000 30%, transparent 100%);
+}
+
+@media (max-width: 640px) {
+  .arena-canvas {
+    opacity: 0.75;
+    -webkit-mask-image: radial-gradient(ellipse 80% 36% at 50% 34%, #000 25%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 36% at 50% 34%, #000 25%, transparent 100%);
+  }
 }
 
 .arena-hud {

@@ -426,6 +426,7 @@ export function Table({
   const snapRef = useRef<[SeatSnap, SeatSnap] | null>(null);
   const fxKey = useRef(0);
   const [lifePops, setLifePops] = useState<LifePop[]>([]);
+  const [scenePulse, setScenePulse] = useState(0);
   const [wardSoak, setWardSoak] = useState<[number, number]>([0, 0]);
   const [trapFlips, setTrapFlips] = useState<TrapFlip[]>([]);
   const [fallen, setFallen] = useState<FallenUnit[]>([]);
@@ -494,6 +495,8 @@ export function Table({
     if (pops.length) {
       const keys = new Set(pops.map((p) => p.key));
       setLifePops((cur) => [...cur, ...pops].slice(-8));
+      // Decorative only: big face hits flare the 3D backdrop.
+      if (pops.some((p) => p.delta <= -3)) setScenePulse((n) => n + 1);
       later(RESOLVE_MS.life, () => setLifePops((cur) => cur.filter((p) => !keys.has(p.key))));
     }
     if (soak[0] || soak[1]) {
@@ -766,7 +769,7 @@ export function Table({
           <video className="arena-video" autoPlay muted loop playsInline poster="/assets/veil/arena/rift.jpg" src="/assets/veil/arena/rift.mp4" />
         )}
       </div>
-      <ArenaScene />
+      <ArenaScene pulse={scenePulse} />
       <div className="arena-fit">
         <div className="arena-hud">
           <ArenaBtn icon="/assets/veil/arena/icon-concede.jpg" onClick={onHall}>
