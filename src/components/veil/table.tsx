@@ -393,6 +393,8 @@ export function Table({
   const [attackers, setAttackers] = useState<string[]>([]);
   const [blocks, setBlocks] = useState<Record<string, string | null>>({});
   const [trapUid, setTrapUid] = useState<string | null>(null);
+  const [blockFocus, setBlockFocus] = useState<string | null>(null);
+  const [pairLines, setPairLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
@@ -441,6 +443,7 @@ export function Table({
     // attackKey is the combat. A fresh attackers array (ranked poll) must not clear picks.
     const ids = attackKey ? attackKey.split("|") : [];
     setBlocks(Object.fromEntries(ids.map((id) => [id, null])));
+    setBlockFocus(ids[0] ?? null);
   }, [match.phase, match.turn, attackKey]);
 
   useEffect(() => {
@@ -645,6 +648,10 @@ export function Table({
 
   function onUnit(unit: Unit) {
     inspect(unit.defId);
+    if (defending) {
+      onDefendClick(unit);
+      return;
+    }
     if (targeting) {
       if (!legalUnit(unit) || !selected) {
         setError("Not a legal target.");
@@ -656,6 +663,35 @@ export function Table({
     if (match.winner || match.turn !== 0 || match.phase !== "main" || unit.owner !== 0) return;
     if (!canAttack(match, unit)) return;
     setAttackers((prev) => (prev.includes(unit.uid) ? prev.filter((id) => id !== unit.uid) : [...prev, unit.uid]));
+  }
+
+  // Board-click blocks: tap an attacker to focus it, then tap a ready ally.
+  // Assignment goes through setBlock (same exclusivity as the dock buttons);
+  // assignDefenders on Confirm stays the only authority.
+  function onDefendClick(unit: Unit) {
+    if (unit.owner === 1) {
+      if (!match.attackers.includes(unit.uid)) return;
+      setBlockFocus((prev) => (prev === unit.uid ? null : unit.uid));
+      return;
+    }
+    const current = Object.keys(blocks).find((id) => blocks[id] === unit.uid) ?? null;
+    if (!blockFocus) {
+      if (current) setBlock(current, null);
+      else setError("Tap an attacker first, then a ready ally.");
+      return;
+    }
+    if (!canBlock(unit)) {
+      setError("A unit that attacked cannot block until its next turn.");
+      return;
+    }
+    setError(null);
+    if (current === blockFocus) {
+      setBlock(blockFocus, null);
+      return;
+    }
+    setBlock(blockFocus, unit.uid);
+    const nextOpen = match.attackers.find((id) => id !== blockFocus && !blocks[id]) ?? null;
+    setBlockFocus(nextOpen);
   }
 
   function setBlock(attacker: string, blocker: string | null) {
@@ -671,6 +707,10 @@ export function Table({
     });
   }
 
+  const defending = match.phase === "defend" && match.turn === 1 && match.winner === null;
+  // Dry-run of the real rule check so Bulwark (and friends) warn before Confirm.
+  const blockWarn = defending && Object.values(blocks).some(Boolean) ? assignDefenders(match, blocks).error ?? null : null;
+  const blockerOf = (uid: string) => Object.keys(blocks).find((id) => blocks[id] === uid) ?? null;
   const trap = trapUid ? attackTraps(match).find((item) => item.uid === trapUid) : null;
   const trapCard = trap ? cardOf(trap.defId) : null;
   const yourTurn = match.turn === 0 && match.phase === "main" && match.winner === null;
@@ -735,6 +775,35 @@ export function Table({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, [targeting, hoverTarget, selected, yours.units, theirs.units]);
+
+  useLayoutEffect(() => {
+    if (!defending) {
+      setPairLines([]);
+      return;
+    }
+    const root = playRef.current;
+    if (!root) return;
+    const update = () => {
+      const rect = root.getBoundingClientRect();
+      const mid = (uid: string) => {
+        const el = tokenRefs.current.get(uid);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2 - rect.left, y: r.top + r.height / 2 - rect.top };
+      };
+      const lines: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const [attacker, blocker] of Object.entries(blocks)) {
+        if (!blocker) continue;
+        const a = mid(attacker);
+        const b = mid(blocker);
+        if (a && b) lines.push({ key: attacker, x1: b.x, y1: b.y, x2: a.x, y2: a.y });
+      }
+      setPairLines(lines);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [defending, blocks, yours.units, theirs.units]);
 
   onDoneRef.current = () => {
     const wire = linkRef.current;
@@ -810,6 +879,13 @@ export function Table({
               />
             </svg>
           )}
+          {defending && pairLines.length > 0 && (
+            <svg className="arena-target-line arena-block-lines" aria-hidden="true">
+              {pairLines.map((line) => (
+                <line key={line.key} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} className="arena-block-line" />
+              ))}
+            </svg>
+          )}
           <div className={cx("arena-coach", `arena-coach-${tone}`)} role="status">
             <span className="arena-coach-phase">
               {tone === "yours" ? "YOUR TURN" : tone === "react" ? "REACT" : tone === "wait" ? "WAIT" : "OVER"}
@@ -883,12 +959,18 @@ export function Table({
                       struck.includes(unit.uid) && "arena-struck",
                       lunging && "arena-lunge-rival",
                       legal && "arena-legal-target",
+                      defending && match.attackers.includes(unit.uid) && "arena-block-pick",
+                      defending && blockFocus === unit.uid && "arena-block-focus",
+                      defending && Boolean(blocks[unit.uid]) && "arena-block-paired",
                     )}
                     onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                     onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
                     onFocus={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                   >
                     <CardFace defId={unit.defId} match={match} unit={unit} size="board" dim={targeting && !legalUnit(unit)} onClick={() => onUnit(unit)} />
+                    {defending && match.attackers.includes(unit.uid) && (
+                      <p className="arena-block-chip">{blocks[unit.uid] ? "Blocked" : cardOf(unit.defId).tags.includes("bulwark") ? "Bulwark · unblocked" : "Unblocked"}</p>
+                    )}
                     {dmgPops
                       .filter((pop) => pop.uid === unit.uid)
                       .map((pop) => (
@@ -947,6 +1029,8 @@ export function Table({
                       attackers.includes(unit.uid) && "arena-lift",
                       lunging && "arena-lunge-you",
                       legal && "arena-legal-target",
+                      defending && blockFocus && canBlock(unit) && !blockerOf(unit.uid) && "arena-block-can",
+                      defending && Boolean(blockerOf(unit.uid)) && "arena-block-paired",
                     )}
                     onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                     onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
@@ -961,7 +1045,11 @@ export function Table({
                       dim={targeting && !legalUnit(unit)}
                       onClick={() => onUnit(unit)}
                     />
-                    {status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>}
+                    {defending && blockerOf(unit.uid) ? (
+                      <p className="arena-status arena-block-chip-you">Blocking {cardOf(findUnit(match, blockerOf(unit.uid)!)?.defId ?? unit.defId).name}</p>
+                    ) : (
+                      status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>
+                    )}
                     {dmgPops
                       .filter((pop) => pop.uid === unit.uid)
                       .map((pop) => (
@@ -1019,6 +1107,7 @@ export function Table({
         <div className="veil-dock arena-dock">
           <div className="arena-dock-main flex flex-col gap-1">
             {status && <p className={cx("truncate text-sm", error || link?.fault ? "text-danger" : "text-ash")}>{status}</p>}
+            {blockWarn && <p className="arena-block-warn text-sm text-danger" role="alert">{blockWarn}</p>}
             {match.phase === "defend" && match.turn === 1 && match.winner === null && (
               <EdgeRow className="arena-dock-row">
                 {match.attackers.map((id) => {

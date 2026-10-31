@@ -2480,3 +2480,58 @@ a.veil-btn {
     filter: grayscale(1);
   }
 }
+
+/* ── Board-click blocks (defend window) ───────────────────────────── */
+.arena-block-pick { cursor: pointer; }
+.arena-block-focus { z-index: 4; }
+.arena-block-focus::before,
+.arena-block-can::before,
+.arena-block-paired::before {
+  content: "";
+  position: absolute;
+  inset: -0.26rem;
+  z-index: 0;
+  border-radius: 0.4rem;
+  pointer-events: none;
+}
+.arena-block-focus::before {
+  box-shadow: 0 0 0 2px #e05a44, 0 0 16px rgb(224 90 68 / 60%);
+  animation: arena-block-throb 0.9s ease-in-out infinite alternate;
+}
+.arena-block-can { cursor: pointer; }
+.arena-block-can::before {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brass) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-brass) 80%, white);
+}
+.arena-block-paired::before {
+  box-shadow: 0 0 0 2px #6fb7d8, 0 0 12px rgb(111 183 216 / 55%);
+}
+.arena-block-line {
+  stroke: #8fd0ec;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 6 5;
+  filter: drop-shadow(0 0 4px rgb(111 183 216 / 70%));
+}
+.arena-block-chip {
+  position: absolute;
+  top: 0.2rem;
+  left: 50%;
+  z-index: 3;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgb(10 8 12 / 82%);
+  color: #f0c9a8;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.arena-block-paired .arena-block-chip,
+.arena-block-chip-you { color: #9fd8f0; }
+.arena-block-warn { margin: 0; }
+@keyframes arena-block-throb { to { box-shadow: 0 0 0 3px #f07a5e, 0 0 22px rgb(240 122 94 / 75%); } }
+@media (prefers-reduced-motion: reduce) {
+  .arena-block-focus::before { animation: none; }
+}
