@@ -2535,3 +2535,25 @@ a.veil-btn {
 @media (prefers-reduced-motion: reduce) {
   .arena-block-focus::before { animation: none; }
 }
+
+/* ── Trap spring from the board ───────────────────────────────────── */
+.arena-trap-slot { position: relative; flex: none; }
+.arena-trap-ready { cursor: pointer; }
+.arena-trap-ready::before,
+.arena-react-frame::before {
+  content: "";
+  position: absolute;
+  inset: -0.24rem;
+  border-radius: 0.45rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px #c0563f, 0 0 14px rgb(192 86 63 / 55%);
+  animation: arena-react-pulse 1s ease-in-out infinite alternate;
+}
+.arena-trap-armed::before { box-shadow: 0 0 0 3px #f0b060, 0 0 20px rgb(240 176 96 / 70%); }
+.arena-react-frame { position: relative; }
+.arena-react-frame::before { inset: 0; border-radius: 0.5rem; }
+@keyframes arena-react-pulse { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .arena-trap-ready::before,
+  .arena-react-frame::before { animation: none; }
+}

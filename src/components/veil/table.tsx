@@ -652,6 +652,14 @@ export function Table({
       onDefendClick(unit);
       return;
     }
+    if (trapping && trap && trapCard && trapNeedsTarget(trapCard.trap) && unit.owner === 1 && match.attackers.includes(unit.uid)) {
+      if (!trapLegalOn(trap.uid, unit.uid)) {
+        setError(springTrap(match, trap.uid, unit.uid).error ?? "Not a legal target.");
+        return;
+      }
+      commit({ t: "trap", uid: trap.uid, target: unit.uid }, springTrap(match, trap.uid, unit.uid));
+      return;
+    }
     if (targeting) {
       if (!legalUnit(unit) || !selected) {
         setError("Not a legal target.");
@@ -711,6 +719,29 @@ export function Table({
   // Dry-run of the real rule check so Bulwark (and friends) warn before Confirm.
   const blockWarn = defending && Object.values(blocks).some(Boolean) ? assignDefenders(match, blocks).error ?? null : null;
   const blockerOf = (uid: string) => Object.keys(blocks).find((id) => blocks[id] === uid) ?? null;
+  const trapping = match.phase === "trap" && match.turn === 1 && match.winner === null;
+  // Dry-run springTrap (pure; clones state) to hide targets the real rule
+  // would reject, e.g. Pit Snare on power > 2. springTrap stays the authority.
+  const trapLegalOn = (uid: string, target: string) => !springTrap(match, uid, target).error;
+  const trapUsable = (uid: string) => {
+    const kind = cardOf(attackTraps(match).find((item) => item.uid === uid)?.defId ?? "").trap;
+    if (!trapNeedsTarget(kind)) return !springTrap(match, uid, null).error;
+    return match.attackers.some((id) => trapLegalOn(uid, id));
+  };
+  const readyTraps = trapping ? attackTraps(match).filter((item) => trapUsable(item.uid)).map((item) => item.uid) : [];
+  function pickTrap(uid: string) {
+    const item = attackTraps(match).find((entry) => entry.uid === uid);
+    if (!item) return;
+    const card = cardOf(item.defId);
+    setBlurb(`${card.name}. ${card.text}`);
+    if (!trapUsable(uid)) {
+      setError(`${card.name} has no legal attacker to catch.`);
+      return;
+    }
+    setError(null);
+    setTrapUid(uid);
+    if (!trapNeedsTarget(card.trap)) commit({ t: "trap", uid, target: null }, springTrap(match, uid, null));
+  }
   const trap = trapUid ? attackTraps(match).find((item) => item.uid === trapUid) : null;
   const trapCard = trap ? cardOf(trap.defId) : null;
   const yourTurn = match.turn === 0 && match.phase === "main" && match.winner === null;
@@ -960,6 +991,7 @@ export function Table({
                       lunging && "arena-lunge-rival",
                       legal && "arena-legal-target",
                       defending && match.attackers.includes(unit.uid) && "arena-block-pick",
+                      trapping && trap && trapCard && trapNeedsTarget(trapCard.trap) && trapLegalOn(trap.uid, unit.uid) && "arena-legal-target",
                       defending && blockFocus === unit.uid && "arena-block-focus",
                       defending && Boolean(blocks[unit.uid]) && "arena-block-paired",
                     )}
@@ -1074,7 +1106,21 @@ export function Table({
             {yours.traps.length > 0 && (
               <EdgeRow className="arena-traps">
                 {yours.traps.map((item) => (
-                  <CardFace key={item.uid} defId={item.defId} size="board" onClick={() => inspect(item.defId)} />
+                  <div
+                    key={item.uid}
+                    className={cx(
+                      "arena-trap-slot",
+                      readyTraps.includes(item.uid) && "arena-trap-ready",
+                      trapUid === item.uid && "arena-trap-armed",
+                    )}
+                  >
+                    <CardFace
+                      defId={item.defId}
+                      size="board"
+                      onClick={() => (trapping && attackTraps(match).some((entry) => entry.uid === item.uid) ? pickTrap(item.uid) : inspect(item.defId))}
+                    />
+                    {readyTraps.includes(item.uid) && <p className="arena-block-chip">{trapUid === item.uid ? "Pick attacker" : "Spring"}</p>}
+                  </div>
                 ))}
               </EdgeRow>
             )}
@@ -1139,18 +1185,15 @@ export function Table({
               </EdgeRow>
             )}
             {match.phase === "trap" && match.turn === 1 && match.winner === null && (
-              <EdgeRow className="arena-dock-row">
+              <EdgeRow className="arena-dock-row arena-react-frame">
                 {attackTraps(match).map((item) => (
                   <button
                     key={item.uid}
                     type="button"
                     className={cx("veil-btn", trapUid === item.uid && "veil-btn-primary")}
-                    onClick={() => {
-                      const card = cardOf(item.defId);
-                      setTrapUid(item.uid);
-                      setBlurb(`${card.name}. ${card.text}`);
-                      if (!trapNeedsTarget(card.trap)) commit({ t: "trap", uid: item.uid, target: null }, springTrap(match, item.uid, null));
-                    }}
+                    disabled={!readyTraps.includes(item.uid)}
+                    title={readyTraps.includes(item.uid) ? undefined : "No legal attacker"}
+                    onClick={() => pickTrap(item.uid)}
                   >
                     {cardOf(item.defId).name}
                   </button>
@@ -1158,7 +1201,7 @@ export function Table({
                 {trapCard && trapNeedsTarget(trapCard.trap) &&
                   match.attackers.map((id) => {
                     const unit = findUnit(match, id);
-                    if (!unit) return null;
+                    if (!unit || !trap || !trapLegalOn(trap.uid, id)) return null;
                     return (
                       <button key={id} type="button" className="veil-btn" onClick={() => trap && commit({ t: "trap", uid: trap.uid, target: unit.uid }, springTrap(match, trap.uid, unit.uid))}>
                         On {cardOf(unit.defId).name}
