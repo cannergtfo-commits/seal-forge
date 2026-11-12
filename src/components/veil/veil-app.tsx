@@ -22,7 +22,8 @@ import { openSession } from "@/veil/game-session";
 import { gameKeySigns } from "@/veil/signer";
 import { shortAddr } from "@/veil/chain";
 import { redactKey, usePolKey } from "@/veil/keys";
-import { buySealedPack } from "@/veil/pack-buy";
+import { findAnyPendingPack, reserveSealedPack, settleSealedPack, waitForPackMint, type PackReservation } from "@/veil/pack-buy";
+import { PackMintGate, packShopLocked, type PackMintPhase } from "@/components/veil/pack-mint";
 import { armPackScore, type PackScore } from "@/veil/pack-score";
 import { startMatch, type Match } from "@/veil/logic";
 import { metadataFor, useVault } from "@/veil/store";
@@ -115,6 +116,8 @@ export function VeilApp() {
   const [pulls, setPulls] = useState<CardDef[] | null>(null);
   const [packError, setPackError] = useState<string | null>(null);
   const [packBusy, setPackBusy] = useState(false);
+  const [packPhase, setPackPhase] = useState<PackMintPhase>("shop");
+  const [packHold, setPackHold] = useState<PackReservation | null>(null);
   const [packSet, setPackSet] = useState<PackEdition>("ashen");
   const [binderSeal, setBinderSeal] = useState<Faction | "all">("all");
   const [codexSeal, setCodexSeal] = useState<Faction | "all">("all");
@@ -149,6 +152,21 @@ export function VeilApp() {
     if (screen !== "fight" && screen !== "ranked") stopArenaMusic();
   }, [screen]);
 
+  useEffect(() => {
+    if (screen !== "packs" || !ready || pulls || packPhase !== "shop") return;
+    if ((isApk() || !useInjected.getState().address) && !key) return;
+    let cancel = false;
+    void findAnyPendingPack(key)
+      .then((pending) => {
+        if (cancel || !pending) return;
+        void confirmPayment(pending);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [screen, ready, pulls, packPhase, key]);
+
   function begin(nextYou = you, nextBot = botId) {
     armArenaMusic();
     const picked = botOf(nextBot);
@@ -177,8 +195,22 @@ export function VeilApp() {
   const ashenLive = isAddress(ASHEN_PACKS) && BigInt(ASHEN_PACKS) !== 0n;
   const packLive = packSet === "kage" ? kageLive : packSet === "ashen" ? ashenLive : true;
 
+  const packLocked = packShopLocked(packPhase);
+
+  async function confirmPayment(hold: PackReservation) {
+    setPackHold(hold);
+    setPackSet(hold.edition);
+    setPackPhase("confirming");
+    try {
+      await waitForPackMint(key, hold.openedAt);
+    } catch {
+      /* still offer mint; settle retries if the wallet node is behind */
+    }
+    setPackPhase("mint");
+  }
+
   async function buy(faction: number) {
-    if (!ready || pulls || packBusy) return;
+    if (!ready || pulls || packBusy || packLocked) return;
     if ((isApk() || !useInjected.getState().address) && !key) {
       setPackError(isApk() ? "Make a wallet in the game and send it BzB before opening a pack." : "Connect a wallet, or generate one, and send it BzB before opening a pack.");
       return;
@@ -187,18 +219,48 @@ export function VeilApp() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     scoreRef.current = reduce ? null : armPackScore();
     setPackBusy(true);
+    setPackPhase("buying");
     setPackError(null);
     try {
-      const result = await buySealedPack(key, packSet, faction);
-      notePull(result);
-      setPulls(result);
+      const hold = await reserveSealedPack(key, packSet, faction);
+      setPackBusy(false);
+      await confirmPayment(hold);
     } catch (err) {
       setPackError(redactKey(err instanceof Error ? err.message : "The pack did not open.", key));
       scoreRef.current?.stop();
       scoreRef.current = null;
+      setPackPhase("shop");
+      setPackHold(null);
+      setPackBusy(false);
+    }
+  }
+
+  async function mintPack() {
+    if (!packHold || packPhase !== "mint") return;
+    setPackPhase("minting");
+    setPackBusy(true);
+    setPackError(null);
+    try {
+      const result = await settleSealedPack(key, packHold);
+      notePull(result);
+      setPulls(result);
+      setPackHold(null);
+      setPackPhase("shop");
+    } catch (err) {
+      setPackError(redactKey(err instanceof Error ? err.message : "The pack did not open.", key));
+      setPackPhase("mint");
     } finally {
       setPackBusy(false);
     }
+  }
+
+  function clearPacks() {
+    if (packLocked) return;
+    setPulls(null);
+    setPackError(null);
+    setPackHold(null);
+    setPackPhase("shop");
+    setScreen("home");
   }
 
   return (
@@ -378,31 +440,32 @@ export function VeilApp() {
 
       {screen === "packs" && (
         <>
-          <Bar title="Packs" onBack={() => { setPulls(null); setScreen("home"); }} />
+          <Bar title="Packs" onBack={packLocked ? undefined : clearPacks} />
           <main className="mx-auto max-w-5xl px-4 pb-8">
             {pulls ? (
               <PackOpen
                 cards={pulls}
                 score={scoreRef.current}
-                onBinder={() => { setPulls(null); setScreen("binder"); }}
-                onAgain={() => setPulls(null)}
+                onBinder={() => { setPulls(null); setPackHold(null); setPackPhase("shop"); setScreen("binder"); }}
+                onAgain={() => { setPulls(null); setPackHold(null); setPackPhase("shop"); setPackError(null); }}
               />
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-wrap gap-2 md:col-span-2">
-                  <button type="button" className={cx("veil-btn", packSet === "founding" && "veil-btn-primary")} onClick={() => setPackSet("founding")}>
+                  <button type="button" className={cx("veil-btn", packSet === "founding" && "veil-btn-primary")} disabled={packLocked} onClick={() => setPackSet("founding")}>
                     Founding
                   </button>
-                  <button type="button" className={cx("veil-btn", packSet === "blazar" && "veil-btn-primary")} onClick={() => setPackSet("blazar")}>
+                  <button type="button" className={cx("veil-btn", packSet === "blazar" && "veil-btn-primary")} disabled={packLocked} onClick={() => setPackSet("blazar")}>
                     Blazar Veil
                   </button>
-                  <button type="button" className={cx("veil-btn", packSet === "kage" && "veil-btn-primary")} onClick={() => setPackSet("kage")}>
+                  <button type="button" className={cx("veil-btn", packSet === "kage" && "veil-btn-primary")} disabled={packLocked} onClick={() => setPackSet("kage")}>
                     Kage Veil
                   </button>
-                  <button type="button" className={cx("veil-btn", packSet === "ashen" && "veil-btn-primary")} onClick={() => setPackSet("ashen")}>
+                  <button type="button" className={cx("veil-btn", packSet === "ashen" && "veil-btn-primary")} disabled={packLocked} onClick={() => setPackSet("ashen")}>
                     Ashen Veil
                   </button>
                 </div>
+                <PackMintGate phase={packPhase} error={packError} onMint={() => void mintPack()} />
                 <article className="rounded-md border border-line bg-panel p-4">
                   <CardBack size="trap" marked />
                   <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -419,8 +482,8 @@ export function VeilApp() {
                       : "Five founding cards from any seal. About 62% common, 25% uncommon, 13% rare. Starter decks stay on this set."}
                   </p>
                   {!packLive && <p className="mt-2 text-sm text-brass">That set is in the codex. Packs open after the edition is sealed and frozen.</p>}
-                  <button type="button" className="veil-btn veil-btn-primary mt-4" disabled={!ready || packBusy || !packLive} onClick={() => void buy(0)}>
-                    Open · {packBusy ? "sealing" : packBz(packSet, false)} BzB
+                  <button type="button" className="veil-btn veil-btn-primary mt-4" disabled={!ready || packBusy || packLocked || !packLive} onClick={() => void buy(0)}>
+                    Open · {packPhase === "buying" ? "sealing" : packBz(packSet, false)} BzB
                   </button>
                 </article>
                 <article className="rounded-md border border-line bg-panel p-4">
@@ -437,6 +500,7 @@ export function VeilApp() {
                         type="button"
                         aria-pressed={seal === faction.id}
                         onClick={() => setSeal(faction.id)}
+                        disabled={packLocked}
                         className={cx("veil-btn", seal === faction.id && "veil-btn-primary")}
                       >
                         <span className="seal-icon" data-faction={faction.id}>
@@ -446,13 +510,13 @@ export function VeilApp() {
                       </button>
                     ))}
                   </div>
-                  <button type="button" className="veil-btn veil-btn-primary mt-4" disabled={!ready || packBusy || !packLive} onClick={() => void buy(seal === "elf" ? 1 : seal === "human" ? 2 : seal === "goblin" ? 3 : seal === "robot" ? 4 : 5)}>
-                    Open · {packBusy ? "sealing" : packBz(packSet, true)} BzB
+                  <button type="button" className="veil-btn veil-btn-primary mt-4" disabled={!ready || packBusy || packLocked || !packLive} onClick={() => void buy(seal === "elf" ? 1 : seal === "human" ? 2 : seal === "goblin" ? 3 : seal === "robot" ? 4 : 5)}>
+                    Open · {packPhase === "buying" ? "sealing" : packBz(packSet, true)} BzB
                   </button>
                 </article>
-                {packError && <p className="text-sm text-danger md:col-span-2">{packError}</p>}
+                {packError && packPhase === "shop" && <p className="text-sm text-danger md:col-span-2">{packError}</p>}
                 <p className="text-sm leading-relaxed text-ash md:col-span-2">
-                  Packs are paid in BzB. The roll is the hash of the block that took the payment, then the cards mint on the next block. Forge and seal packs share one mint for the set you have selected.
+                  Packs are paid in BzB. The roll is the hash of the block that took the payment. After a short wait, you mint the cards to your wallet. Forge and seal packs share one mint for the set you have selected.
                 </p>
               </div>
             )}
