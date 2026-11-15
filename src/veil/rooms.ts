@@ -437,6 +437,7 @@ export function act(id: string, action: Act): { error?: string; view: ReturnType
 function claimFor(room: Room, seat: Side): { matchId: `0x${string}`; player: `0x${string}` } | null {
   if (room.prize) return room.prize.player.toLowerCase() === room.seats[seat].address.toLowerCase() ? room.prize : null;
   if (room.match.winner !== seat) return null;
+  if (!room.scored) return null;
   if (!room.seats[seat].eligible) return null;
   const address = room.seats[seat].address;
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
@@ -444,6 +445,37 @@ function claimFor(room: Room, seat: Side): { matchId: `0x${string}`; player: `0x
   const hex = Buffer.from(room.id).toString("hex").padEnd(64, "0").slice(0, 64);
   room.prize = { matchId: `0x${hex}`, player: address as `0x${string}` };
   return room.prize;
+}
+
+export type ScoredPrize = { matchId: `0x${string}`; player: `0x${string}` };
+export type ScoredPrizeError = "missing" | "not-winner" | "needs-card" | "cap";
+
+/** Prize for a win this server already scored. Used by POST /api/veilforge/reward. */
+export function scoredPrizeFor(address: string, roomId: string): { prize: ScoredPrize; created: boolean } | { error: ScoredPrizeError } {
+  const room = rooms.get(roomId);
+  if (!room || room.match.winner === null) return { error: "missing" };
+  if (!room.scored) pendingScores.push(...scoreRoom(room));
+  if (!room.scored) return { error: "missing" };
+  const seat = room.match.winner;
+  const winner = room.seats[seat];
+  if (winner.bot || !/^0x[0-9a-fA-F]{40}$/.test(address) || winner.address.toLowerCase() !== address.toLowerCase()) {
+    return { error: "not-winner" };
+  }
+  const existed = Boolean(room.prize);
+  if (existed && room.prize && room.prize.player.toLowerCase() !== address.toLowerCase()) return { error: "not-winner" };
+  if (!existed && !winner.eligible) return { error: "needs-card" };
+  const prize = claimFor(room, seat);
+  if (!prize) return { error: winner.eligible ? "cap" : "needs-card" };
+  return { prize, created: !existed };
+}
+
+/** Undo a prize reservation if the signature never went out. */
+export function releaseUnsentPrize(roomId: string, address: string): void {
+  const room = rooms.get(roomId);
+  if (!room?.prize) return;
+  if (room.prize.player.toLowerCase() !== address.toLowerCase()) return;
+  room.prize = null;
+  refundDailyWin(address);
 }
 
 export function prizeFor(id: string): { matchId: `0x${string}`; player: `0x${string}` } | null {
