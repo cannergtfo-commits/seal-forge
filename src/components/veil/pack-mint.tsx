@@ -43,7 +43,12 @@ export function PackMintGate({
           Mint your cards
         </button>
       )}
-      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+      {error && (
+        <>
+          <p className="mt-3 text-sm text-danger">{error}</p>
+          <p className="mt-2 text-sm text-ash">If mint keeps failing after a payment, open your binder. The cards may already be there.</p>
+        </>
+      )}
     </article>
   );
 }

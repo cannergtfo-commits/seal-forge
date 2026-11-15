@@ -112,8 +112,46 @@ function cardFor(edition: CardSet, tokenId: number): CardDef {
   return card;
 }
 
+const REVERT_NAMES: Record<string, string> = {
+  "0x3b334652": "Early",
+  "0xe143a034": "Bad",
+  "0x3ef33375": "Busy",
+  "0x52df9fe5": "SoldOut",
+};
+
+function revertName(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current && typeof current === "object"; depth++) {
+    const row = current as Record<string, unknown>;
+    if (typeof row.errorName === "string" && row.errorName) return row.errorName;
+    const data = row.data;
+    if (typeof data === "string") {
+      const match = data.match(/0x[0-9a-fA-F]{8}/);
+      if (match && REVERT_NAMES[match[0].toLowerCase()]) return REVERT_NAMES[match[0].toLowerCase()]!;
+    }
+    if (data && typeof data === "object" && typeof (data as { errorName?: string }).errorName === "string") {
+      return (data as { errorName: string }).errorName;
+    }
+    current = row.cause;
+  }
+  return null;
+}
+
+function invalidParams(error: unknown): boolean {
+  const code = typeof error === "object" && error && "code" in error ? Number((error as { code: unknown }).code) : 0;
+  if (code === -32602) return true;
+  const text = error instanceof Error ? error.message : typeof error === "object" && error && "shortMessage" in error && typeof (error as { shortMessage?: unknown }).shortMessage === "string" ? (error as { shortMessage: string }).shortMessage : String(error);
+  return /invalid parameters were provided to the rpc method/i.test(text);
+}
+
 function explain(error: unknown): string {
   if (timedOut(error)) return TIMEOUT;
+  const revert = revertName(error);
+  if (revert === "Early") return "The payment is still confirming. Wait a few seconds and click Mint your cards again.";
+  if (revert === "Bad") return "This pack was already minted, or the reservation is gone. Check your binder for the cards.";
+  if (revert === "Busy") return "The pack contract is busy. Wait a moment and click Mint your cards again.";
+  if (revert === "SoldOut") return "That set is sold out.";
+  if (invalidParams(error)) return "The wallet could not simulate the mint yet. Wait a few seconds and click Mint your cards again. If you already paid, check your binder — the cards may already be there.";
   if (typeof error === "object" && error && "shortMessage" in error && typeof error.shortMessage === "string") return error.shortMessage;
   if (error instanceof Error) return error.message;
   return "The pack did not open.";
@@ -148,28 +186,65 @@ async function confirm(hash: `0x${string}`, buyer: Address) {
   return receipt;
 }
 
-/** Prefer the wallet's own node, because settle reverts Early() if that node is still on the buy block. */
-async function walletHead(key: `0x${string}` | null): Promise<bigint> {
-  try {
-    const { wallet } = await playerClient(key);
-    const hex = await wallet.request({ method: "eth_blockNumber" });
-    if (typeof hex === "string" && /^0x[0-9a-fA-F]+$/.test(hex)) return BigInt(hex);
-  } catch {
-    /* use the public client */
-  }
-  return polygonClient.getBlockNumber();
+function asBlockNumber(value: unknown): bigint | null {
+  if (typeof value === "bigint" && value >= 0n) return value;
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return BigInt(Math.floor(value));
+  if (typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value)) return BigInt(value);
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return null;
 }
 
+/** Some wallets return -32602 unless params is an empty array, and some return a number instead of hex. */
+async function readWalletHead(wallet: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }): Promise<bigint | null> {
+  try {
+    const value = await wallet.request({ method: "eth_blockNumber", params: [] });
+    return asBlockNumber(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Prefer the wallet's own node, because settle reverts Early() if that node is still on the buy block. */
 async function waitPast(key: `0x${string}` | null, block: bigint, ahead = 2n) {
+  let wallet: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null = null;
+  try {
+    wallet = (await playerClient(key)).wallet;
+  } catch {
+    /* poll the public client instead */
+  }
   const deadline = Date.now() + SETTLE_WAIT_MS;
+  let sawWallet = false;
   for (;;) {
     const left = deadline - Date.now();
     if (left <= 0) throw new Error(TIMEOUT);
-    const head = await within(walletHead(key), left);
-    if (head >= block + ahead) return;
+    let fromWallet = false;
+    let head: bigint | null = null;
+    if (wallet) {
+      head = await Promise.race([
+        readWalletHead(wallet),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), Math.min(3_000, left))),
+      ]);
+      if (head != null) {
+        fromWallet = true;
+        sawWallet = true;
+      }
+    }
+    if (head == null) head = await within(polygonClient.getBlockNumber(), left);
+    // If we could not read the wallet node, wait two extra public blocks so we do not offer mint too early.
+    const need = fromWallet || sawWallet ? ahead : ahead + 2n;
+    if (head >= block + need) return;
     const pause = Math.min(1_000, deadline - Date.now());
     if (pause <= 0) throw new Error(TIMEOUT);
     await new Promise((resolve) => setTimeout(resolve, pause));
+  }
+}
+
+async function cardsIfOpened(pack: `0x${string}`, buyer: Address, fromBlock: bigint): Promise<CardDef[] | null> {
+  try {
+    const logs = await within(polygonClient.getLogs({ address: pack, fromBlock, toBlock: "latest" }));
+    return openedFrom(pack, logs, buyer);
+  } catch {
+    return null;
   }
 }
 
@@ -218,11 +293,14 @@ async function pendingOn(key: `0x${string}` | null, edition: CardSet): Promise<P
 /** A paid pack that has not been minted yet, if one exists in the last 256 orders. */
 export async function findAnyPendingPack(key: `0x${string}` | null): Promise<PackReservation | null> {
   try {
+    const found: PackReservation[] = [];
     for (const edition of EDITIONS) {
       const pending = await pendingOn(key, edition);
-      if (pending) return pending;
+      if (pending) found.push(pending);
     }
-    return null;
+    if (!found.length) return null;
+    found.sort((a, b) => (a.openedAt < b.openedAt ? 1 : a.openedAt > b.openedAt ? -1 : 0));
+    return found[0]!;
   } catch (error) {
     throw new Error(redactKey(explain(error), key));
   }
@@ -304,14 +382,29 @@ export async function settleSealedPack(key: `0x${string}` | null, reservation: P
       } catch (error) {
         if (rejected(error)) throw error;
         lastSettle = error;
+        const already = await cardsIfOpened(pack, address, openedAt);
+        if (already) return already;
       }
     }
+    const recovered = await cardsIfOpened(pack, address, openedAt);
+    if (recovered) return recovered;
     if (!settled) throw new Error(lastSettle ? `${SETTLE_RETRY} ${explain(lastSettle)}` : SETTLE_RETRY);
-    const opened = await confirm(settled, address);
-    const cards = openedFrom(pack, opened.logs, address);
-    if (!cards) throw new Error("The pack opened, but the cards were not in the receipt.");
-    return cards;
+    try {
+      const opened = await confirm(settled, address);
+      const cards = openedFrom(pack, opened.logs, address);
+      if (cards) return cards;
+    } catch (error) {
+      if (rejected(error)) throw error;
+      const late = await cardsIfOpened(pack, address, openedAt);
+      if (late) return late;
+      throw error;
+    }
+    const late = await cardsIfOpened(pack, address, openedAt);
+    if (late) return late;
+    throw new Error("The pack opened, but the cards were not in the receipt.");
   } catch (error) {
+    const recovered = await cardsIfOpened(pack, address, openedAt);
+    if (recovered) return recovered;
     throw new Error(redactKey(explain(error), key));
   }
 }
