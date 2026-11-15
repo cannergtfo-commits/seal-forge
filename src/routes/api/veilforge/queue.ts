@@ -5,14 +5,21 @@ import type { Faction } from "@/veil/cards";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { signPrize } from "@/veil/keeper-sign";
 import { deckSeal, parseDeck } from "@/veil/ranks";
-import { act, drainScores, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
+import { act, deferScores, drainScores, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
 import { ownsStage } from "@/veil/stages";
 
 const factions = new Set<Faction>(["elf", "human", "goblin", "robot", "demon"]);
 
 async function finish(id: string) {
   const scored = [...drainScores(), ...scoreboard(id)];
-  if (scored.length) await applyXp(scored);
+  if (!scored.length) return;
+  try {
+    const failed = await applyXp(scored);
+    if (failed.length) deferScores(failed);
+  } catch (error) {
+    console.error("[xp] could not apply match scores; will retry", error);
+    deferScores(scored);
+  }
 }
 
 async function readSeat(body: { name?: string; faction?: string; address?: string; deck?: unknown; stage?: unknown }): Promise<
@@ -34,7 +41,7 @@ async function readSeat(body: { name?: string; faction?: string; address?: strin
   }
   if (!address) deck = null;
   if (address) {
-    const balances = await veilBalances(address).catch(() => null);
+    const balances = await readBalances(address);
     eligible = Boolean(balances?.some((count) => count > 0));
     if (deck) {
       const owned = balances ? await deckOwned(address, deck) : { ok: false as const, error: "Could not read this wallet's card NFTs." };
@@ -100,6 +107,7 @@ export const Route = createFileRoute("/api/veilforge/queue")({
         }
         if (body.op === "bot") {
           const found = seatBot(id);
+          await finish(id);
           if (found.error) return Response.json({ error: found.error }, { status: 400 });
           return Response.json(found);
         }
@@ -115,3 +123,14 @@ export const Route = createFileRoute("/api/veilforge/queue")({
     },
   },
 });
+
+/** Polygon reads sometimes fail; retry so a flaky RPC does not silently cost a player their win reward. */
+async function readBalances(address: `0x${string}`): Promise<number[] | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const balances = await veilBalances(address).catch(() => null);
+    if (balances) return balances;
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  console.warn(`[veilforge] card ownership read failed for ${address}; win reward eligibility off for this match`);
+  return null;
+}

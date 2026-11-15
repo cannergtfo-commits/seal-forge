@@ -107,7 +107,6 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
           setProfile(local);
           return;
         }
-        keep(address, data.profile, data.seal);
         const serverGames = data.profile.wins + data.profile.losses;
         const backupGames = backup ? backup.wins + backup.losses : 0;
         if (backup && backupGames > serverGames && backup.xp >= data.profile.xp) {
@@ -124,6 +123,7 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
             return;
           }
         }
+        keep(address, data.profile, data.seal);
         setProfile(data.profile);
         setName(data.profile.name);
       })
@@ -172,7 +172,10 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
       setBusy(false);
       return;
     }
-    if (!session) return;
+    if (!session || session.token === "device") {
+      setError("Sign in with your wallet to save your name and portrait.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -269,8 +272,11 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
               {profile.gifted && <p className="mt-2 text-sm text-ash">The level 2 Founding Forge pack was already gifted to this profile.</p>}
               {(!session || session.token === "device") && (
                 <button type="button" className="veil-btn mt-3" disabled={busy} onClick={() => void signIn()}>
-                  Sign in to keep this rank
+                  Sign in to earn and save XP
                 </button>
+              )}
+              {(!session || session.token === "device") && (
+                <p className="mt-2 text-sm text-ash">Connecting a wallet is not enough. Ranked wins only add XP after you sign in. Local practice and friend-device tables do not award XP.</p>
               )}
               {giftNote && <p className="mt-2 text-sm text-bone">{giftNote}</p>}
               <label className="mt-3 block text-xs text-ash" htmlFor="duelist-name">

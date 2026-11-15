@@ -9,7 +9,8 @@ import { ASHEN_NFT, ASHEN_PACKS, BLAZAR_NFT, BLAZAR_PACKS, BAZAAR, BZB, CARDS_NF
 import { veilBalances } from "@/veil/holds";
 import { redactKey } from "@/veil/keys";
 import { isApk } from "@/veil/shell";
-import { buySealedPack } from "@/veil/pack-buy";
+import { findAnyPendingPack, reserveSealedPack, settleSealedPack, waitForPackMint, type PackReservation } from "@/veil/pack-buy";
+import { PackMintGate, packShopLocked, type PackMintPhase } from "@/components/veil/pack-mint";
 import { ensureBzb, sendGame } from "@/veil/signer";
 import { rarityLabel, rarityTier } from "@/veil/pack-score";
 import { createPublicClient, decodeEventLog, formatUnits, http, isAddress, parseUnits, type Hex } from "viem";
@@ -372,6 +373,8 @@ export function Market({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [packPhase, setPackPhase] = useState<PackMintPhase>("shop");
+  const [packHold, setPackHold] = useState<PackReservation | null>(null);
   const [booting, setBooting] = useState(true);
   const flight = useRef(0);
   const detailRef = useRef<HTMLElement>(null);
@@ -453,6 +456,21 @@ export function Market({ onBack }: { onBack: () => void }) {
     detailRef.current?.scrollIntoView({ block: "nearest" });
   }, [focusId]);
 
+  useEffect(() => {
+    if (packPhase !== "shop" || !canSign()) return;
+    let cancel = false;
+    void findAnyPendingPack(key)
+      .then((pending) => {
+        if (cancel || !pending) return;
+        setTab("packs");
+        void confirmPayment(pending);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [tab, packPhase, key, address]);
+
   function canSign() {
     return Boolean(key || external);
   }
@@ -469,24 +487,59 @@ export function Market({ onBack }: { onBack: () => void }) {
     });
   }
 
+  const packLocked = packShopLocked(packPhase);
+
+  async function confirmPayment(hold: PackReservation) {
+    setPackHold(hold);
+    setPackPhase("confirming");
+    setNotice(null);
+    try {
+      await waitForPackMint(key, hold.openedAt);
+    } catch {
+      /* still offer mint; settle retries if the wallet node is behind */
+    }
+    setPackPhase("mint");
+  }
+
   async function buyPack(editionId: "founding" | "blazar" | "kage" | "ashen", factionId: number) {
-    if (!canSign()) return;
+    if (!canSign() || packLocked) return;
     setBusy(true);
+    setPackPhase("buying");
     setError(null);
     setNotice(null);
     try {
-      await buySealedPack(key, editionId, factionId);
-      await refresh();
-      setNotice("Pack opened.");
+      const hold = await reserveSealedPack(key, editionId, factionId);
+      setBusy(false);
+      await confirmPayment(hold);
     } catch (err) {
       setError(fault(err, "The pack did not open.", key));
+      setPackPhase("shop");
+      setPackHold(null);
+      setBusy(false);
+    }
+  }
+
+  async function mintPack() {
+    if (!packHold || packPhase !== "mint") return;
+    setPackPhase("minting");
+    setBusy(true);
+    setError(null);
+    try {
+      await settleSealedPack(key, packHold);
+      await refresh();
+      setNotice("Pack opened.");
+      setPackHold(null);
+      setPackPhase("shop");
+    } catch (err) {
+      setError(fault(err, "The pack did not open.", key));
+      setPackPhase("mint");
     } finally {
       setBusy(false);
     }
   }
 
   async function listCopies(card: CardDef, count: number) {
-    if (!address || !canSign()) return;
+    if (!address || !canSign() || packLocked) return;
     const wei = priceWei(askPrice);
     if (!wei) {
       setError("Enter a price in BzB.");
@@ -524,7 +577,7 @@ export function Market({ onBack }: { onBack: () => void }) {
   }
 
   async function buyLot(stall: Stall, index: number, cost: bigint) {
-    if (!address || !canSign()) return;
+    if (!address || !canSign() || packLocked) return;
     const spender = spenderOf(stall);
     setBusy(true);
     setError(null);
@@ -555,7 +608,7 @@ export function Market({ onBack }: { onBack: () => void }) {
   }
 
   async function cancelLot(stall: Stall, index: number) {
-    if (!canSign()) return;
+    if (!canSign() || packLocked) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -672,7 +725,7 @@ export function Market({ onBack }: { onBack: () => void }) {
     <>
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
-          <button type="button" className="veil-btn" onClick={onBack}>
+          <button type="button" className="veil-btn" disabled={packLocked} onClick={onBack}>
             Back
           </button>
           <div>
@@ -682,14 +735,14 @@ export function Market({ onBack }: { onBack: () => void }) {
         </div>
         <div className="flex items-center gap-2">
           <p className="font-mono text-sm text-ash">{!address ? "No wallet" : bzbBal === "—" ? "…" : `${bzb(parseUnits(bzbBal, 18))} BzB`}</p>
-          <button type="button" className="veil-btn" disabled={busy || booting} onClick={() => void refresh().catch(() => setError("The market did not answer."))}>
+          <button type="button" className="veil-btn" disabled={busy || booting || packLocked} onClick={() => void refresh().catch(() => setError("The market did not answer."))}>
             Refresh
           </button>
         </div>
       </header>
       <main className="mx-auto grid max-w-6xl gap-4 px-4 pb-10">
         {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game before you buy, sell, or open your collection." : "Connect a wallet extension, or generate one, before you buy, sell, or open your collection."}</p>}
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && packPhase === "shop" && <p className="text-sm text-danger">{error}</p>}
         {notice && <p className="text-sm text-brass">{notice}</p>}
         <dl className="stall-stats">
           <div className="veil-box stall-stat rounded-md" title="Live listings across both stalls">
@@ -711,19 +764,19 @@ export function Market({ onBack }: { onBack: () => void }) {
         </dl>
         <p className="text-sm leading-relaxed text-ash">Founding cards clear on the original stall. Blazar, Kage, and Ashen clear on the set stall. A card stays in escrow until someone pays BzB or you cancel.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={cx("veil-btn", tab === "sale" && "veil-btn-primary")} aria-pressed={tab === "sale"} onClick={() => setTab("sale")}>
+          <button type="button" className={cx("veil-btn", tab === "sale" && "veil-btn-primary")} aria-pressed={tab === "sale"} disabled={packLocked} onClick={() => setTab("sale")}>
             For sale · {live.length}
           </button>
-          <button type="button" className={cx("veil-btn", tab === "mine" && "veil-btn-primary")} aria-pressed={tab === "mine"} onClick={() => setTab("mine")}>
+          <button type="button" className={cx("veil-btn", tab === "mine" && "veil-btn-primary")} aria-pressed={tab === "mine"} disabled={packLocked} onClick={() => setTab("mine")}>
             My listings · {live.filter((lot) => mine(lot.seller)).length}
           </button>
-          <button type="button" className={cx("veil-btn", tab === "collection" && "veil-btn-primary")} aria-pressed={tab === "collection"} onClick={() => setTab("collection")}>
+          <button type="button" className={cx("veil-btn", tab === "collection" && "veil-btn-primary")} aria-pressed={tab === "collection"} disabled={packLocked} onClick={() => setTab("collection")}>
             Collection · {address && !balances ? "…" : heldCount}
           </button>
-          <button type="button" className={cx("veil-btn", tab === "activity" && "veil-btn-primary")} aria-pressed={tab === "activity"} onClick={() => setTab("activity")}>
+          <button type="button" className={cx("veil-btn", tab === "activity" && "veil-btn-primary")} aria-pressed={tab === "activity"} disabled={packLocked} onClick={() => setTab("activity")}>
             Activity
           </button>
-          <button type="button" className={cx("veil-btn", tab === "packs" && "veil-btn-primary")} aria-pressed={tab === "packs"} onClick={() => setTab("packs")}>
+          <button type="button" className={cx("veil-btn", tab === "packs" && "veil-btn-primary")} aria-pressed={tab === "packs"} disabled={packLocked} onClick={() => setTab("packs")}>
             Packs
           </button>
         </div>
@@ -806,7 +859,10 @@ export function Market({ onBack }: { onBack: () => void }) {
           </section>
         )}
         {tab === "packs" ? (
-          <Packs busy={busy} address={address} onBuy={(editionId, factionId) => void buyPack(editionId, factionId)} />
+          <>
+            <PackMintGate phase={packPhase} error={error} onMint={() => void mintPack()} />
+            <Packs busy={busy || packLocked} address={address} onBuy={(editionId, factionId) => void buyPack(editionId, factionId)} />
+          </>
         ) : (
           <div className="stall-layout">
             <div>
@@ -830,7 +886,7 @@ export function Market({ onBack }: { onBack: () => void }) {
                   }
                   showOwnerNote={tab === "sale"}
                   mine={mine}
-                  busy={busy}
+                  busy={busy || packLocked}
                   address={address}
                   onOpen={setFocusId}
                   onBuy={(stall, index, cost) => void buyLot(stall, index, cost)}
@@ -846,7 +902,7 @@ export function Market({ onBack }: { onBack: () => void }) {
                 askPrice={askPrice}
                 copies={copies}
                 approved={focusCard && approved ? approved[focusCard.edition] : null}
-                busy={busy}
+                busy={busy || packLocked}
                 address={address}
                 canSign={canSign()}
                 watched={focusCard ? watched.has(focusCard.id) : false}

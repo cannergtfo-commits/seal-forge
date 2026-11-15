@@ -9,17 +9,19 @@ function apiUrl(path: string): string {
   return path;
 }
 
-/** Asks the same reward server the website uses. A card NFT and the daily cap still apply. */
-export async function askPrize(address: Address): Promise<{ prize: Prize } | { error: "needs-card" | "cap" | "down" }> {
+/** Asks the reward server to sign a win this server already scored. Local practice and friend-device tables have no room id and cannot be claimed. */
+export async function askPrize(address: Address, roomId: string): Promise<{ prize: Prize } | { error: "needs-card" | "cap" | "down" | "unverified" }> {
+  if (!roomId) return { error: "unverified" };
   try {
     const res = await fetch(apiUrl("/api/veilforge/reward"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({ address, roomId }),
     });
     const body = (await res.json()) as { matchId?: Hex; signature?: Hex; error?: string };
     if (body.matchId && body.signature) return { prize: { matchId: body.matchId, signature: body.signature } };
     if (body.error === "needs-card" || body.error === "cap") return { error: body.error };
+    if (typeof body.error === "string" && body.error.includes("not recorded")) return { error: "unverified" };
     return { error: "down" };
   } catch {
     return { error: "down" };

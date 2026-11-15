@@ -9,9 +9,9 @@ import { liveBot, type Bot } from "@/veil/bots";
 import { redactKey } from "@/veil/keys";
 import { startMatch, type Match, type Unit } from "@/veil/logic";
 import { readBook } from "@/veil/phone-book";
-import { askPrize, type Prize } from "@/veil/prize-client";
-import { deckSeal } from "@/veil/ranks";
-import { readSession } from "@/veil/session";
+import { openSession } from "@/veil/game-session";
+import { deckSeal, LOSS_XP, WIN_XP, rankFor } from "@/veil/ranks";
+import { readSession, writeSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
 import { ownedStageIds, saveStagePick, stagePick, STAGES } from "@/veil/stages";
 import { REWARDS, WIN_WEI } from "@/veil/deployed";
@@ -161,60 +161,6 @@ function viewAsMatch(view: View): Match {
   };
 }
 
-function RewardClaim({ won, address, signer }: { won: boolean; address: string; signer: `0x${string}` | null }) {
-  const [prize, setPrize] = useState<Prize | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!won || !address) return;
-    let cancel = false;
-    void askPrize(address as `0x${string}`).then((result) => {
-      if (cancel) return;
-      if ("prize" in result) setPrize(result.prize);
-      else if (result.error === "needs-card") setNote("No BzB. Rewards go only to wallets that hold a Seal Forge card NFT.");
-      else if (result.error === "cap") setNote("You’ve hit your daily reward cap (4 wins today). Each player gets their own four.");
-      else setNote("The reward server did not answer.");
-    });
-    return () => {
-      cancel = true;
-    };
-  }, [won, address]);
-
-  async function claim() {
-    if (!prize || !address) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const { address: payer, wallet } = await playerClient(signer);
-      const hash = await sendGame(signer, payer, (nonce) => wallet.writeContract({ address: REWARDS, abi: rewardsAbi, functionName: "claim", args: [prize.matchId, prize.signature], nonce }));
-      await sentBy(hash, payer);
-      setPrize(null);
-      setNote("0.25 BzB claimed.");
-    } catch (err) {
-      setError(redactKey(err instanceof Error ? err.message : "The reward did not send.", signer));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!won) return null;
-  return (
-    <div className="mt-3">
-      {!address && <p className="text-sm text-ash">Make a wallet before the win if you want the 0.25 BzB.</p>}
-      {prize && (
-        <button type="button" className="veil-btn veil-btn-primary" disabled={busy} onClick={() => void claim()}>
-          {busy ? "Claiming…" : "Claim 0.25 BzB"}
-        </button>
-      )}
-      {prize && <p className="mt-2 text-xs text-ash">Your daily rewards: up to four 0.25 BzB wins today.</p>}
-      {note && <p className="mt-2 text-sm text-ash">{note}</p>}
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-    </div>
-  );
-}
-
 export function Ranked({ onBack }: { onBack: () => void }) {
   const { key, address: player } = usePlayer();
   const address = player ?? "";
@@ -243,6 +189,9 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const [stageOwned, setStageOwned] = useState<number[]>([]);
   const [stageOn, setStageOn] = useState(0);
   const [local, setLocal] = useState<{ match: Match; bot: Bot } | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [xpNote, setXpNote] = useState<string | null>(null);
   const friendWire = useRef<{ send: (action: TableAct) => void; close: () => void } | null>(null);
   const friendGen = useRef(0);
   const queueSeat = useRef("");
@@ -296,6 +245,42 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       cancel = true;
     };
   }, [address]);
+
+  useEffect(() => {
+    const session = readSession();
+    setSignedIn(Boolean(session && address && session.token !== "device" && session.address.toLowerCase() === address.toLowerCase()));
+  }, [address, signing]);
+
+  useEffect(() => {
+    if (!view || view.winner === null) {
+      setXpNote(null);
+      return;
+    }
+    const session = readSession();
+    if (!session || session.token === "device" || !address || session.address.toLowerCase() !== address.toLowerCase()) {
+      setXpNote("This match did not count for XP. Sign in first on this screen or from Profile.");
+      return;
+    }
+    let cancel = false;
+    const won = view.winner === view.you;
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
+        .then((res) => res.json())
+        .then((data: { profile?: { xp: number; wins: number; losses: number } }) => {
+          if (cancel || !data.profile) return;
+          const rank = rankFor(data.profile.xp);
+          const delta = won ? `+${WIN_XP}` : `−${LOSS_XP}`;
+          setXpNote(`Your rank: ${data.profile.xp} XP · Level ${rank.level} ${rank.name} (${delta}, XP does not go below 0).`);
+        })
+        .catch(() => {
+          if (!cancel) setXpNote("The match ended, but the latest XP could not be loaded.");
+        });
+    }, 400);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [view?.winner, view?.you, view?.seq, address]);
 
   useEffect(() => {
     if (!address) {
@@ -439,6 +424,22 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     return { ...prev, winner: other, phase: "over", seq: (prev.seq ?? 0) + 1, log: [line, ...(prev.log ?? [])].slice(0, 14) };
   }
 
+  async function signInForXp() {
+    if (!address) return;
+    setSigning(true);
+    setError(null);
+    try {
+      const opened = await openSession(key, address);
+      writeSession({ token: opened.token, address: opened.address });
+      setSignedIn(opened.token !== "device");
+      if (opened.token === "device") setError("This device could not reach the profile server, so XP will not be saved.");
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "Sign-in failed.", key));
+    } finally {
+      setSigning(false);
+    }
+  }
+
   async function join(now = false) {
     await gate.current;
     armArenaMusic();
@@ -490,8 +491,10 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       }
       setView(data.view ?? null);
     } catch {
-      if (now) startLocal();
-      else setError("Could not join the queue.");
+      if (now) {
+        setError("The server table did not start, so this is a practice game. Practice wins don't pay BzB.");
+        startLocal();
+      } else setError("Could not join the queue.");
     } finally {
       setBusy(false);
     }
@@ -753,7 +756,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         onHall={() => setLocal(null)}
         onRematch={startLocal}
         stage={stageOwned.includes(stageOn) ? stageOn : 0}
-        winnerExtra={<RewardClaim won={local.match.winner === 0} address={address} signer={key} />}
+        winnerExtra={<p className="mt-3 text-sm text-ash">Practice wins don't pay BzB or XP. Auto start on the server table still can, if you hold a card NFT and have a daily win left.</p>}
       />
     );
   }
@@ -770,7 +773,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         link={{ send: (action) => friendWire.current?.send(action), leftMs: friend.leftMs, you: 0, fault: error }}
         onHall={closeFriend}
         stage={friend.stage ?? 0}
-        winnerExtra={<RewardClaim won={friend.match.winner === 0} address={address} signer={key} />}
+        winnerExtra={<p className="mt-3 text-sm text-ash">Friend-device tables run only on your two devices and don't pay BzB or XP. Use Find a match, Host a table, or Auto start for ranked XP and rewards.</p>}
       />
     );
   }
@@ -808,6 +811,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         winnerExtra={
           <div className="mt-3">
             <p className="text-sm text-ash">Signed-in accounts gain 20 XP for a win and lose 10 XP for a loss.</p>
+            {xpNote && <p className="mt-2 text-sm text-bone">{xpNote}</p>}
             {view.winner === view.you && claim && (
               <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void takeReward()}>
                 Claim 0.25 BzB
@@ -845,9 +849,18 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         <section className="rounded-md border border-brass bg-panel p-4">
           <p className="text-sm leading-relaxed text-ash">
-            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start is the only way to play a bot. Each player can claim up to four 0.25 BzB wins a day, with a Seal Forge card NFT and a wallet.
+            Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start plays a server bot and can pay 0.25 BzB like a player match, with a Seal Forge card NFT and the daily cap of four wins. Hall Practice, friend-device tables, and a local fallback if the server is down do not pay BzB or XP.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
+          {address && signedIn && <p className="mt-2 text-sm text-bone">Signed in. Auto start and Find a match award 20 XP for a win and 10 XP less for a loss.</p>}
+          {address && !signedIn && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-bone">Not signed in. This match will not add XP until you sign in.</p>
+              <button type="button" className="veil-btn veil-btn-primary" disabled={busy || signing || Boolean(id)} onClick={() => void signInForXp()}>
+                {signing ? "Signing…" : "Sign in for XP"}
+              </button>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {SEALS.map((item) => (
               <button
@@ -934,7 +947,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         </section>
         <section className="rounded-md border border-brass bg-panel p-4">
           <h2 className="text-sm tracking-widest text-brass">A FRIEND</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on the phone app or in the browser. They sit with that code. The duel runs between the two devices.</p>
+          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on the phone app or in the browser. They sit with that code. The duel runs between the two devices and doesn't pay BzB or XP. For ranked XP and rewards, use Find a match, Host a table, or Auto start.</p>
           {hostingFriend ? (
             <>
               <p className="friend-code">{hostingFriend}</p>
