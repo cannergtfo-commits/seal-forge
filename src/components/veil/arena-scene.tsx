@@ -1,8 +1,22 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-export function ArenaScene() {
+/**
+ * Decorative 3D dais behind the duel board. Purely cosmetic: `pulse` is a
+ * counter the table bumps on big hits so the scene can flare briefly; it never
+ * carries game state.
+ */
+export function ArenaScene({ pulse = 0 }: { pulse?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const pulseRef = useRef(0);
+  const kickRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (pulse > pulseRef.current) {
+      pulseRef.current = pulse;
+      kickRef.current?.();
+    }
+  }, [pulse]);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -16,41 +30,70 @@ export function ArenaScene() {
       precision: "mediump",
       stencil: false,
     });
-    renderer.setPixelRatio(1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     renderer.setClearColor(0x000000, 0);
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog("#0c0e12", 14, 32);
+    // Warm smoke matching the lava/brass painted backdrop so the dais recedes.
+    scene.fog = new THREE.FogExp2("#2a1610", 0.045);
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 80);
-    camera.position.set(0, 6.4, 8.2);
-    camera.lookAt(0, 0.4, -1.2);
+    const camBase = new THREE.Vector3(0, 6.4, 8.2);
+    const camLook = new THREE.Vector3(0, 0.4, -1.2);
+    camera.position.copy(camBase);
+    camera.lookAt(camLook);
 
-    scene.add(new THREE.AmbientLight("#d5dbe8", 1.6));
-    const moon = new THREE.DirectionalLight("#e7eefc", 2.4);
+    scene.add(new THREE.HemisphereLight("#6b4a3a", "#0c0708", 1.1));
+    const moon = new THREE.DirectionalLight("#f1cfa6", 1.2);
     moon.position.set(-6, 12, 4);
     scene.add(moon);
-    const brass = new THREE.PointLight("#e3a04a", 8, 18);
+    const brass = new THREE.PointLight("#e3a04a", 5, 16);
     brass.position.set(0, 2.4, 0.4);
     scene.add(brass);
-    const veil = new THREE.PointLight("#7a3e8a", 6, 14);
+    const veil = new THREE.PointLight("#b0352a", 5, 14);
     veil.position.set(3.2, 1.6, -2.4);
     scene.add(veil);
-    const grove = new THREE.PointLight("#1f8a4c", 4, 12);
+    const grove = new THREE.PointLight("#5a3a6e", 2.5, 12);
     grove.position.set(-3.4, 1.4, 2.2);
     scene.add(grove);
 
-    const stone = new THREE.MeshStandardMaterial({ color: "#242a36", roughness: 0.78, metalness: 0.08 });
+    const stone = new THREE.MeshStandardMaterial({ color: "#2a2120", roughness: 0.86, metalness: 0.08 });
     const brassMat = new THREE.MeshStandardMaterial({
       color: "#e3a04a",
       metalness: 0.72,
       roughness: 0.32,
       emissive: "#4a2e10",
-      emissiveIntensity: 0.35,
+      emissiveIntensity: 0.3,
     });
+    const brassGlow = brassMat.emissiveIntensity;
     const floorTex = new THREE.TextureLoader().load("/assets/veil/arena/floor-moon.jpg");
     floorTex.colorSpace = THREE.SRGBColorSpace;
+    // Radial alpha so the dais edge dissolves into the painted backdrop
+    // instead of reading as a dark disc with a hard rim.
+    const fadeCanvas = document.createElement("canvas");
+    fadeCanvas.width = fadeCanvas.height = 128;
+    const fadeCtx = fadeCanvas.getContext("2d");
+    if (fadeCtx) {
+      const grad = fadeCtx.createRadialGradient(64, 64, 10, 64, 64, 64);
+      grad.addColorStop(0, "#fff");
+      grad.addColorStop(0.55, "#bbb");
+      grad.addColorStop(1, "#000");
+      fadeCtx.fillStyle = grad;
+      fadeCtx.fillRect(0, 0, 128, 128);
+    }
+    const edgeFade = new THREE.CanvasTexture(fadeCanvas);
     const dais = new THREE.Mesh(
       new THREE.CircleGeometry(6.6, 72),
-      new THREE.MeshBasicMaterial({ map: floorTex, color: "#ffffff" }),
+      // Tinted down so the floor reads as a dim stage, not a bright disc behind cards.
+      new THREE.MeshStandardMaterial({
+        map: floorTex,
+        alphaMap: edgeFade,
+        transparent: true,
+        depthWrite: false,
+        color: "#b08a72",
+        roughness: 0.9,
+        metalness: 0,
+      }),
     );
     dais.rotation.x = -Math.PI / 2;
     scene.add(dais);
@@ -96,8 +139,8 @@ export function ArenaScene() {
     keystone.position.set(0, 3.35, -4.2);
     scene.add(keystone);
 
-    const cloth = new THREE.MeshStandardMaterial({ color: "#1c2433", roughness: 0.72, metalness: 0.08 });
-    const veilCloth = new THREE.MeshStandardMaterial({ color: "#3a2344", roughness: 0.66, metalness: 0.12 });
+    const cloth = new THREE.MeshStandardMaterial({ color: "#2a1c1a", roughness: 0.8, metalness: 0.08 });
+    const veilCloth = new THREE.MeshStandardMaterial({ color: "#3a1a22", roughness: 0.72, metalness: 0.12 });
     const sentinel = (x: number, z: number, robe: THREE.Material, yaw: number) => {
       const group = new THREE.Group();
       const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.72, 4, 8), robe);
@@ -172,7 +215,7 @@ export function ArenaScene() {
     }
     const moteGeo = new THREE.BufferGeometry();
     moteGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ color: "#e3a04a", size: 0.045, transparent: true, opacity: 0.75 }));
+    const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ color: "#f0a050", size: 0.05, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
     scene.add(motes);
 
     const step = 1000 / 30;
@@ -190,6 +233,17 @@ export function ArenaScene() {
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
 
+    let flare = 0;
+    kickRef.current = () => {
+      flare = 1;
+      if (reduced) renderer.render(scene, camera);
+    };
+    let visible = true;
+    const io = new IntersectionObserver((entries) => {
+      visible = entries.some((entry) => entry.isIntersecting);
+    });
+    io.observe(canvas);
+
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
       acc += now - last;
@@ -197,6 +251,21 @@ export function ArenaScene() {
       if (acc < step) return;
       const dt = Math.min(0.05, acc / 1000);
       acc = 0;
+      if (!visible) return;
+      // Slow ambient drift keeps the dais alive without pulling focus.
+      camera.position.set(
+        camBase.x + Math.sin(now * 0.00011) * 0.35,
+        camBase.y + Math.sin(now * 0.00017) * 0.12,
+        camBase.z,
+      );
+      if (flare > 0) {
+        flare = Math.max(0, flare - dt * 1.8);
+        camera.position.x += Math.sin(now * 0.09) * 0.05 * flare;
+      }
+      camera.lookAt(camLook);
+      brass.intensity = 5 + flare * 9;
+      veil.intensity = 5 + flare * 6;
+      brassMat.emissiveIntensity = brassGlow + flare * 1.2;
       yours.rotation.y += dt * 0.7;
       theirs.rotation.y -= dt * 0.5;
       yours.position.y = 0.9 + Math.sin(now * 0.0014) * 0.08;
@@ -236,9 +305,12 @@ export function ArenaScene() {
 
     return () => {
       cancelAnimationFrame(frame);
+      kickRef.current = null;
+      io.disconnect();
       document.removeEventListener("visibilitychange", onHide);
       observer.disconnect();
       floorTex.dispose();
+      edgeFade.dispose();
       const seenGeo = new Set<THREE.BufferGeometry>();
       const seenMat = new Set<THREE.Material>();
       scene.traverse((obj) => {

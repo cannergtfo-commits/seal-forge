@@ -393,6 +393,8 @@ export function Table({
   const [attackers, setAttackers] = useState<string[]>([]);
   const [blocks, setBlocks] = useState<Record<string, string | null>>({});
   const [trapUid, setTrapUid] = useState<string | null>(null);
+  const [blockFocus, setBlockFocus] = useState<string | null>(null);
+  const [pairLines, setPairLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
@@ -426,6 +428,8 @@ export function Table({
   const snapRef = useRef<[SeatSnap, SeatSnap] | null>(null);
   const fxKey = useRef(0);
   const [lifePops, setLifePops] = useState<LifePop[]>([]);
+  const [scenePulse, setScenePulse] = useState(0);
+  const [youAttacked, setYouAttacked] = useState(false);
   const [wardSoak, setWardSoak] = useState<[number, number]>([0, 0]);
   const [trapFlips, setTrapFlips] = useState<TrapFlip[]>([]);
   const [fallen, setFallen] = useState<FallenUnit[]>([]);
@@ -440,6 +444,7 @@ export function Table({
     // attackKey is the combat. A fresh attackers array (ranked poll) must not clear picks.
     const ids = attackKey ? attackKey.split("|") : [];
     setBlocks(Object.fromEntries(ids.map((id) => [id, null])));
+    setBlockFocus(ids[0] ?? null);
   }, [match.phase, match.turn, attackKey]);
 
   useEffect(() => {
@@ -494,6 +499,8 @@ export function Table({
     if (pops.length) {
       const keys = new Set(pops.map((p) => p.key));
       setLifePops((cur) => [...cur, ...pops].slice(-8));
+      // Decorative only: big face hits flare the 3D backdrop.
+      if (pops.some((p) => p.delta <= -3)) setScenePulse((n) => n + 1);
       later(RESOLVE_MS.life, () => setLifePops((cur) => cur.filter((p) => !keys.has(p.key))));
     }
     if (soak[0] || soak[1]) {
@@ -642,6 +649,18 @@ export function Table({
 
   function onUnit(unit: Unit) {
     inspect(unit.defId);
+    if (defending) {
+      onDefendClick(unit);
+      return;
+    }
+    if (trapping && trap && trapCard && trapNeedsTarget(trapCard.trap) && unit.owner === 1 && match.attackers.includes(unit.uid)) {
+      if (!trapLegalOn(trap.uid, unit.uid)) {
+        setError(springTrap(match, trap.uid, unit.uid).error ?? "Not a legal target.");
+        return;
+      }
+      commit({ t: "trap", uid: trap.uid, target: unit.uid }, springTrap(match, trap.uid, unit.uid));
+      return;
+    }
     if (targeting) {
       if (!legalUnit(unit) || !selected) {
         setError("Not a legal target.");
@@ -653,6 +672,35 @@ export function Table({
     if (match.winner || match.turn !== 0 || match.phase !== "main" || unit.owner !== 0) return;
     if (!canAttack(match, unit)) return;
     setAttackers((prev) => (prev.includes(unit.uid) ? prev.filter((id) => id !== unit.uid) : [...prev, unit.uid]));
+  }
+
+  // Board-click blocks: tap an attacker to focus it, then tap a ready ally.
+  // Assignment goes through setBlock (same exclusivity as the dock buttons);
+  // assignDefenders on Confirm stays the only authority.
+  function onDefendClick(unit: Unit) {
+    if (unit.owner === 1) {
+      if (!match.attackers.includes(unit.uid)) return;
+      setBlockFocus(unit.uid);
+      return;
+    }
+    const current = Object.keys(blocks).find((id) => blocks[id] === unit.uid) ?? null;
+    if (!blockFocus) {
+      if (current) setBlock(current, null);
+      else setError("Tap an attacker first, then a ready ally.");
+      return;
+    }
+    if (!canBlock(unit)) {
+      setError("A unit that attacked cannot block until its next turn.");
+      return;
+    }
+    setError(null);
+    if (current === blockFocus) {
+      setBlock(blockFocus, null);
+      return;
+    }
+    setBlock(blockFocus, unit.uid);
+    const nextOpen = match.attackers.find((id) => id !== blockFocus && !blocks[id]) ?? null;
+    setBlockFocus(nextOpen);
   }
 
   function setBlock(attacker: string, blocker: string | null) {
@@ -668,6 +716,33 @@ export function Table({
     });
   }
 
+  const defending = match.phase === "defend" && match.turn === 1 && match.winner === null;
+  // Dry-run of the real rule check so Bulwark (and friends) warn before Confirm.
+  const blockWarn = defending && Object.values(blocks).some(Boolean) ? assignDefenders(match, blocks).error ?? null : null;
+  const blockerOf = (uid: string) => Object.keys(blocks).find((id) => blocks[id] === uid) ?? null;
+  const trapping = match.phase === "trap" && match.turn === 1 && match.winner === null;
+  // Dry-run springTrap (pure; clones state) to hide targets the real rule
+  // would reject, e.g. Pit Snare on power > 2. springTrap stays the authority.
+  const trapLegalOn = (uid: string, target: string) => !springTrap(match, uid, target).error;
+  const trapUsable = (uid: string) => {
+    const kind = cardOf(attackTraps(match).find((item) => item.uid === uid)?.defId ?? "").trap;
+    if (!trapNeedsTarget(kind)) return !springTrap(match, uid, null).error;
+    return match.attackers.some((id) => trapLegalOn(uid, id));
+  };
+  const readyTraps = trapping ? attackTraps(match).filter((item) => trapUsable(item.uid)).map((item) => item.uid) : [];
+  function pickTrap(uid: string) {
+    const item = attackTraps(match).find((entry) => entry.uid === uid);
+    if (!item) return;
+    const card = cardOf(item.defId);
+    setBlurb(`${card.name}. ${card.text}`);
+    if (!trapUsable(uid)) {
+      setError(`${card.name} has no legal attacker to catch.`);
+      return;
+    }
+    setError(null);
+    setTrapUid(uid);
+    if (!trapNeedsTarget(card.trap)) commit({ t: "trap", uid, target: null }, springTrap(match, uid, null));
+  }
   const trap = trapUid ? attackTraps(match).find((item) => item.uid === trapUid) : null;
   const trapCard = trap ? cardOf(trap.defId) : null;
   const yourTurn = match.turn === 0 && match.phase === "main" && match.winner === null;
@@ -675,7 +750,11 @@ export function Table({
   const span = clockSpan(match);
   const reacting = match.phase === "trap" || match.phase === "defend";
   const clockLabel = match.winner !== null ? "Over" : reacting ? (yourTime ? (match.phase === "trap" ? "Your trap" : "Your block") : match.phase === "trap" ? "Rival trap" : "Rival block") : yourTime ? "Your time" : "Rival time";
-  const status = error || link?.fault || (targeting ? "Choose a target, or cancel." : blurb);
+  const fault = error || link?.fault || null;
+  const hint = targeting ? (targetingHit ? "Choose a target (or a life plate), or cancel." : "Choose a target, or cancel.") : blurb;
+  // First turn you can swing: nothing chosen yet and some unit is ready.
+  const firstAttack =
+    !youAttacked && yourTurn && attackers.length === 0 && !targeting && yours.units.some((unit) => canAttack(match, unit));
   const tone = coachTone(match);
 
   useEffect(() => {
@@ -733,6 +812,35 @@ export function Table({
     return () => window.removeEventListener("resize", update);
   }, [targeting, hoverTarget, selected, yours.units, theirs.units]);
 
+  useLayoutEffect(() => {
+    if (!defending) {
+      setPairLines([]);
+      return;
+    }
+    const root = playRef.current;
+    if (!root) return;
+    const update = () => {
+      const rect = root.getBoundingClientRect();
+      const mid = (uid: string) => {
+        const el = tokenRefs.current.get(uid);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2 - rect.left, y: r.top + r.height / 2 - rect.top };
+      };
+      const lines: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const [attacker, blocker] of Object.entries(blocks)) {
+        if (!blocker) continue;
+        const a = mid(attacker);
+        const b = mid(blocker);
+        if (a && b) lines.push({ key: attacker, x1: b.x, y1: b.y, x2: a.x, y2: a.y });
+      }
+      setPairLines(lines);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [defending, blocks, yours.units, theirs.units]);
+
   onDoneRef.current = () => {
     const wire = linkRef.current;
     const current = live.current.match;
@@ -766,7 +874,7 @@ export function Table({
           <video className="arena-video" autoPlay muted loop playsInline poster="/assets/veil/arena/rift.jpg" src="/assets/veil/arena/rift.mp4" />
         )}
       </div>
-      <ArenaScene />
+      <ArenaScene pulse={scenePulse} />
       <div className="arena-fit">
         <div className="arena-hud">
           <ArenaBtn icon="/assets/veil/arena/icon-concede.jpg" onClick={onHall}>
@@ -807,11 +915,18 @@ export function Table({
               />
             </svg>
           )}
+          {defending && pairLines.length > 0 && (
+            <svg className="arena-target-line arena-block-lines" aria-hidden="true">
+              {pairLines.map((line) => (
+                <line key={line.key} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} className="arena-block-line" />
+              ))}
+            </svg>
+          )}
           <div className={cx("arena-coach", `arena-coach-${tone}`)} role="status">
             <span className="arena-coach-phase">
               {tone === "yours" ? "YOUR TURN" : tone === "react" ? "REACT" : tone === "wait" ? "WAIT" : "OVER"}
             </span>
-            <p className="arena-coach-text">{coach(match)}</p>
+            <p className="arena-coach-text">{firstAttack ? "Your units are ready: tap ready units, then Attack." : coach(match)}</p>
           </div>
           {trapFlips.length > 0 && (
             <div className="arena-resolve-stack" role="status" aria-live="polite">
@@ -834,7 +949,18 @@ export function Table({
             <div className="arena-seat-bar">
               <SeatPlate faction={rival} name={bot.name} />
               <div className="arena-vitals">
-                <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                {targetingHit ? (
+                  <button
+                    type="button"
+                    className="arena-life-target"
+                    aria-label={"Target rival"}
+                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 1 } }, playCard(match, selected, { kind: "face", side: 1 }))}
+                  >
+                    <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                  </button>
+                ) : (
+                    <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
+                )}
                 <Mana max={theirs.manaMax} current={theirs.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${theirs.grave.length}`} onClick={() => setGraveSide(1)}>
@@ -880,12 +1006,19 @@ export function Table({
                       struck.includes(unit.uid) && "arena-struck",
                       lunging && "arena-lunge-rival",
                       legal && "arena-legal-target",
+                      defending && match.attackers.includes(unit.uid) && "arena-block-pick",
+                      trapping && trap && trapCard && trapNeedsTarget(trapCard.trap) && trapLegalOn(trap.uid, unit.uid) && "arena-legal-target",
+                      defending && blockFocus === unit.uid && "arena-block-focus",
+                      defending && Boolean(blocks[unit.uid]) && "arena-block-paired",
                     )}
                     onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                     onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
                     onFocus={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                   >
                     <CardFace defId={unit.defId} match={match} unit={unit} size="board" dim={targeting && !legalUnit(unit)} onClick={() => onUnit(unit)} />
+                    {defending && match.attackers.includes(unit.uid) && (
+                      <p className="arena-block-chip">{blocks[unit.uid] ? "Blocked" : cardOf(unit.defId).tags.includes("bulwark") ? "Bulwark · unblocked" : "Unblocked"}</p>
+                    )}
                     {dmgPops
                       .filter((pop) => pop.uid === unit.uid)
                       .map((pop) => (
@@ -913,7 +1046,18 @@ export function Table({
             <div className="arena-seat-bar">
               <SeatPlate faction={you} name="You" />
               <div className="arena-vitals">
-                <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                {targetingHit ? (
+                  <button
+                    type="button"
+                    className="arena-life-target"
+                    aria-label={"Target yourself"}
+                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 0 } }, playCard(match, selected, { kind: "face", side: 0 }))}
+                  >
+                    <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                  </button>
+                ) : (
+                    <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
+                )}
                 <Mana max={yours.manaMax} current={yours.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${yours.grave.length}`} onClick={() => setGraveSide(0)}>
@@ -944,6 +1088,8 @@ export function Table({
                       attackers.includes(unit.uid) && "arena-lift",
                       lunging && "arena-lunge-you",
                       legal && "arena-legal-target",
+                      defending && blockFocus && canBlock(unit) && !blockerOf(unit.uid) && "arena-block-can",
+                      defending && Boolean(blockerOf(unit.uid)) && "arena-block-paired",
                     )}
                     onMouseEnter={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                     onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
@@ -958,7 +1104,15 @@ export function Table({
                       dim={targeting && !legalUnit(unit)}
                       onClick={() => onUnit(unit)}
                     />
-                    {status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>}
+                    {match.turn === 0 && reacting && match.attackers.includes(unit.uid) ? (
+                      <p className="arena-status arena-pending-chip">Hits face unless blocked</p>
+                    ) : attackers.includes(unit.uid) ? (
+                      <p className="arena-status arena-pending-chip">Attacking · hits face unless blocked</p>
+                    ) : defending && blockerOf(unit.uid) ? (
+                      <p className="arena-status arena-block-chip-you">Blocking {cardOf(findUnit(match, blockerOf(unit.uid)!)?.defId ?? unit.defId).name}</p>
+                    ) : (
+                      status && <p className={cx("arena-status", status === "Ready" ? "text-brass" : "text-ash")}>{status}</p>
+                    )}
                     {dmgPops
                       .filter((pop) => pop.uid === unit.uid)
                       .map((pop) => (
@@ -983,7 +1137,21 @@ export function Table({
             {yours.traps.length > 0 && (
               <EdgeRow className="arena-traps">
                 {yours.traps.map((item) => (
-                  <CardFace key={item.uid} defId={item.defId} size="board" onClick={() => inspect(item.defId)} />
+                  <div
+                    key={item.uid}
+                    className={cx(
+                      "arena-trap-slot",
+                      readyTraps.includes(item.uid) && "arena-trap-ready",
+                      trapUid === item.uid && "arena-trap-armed",
+                    )}
+                  >
+                    <CardFace
+                      defId={item.defId}
+                      size="board"
+                      onClick={() => (trapping && attackTraps(match).some((entry) => entry.uid === item.uid) ? pickTrap(item.uid) : inspect(item.defId))}
+                    />
+                    {readyTraps.includes(item.uid) && <p className="arena-block-chip">{trapUid === item.uid ? "Pick attacker" : "Spring"}</p>}
+                  </div>
                 ))}
               </EdgeRow>
             )}
@@ -1015,7 +1183,9 @@ export function Table({
 
         <div className="veil-dock arena-dock">
           <div className="arena-dock-main flex flex-col gap-1">
-            {status && <p className={cx("truncate text-sm", error || link?.fault ? "text-danger" : "text-ash")}>{status}</p>}
+            {fault && <p className="arena-dock-error text-sm text-danger" role="alert">{fault}</p>}
+            {hint && <p className="truncate text-sm text-ash">{hint}</p>}
+            {blockWarn && <p className="arena-block-warn text-sm text-danger" role="alert">{blockWarn}</p>}
             {match.phase === "defend" && match.turn === 1 && match.winner === null && (
               <EdgeRow className="arena-dock-row">
                 {match.attackers.map((id) => {
@@ -1047,18 +1217,15 @@ export function Table({
               </EdgeRow>
             )}
             {match.phase === "trap" && match.turn === 1 && match.winner === null && (
-              <EdgeRow className="arena-dock-row">
+              <EdgeRow className="arena-dock-row arena-react-frame">
                 {attackTraps(match).map((item) => (
                   <button
                     key={item.uid}
                     type="button"
                     className={cx("veil-btn", trapUid === item.uid && "veil-btn-primary")}
-                    onClick={() => {
-                      const card = cardOf(item.defId);
-                      setTrapUid(item.uid);
-                      setBlurb(`${card.name}. ${card.text}`);
-                      if (!trapNeedsTarget(card.trap)) commit({ t: "trap", uid: item.uid, target: null }, springTrap(match, item.uid, null));
-                    }}
+                    disabled={!readyTraps.includes(item.uid)}
+                    title={readyTraps.includes(item.uid) ? undefined : "No legal attacker"}
+                    onClick={() => pickTrap(item.uid)}
                   >
                     {cardOf(item.defId).name}
                   </button>
@@ -1066,7 +1233,7 @@ export function Table({
                 {trapCard && trapNeedsTarget(trapCard.trap) &&
                   match.attackers.map((id) => {
                     const unit = findUnit(match, id);
-                    if (!unit) return null;
+                    if (!unit || !trap || !trapLegalOn(trap.uid, id)) return null;
                     return (
                       <button key={id} type="button" className="veil-btn" onClick={() => trap && commit({ t: "trap", uid: trap.uid, target: unit.uid }, springTrap(match, trap.uid, unit.uid))}>
                         On {cardOf(unit.defId).name}
@@ -1093,7 +1260,10 @@ export function Table({
                   </button>
                 )}
                 {yourTurn && attackers.length > 0 && (
-                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => commit({ t: "attack", ids: attackers }, declareAttack(match, attackers))}>
+                  <ArenaBtn icon="/assets/veil/arena/icon-attack.jpg" hot onClick={() => {
+                      setYouAttacked(true);
+                      commit({ t: "attack", ids: attackers }, declareAttack(match, attackers));
+                    }}>
                     {`Attack with ${attackers.length}`}
                   </ArenaBtn>
                 )}
