@@ -98,6 +98,7 @@ function dropLiveGame(id: string): void {
   const seat: Side | null = room.seats[0].id === id ? 0 : room.seats[1].id === id ? 1 : null;
   if (seat === null) return;
   if (room.match.winner === null) concedeRoom(room, seat);
+  else pendingScores.push(...scoreRoom(room));
   const other = room.seats[seat === 0 ? 1 : 0];
   const otherTicket = other.bot ? undefined : tickets.get(other.id);
   if (!otherTicket || otherTicket.roomId !== room.id) rooms.delete(room.id);
@@ -110,6 +111,11 @@ function nextEpoch(ticket: Ticket): number {
 
 export function drainScores(): { address: string; win: boolean }[] {
   return pendingScores.splice(0);
+}
+
+/** Re-queue scores if the database write failed, so a later request can retry. */
+export function deferScores(results: { address: string; win: boolean }[]): void {
+  if (results.length) pendingScores.push(...results);
 }
 
 const FRESH_MS = 8_000;
@@ -289,6 +295,7 @@ function liveRoom(ticket: Ticket): Room | null {
   if (!ticket.roomId) return null;
   const room = rooms.get(ticket.roomId);
   if (room && room.match.winner === null) return room;
+  if (room) pendingScores.push(...scoreRoom(room));
   ticket.roomId = null;
   return null;
 }
