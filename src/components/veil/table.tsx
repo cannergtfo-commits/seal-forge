@@ -30,6 +30,22 @@ const REACT_SECONDS = 6;
 const BOARD_SLOTS = 6;
 
 type DmgPop = { uid: string; amount: number; key: number };
+/** Resolve VFX — derived purely from state diffs; no rules here. */
+type LifePop = { side: 0 | 1; delta: number; key: number };
+type TrapFlip = { defId: string; side: 0 | 1; key: number };
+type FallenUnit = { unit: Unit; side: 0 | 1; key: number };
+type SeatSnap = { hp: number; ward: number; traps: Map<string, string>; units: Map<string, Unit> };
+
+const RESOLVE_MS = { life: 1000, ward: 700, trap: 1400, fall: 650 };
+
+function snapSeat(seat: Match["players"][number]): SeatSnap {
+  return {
+    hp: seat.hp,
+    ward: seat.ward,
+    traps: new Map(seat.traps.map((t) => [t.uid, t.defId])),
+    units: new Map(seat.units.map((u) => [u.uid, u])),
+  };
+}
 
 const BUST: Record<Faction, { src: string; focus: string }> = {
   elf: { src: "/assets/veil/elf.jpg", focus: "center 22%" },
@@ -317,12 +333,35 @@ function SeatPlate({ faction, name }: { faction: Faction; name: string }) {
   );
 }
 
-function LifeTotal({ hp, ward, deck, faction }: { hp: number; ward: number; deck: number; faction: Faction }) {
+function LifeTotal({
+  hp,
+  ward,
+  deck,
+  faction,
+  pops = [],
+  soaked = false,
+}: {
+  hp: number;
+  ward: number;
+  deck: number;
+  faction: Faction;
+  pops?: LifePop[];
+  soaked?: boolean;
+}) {
+  const hurt = pops.some((p) => p.delta < 0);
   return (
+    <div className={cx("arena-life-fx", hurt && "arena-life-hit", soaked && "arena-ward-soak")}>
     <div className="arena-life" data-faction={faction} aria-label={`${hp} life`}>
       <em>Life</em>
       <strong>{hp}</strong>
       <small>{ward > 0 ? `Ward ${ward}` : `Deck ${deck}`}</small>
+    </div>
+      {pops.map((p) => (
+        <span key={p.key} className={cx("arena-life-pop", p.delta > 0 && "arena-life-pop-heal")} aria-hidden>
+          {p.delta > 0 ? `+${p.delta}` : `−${-p.delta}`}
+        </span>
+      ))}
+      {soaked && <span className="arena-ward-soak-ring" aria-hidden />}
     </div>
   );
 }
@@ -384,6 +423,12 @@ export function Table({
   const onDoneRef = useRef<() => void>(() => {});
   const linked = Boolean(link);
   const hpRef = useRef(new Map<string, number>());
+  const snapRef = useRef<[SeatSnap, SeatSnap] | null>(null);
+  const fxKey = useRef(0);
+  const [lifePops, setLifePops] = useState<LifePop[]>([]);
+  const [wardSoak, setWardSoak] = useState<[number, number]>([0, 0]);
+  const [trapFlips, setTrapFlips] = useState<TrapFlip[]>([]);
+  const [fallen, setFallen] = useState<FallenUnit[]>([]);
   const line = match.log[0] ?? "";
   const yours = match.players[0];
   const theirs = match.players[1];
@@ -424,6 +469,46 @@ export function Table({
       window.setTimeout(() => {
         setDmgPops((prev) => prev.filter((p) => !keys.has(p.key)));
       }, 900);
+    }
+  }, [match]);
+
+  useEffect(() => {
+    const next: [SeatSnap, SeatSnap] = [snapSeat(match.players[0]), snapSeat(match.players[1])];
+    const prev = snapRef.current;
+    snapRef.current = next;
+    // First paint or a fresh match: record only.
+    if (!prev || match.log.length <= 1) return;
+    const pops: LifePop[] = [];
+    const flips: TrapFlip[] = [];
+    const dead: FallenUnit[] = [];
+    const soak: [number, number] = [0, 0];
+    ([0, 1] as const).forEach((side) => {
+      const a = prev[side];
+      const b = next[side];
+      if (b.hp !== a.hp) pops.push({ side, delta: b.hp - a.hp, key: ++fxKey.current });
+      if (b.ward < a.ward) soak[side] = ++fxKey.current;
+      for (const [uid, defId] of a.traps) if (!b.traps.has(uid)) flips.push({ defId, side, key: ++fxKey.current });
+      for (const [uid, unit] of a.units) if (!b.units.has(uid)) dead.push({ unit, side, key: ++fxKey.current });
+    });
+    const later = (ms: number, fn: () => void) => window.setTimeout(fn, ms);
+    if (pops.length) {
+      const keys = new Set(pops.map((p) => p.key));
+      setLifePops((cur) => [...cur, ...pops].slice(-8));
+      later(RESOLVE_MS.life, () => setLifePops((cur) => cur.filter((p) => !keys.has(p.key))));
+    }
+    if (soak[0] || soak[1]) {
+      setWardSoak((cur) => [soak[0] || cur[0], soak[1] || cur[1]]);
+      later(RESOLVE_MS.ward, () => setWardSoak((cur) => [cur[0] === soak[0] ? 0 : cur[0], cur[1] === soak[1] ? 0 : cur[1]]));
+    }
+    if (flips.length) {
+      const keys = new Set(flips.map((f) => f.key));
+      setTrapFlips((cur) => [...cur, ...flips].slice(-3));
+      later(RESOLVE_MS.trap, () => setTrapFlips((cur) => cur.filter((f) => !keys.has(f.key))));
+    }
+    if (dead.length) {
+      const keys = new Set(dead.map((d) => d.key));
+      setFallen((cur) => [...cur, ...dead].slice(-8));
+      later(RESOLVE_MS.fall, () => setFallen((cur) => cur.filter((d) => !keys.has(d.key))));
     }
   }, [match]);
 
@@ -728,11 +813,28 @@ export function Table({
             </span>
             <p className="arena-coach-text">{coach(match)}</p>
           </div>
+          {trapFlips.length > 0 && (
+            <div className="arena-resolve-stack" role="status" aria-live="polite">
+              {trapFlips.map((flip) => {
+                const card = cardOf(flip.defId);
+                return (
+                  <div key={flip.key} className={cx("arena-flash", "arena-trap-flip", flip.side === 1 && "arena-trap-flip-rival")}>
+                    <div className="arena-trap-flip-card">
+                      <CardFace defId={flip.defId} size="board" />
+                    </div>
+                    <p>
+                      <strong>{flip.side === 0 ? "Your trap" : "Rival trap"}:</strong> {card.name}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <section className="arena-seat">
             <div className="arena-seat-bar">
               <SeatPlate faction={rival} name={bot.name} />
               <div className="arena-vitals">
-                <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} />
+                <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
                 <Mana max={theirs.manaMax} current={theirs.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${theirs.grave.length}`} onClick={() => setGraveSide(1)}>
@@ -794,7 +896,14 @@ export function Table({
                   </div>
                 );
               })}
-              {Array.from({ length: Math.max(0, BOARD_SLOTS - theirs.units.length) }, (_, i) => (
+              {fallen
+                .filter((f) => f.side === 1)
+                .map((f) => (
+                  <div key={`fallen-${f.key}`} className="arena-token arena-fallen" aria-hidden>
+                    <CardFace defId={f.unit.defId} unit={f.unit} size="board" />
+                  </div>
+                ))}
+              {Array.from({ length: Math.max(0, BOARD_SLOTS - theirs.units.length - fallen.filter((f) => f.side === 1).length) }, (_, i) => (
                 <SlotGhost key={`rival-slot-${i}`} label="Empty rival slot" />
               ))}
             </EdgeRow>
@@ -804,7 +913,7 @@ export function Table({
             <div className="arena-seat-bar">
               <SeatPlate faction={you} name="You" />
               <div className="arena-vitals">
-                <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} />
+                <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
                 <Mana max={yours.manaMax} current={yours.mana} />
               </div>
               <button type="button" className="arena-grave" aria-label={`Grave ${yours.grave.length}`} onClick={() => setGraveSide(0)}>
@@ -860,7 +969,14 @@ export function Table({
                   </div>
                 );
               })}
-              {Array.from({ length: Math.max(0, BOARD_SLOTS - yours.units.length) }, (_, i) => (
+              {fallen
+                .filter((f) => f.side === 0)
+                .map((f) => (
+                  <div key={`fallen-${f.key}`} className="arena-token arena-fallen" aria-hidden>
+                    <CardFace defId={f.unit.defId} unit={f.unit} size="board" />
+                  </div>
+                ))}
+              {Array.from({ length: Math.max(0, BOARD_SLOTS - yours.units.length - fallen.filter((f) => f.side === 0).length) }, (_, i) => (
                 <SlotGhost key={`you-slot-${i}`} label="Empty unit slot" />
               ))}
             </EdgeRow>
