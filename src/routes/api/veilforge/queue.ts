@@ -5,14 +5,21 @@ import type { Faction } from "@/veil/cards";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { signPrize } from "@/veil/keeper-sign";
 import { deckSeal, parseDeck } from "@/veil/ranks";
-import { act, drainScores, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
+import { act, deferScores, drainScores, hostLobby, joinLobby, joinQueue, leaveSeat, listLobbies, pollQueue, prizeFor, rewardGate, scoreboard, seatBot, type Act } from "@/veil/rooms";
 import { ownsStage } from "@/veil/stages";
 
 const factions = new Set<Faction>(["elf", "human", "goblin", "robot", "demon"]);
 
 async function finish(id: string) {
   const scored = [...drainScores(), ...scoreboard(id)];
-  if (scored.length) await applyXp(scored);
+  if (!scored.length) return;
+  try {
+    const failed = await applyXp(scored);
+    if (failed.length) deferScores(failed);
+  } catch (error) {
+    console.error("[xp] could not apply match scores; will retry", error);
+    deferScores(scored);
+  }
 }
 
 async function readSeat(body: { name?: string; faction?: string; address?: string; deck?: unknown; stage?: unknown }): Promise<
@@ -100,6 +107,7 @@ export const Route = createFileRoute("/api/veilforge/queue")({
         }
         if (body.op === "bot") {
           const found = seatBot(id);
+          await finish(id);
           if (found.error) return Response.json({ error: found.error }, { status: 400 });
           return Response.json(found);
         }

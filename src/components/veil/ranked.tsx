@@ -10,8 +10,9 @@ import { redactKey } from "@/veil/keys";
 import { startMatch, type Match, type Unit } from "@/veil/logic";
 import { readBook } from "@/veil/phone-book";
 import { askPrize, type Prize } from "@/veil/prize-client";
-import { deckSeal } from "@/veil/ranks";
-import { readSession } from "@/veil/session";
+import { openSession } from "@/veil/game-session";
+import { deckSeal, LOSS_XP, WIN_XP, rankFor } from "@/veil/ranks";
+import { readSession, writeSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
 import { ownedStageIds, saveStagePick, stagePick, STAGES } from "@/veil/stages";
 import { REWARDS, WIN_WEI } from "@/veil/deployed";
@@ -243,6 +244,9 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const [stageOwned, setStageOwned] = useState<number[]>([]);
   const [stageOn, setStageOn] = useState(0);
   const [local, setLocal] = useState<{ match: Match; bot: Bot } | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [xpNote, setXpNote] = useState<string | null>(null);
   const friendWire = useRef<{ send: (action: TableAct) => void; close: () => void } | null>(null);
   const friendGen = useRef(0);
   const queueSeat = useRef("");
@@ -296,6 +300,42 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       cancel = true;
     };
   }, [address]);
+
+  useEffect(() => {
+    const session = readSession();
+    setSignedIn(Boolean(session && address && session.token !== "device" && session.address.toLowerCase() === address.toLowerCase()));
+  }, [address, signing]);
+
+  useEffect(() => {
+    if (!view || view.winner === null) {
+      setXpNote(null);
+      return;
+    }
+    const session = readSession();
+    if (!session || session.token === "device" || !address || session.address.toLowerCase() !== address.toLowerCase()) {
+      setXpNote("This match did not count for XP. Sign in first on this screen or from Profile.");
+      return;
+    }
+    let cancel = false;
+    const won = view.winner === view.you;
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
+        .then((res) => res.json())
+        .then((data: { profile?: { xp: number; wins: number; losses: number } }) => {
+          if (cancel || !data.profile) return;
+          const rank = rankFor(data.profile.xp);
+          const delta = won ? `+${WIN_XP}` : `−${LOSS_XP}`;
+          setXpNote(`Your rank: ${data.profile.xp} XP · Level ${rank.level} ${rank.name} (${delta}, XP does not go below 0).`);
+        })
+        .catch(() => {
+          if (!cancel) setXpNote("The match ended, but the latest XP could not be loaded.");
+        });
+    }, 400);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [view?.winner, view?.you, view?.seq, address]);
 
   useEffect(() => {
     if (!address) {
@@ -437,6 +477,22 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     const other = prev.you === 0 ? 1 : 0;
     const line = prev.you === 0 ? "You concede." : "The rival concedes.";
     return { ...prev, winner: other, phase: "over", seq: (prev.seq ?? 0) + 1, log: [line, ...(prev.log ?? [])].slice(0, 14) };
+  }
+
+  async function signInForXp() {
+    if (!address) return;
+    setSigning(true);
+    setError(null);
+    try {
+      const opened = await openSession(key, address);
+      writeSession({ token: opened.token, address: opened.address });
+      setSignedIn(opened.token !== "device");
+      if (opened.token === "device") setError("This device could not reach the profile server, so XP will not be saved.");
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "Sign-in failed.", key));
+    } finally {
+      setSigning(false);
+    }
   }
 
   async function join(now = false) {
@@ -753,7 +809,12 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         onHall={() => setLocal(null)}
         onRematch={startLocal}
         stage={stageOwned.includes(stageOn) ? stageOn : 0}
-        winnerExtra={<RewardClaim won={local.match.winner === 0} address={address} signer={key} />}
+        winnerExtra={
+          <div className="mt-3">
+            <p className="text-sm text-ash">This was a local fallback match, so it does not award XP. Auto start awards XP only when the server table stays up.</p>
+            <RewardClaim won={local.match.winner === 0} address={address} signer={key} />
+          </div>
+        }
       />
     );
   }
@@ -770,7 +831,12 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         link={{ send: (action) => friendWire.current?.send(action), leftMs: friend.leftMs, you: 0, fault: error }}
         onHall={closeFriend}
         stage={friend.stage ?? 0}
-        winnerExtra={<RewardClaim won={friend.match.winner === 0} address={address} signer={key} />}
+        winnerExtra={
+          <div className="mt-3">
+            <p className="text-sm text-ash">Friend-device tables run between the two phones or browsers and do not award XP. Use Find a match or Host a table for ranked XP.</p>
+            <RewardClaim won={friend.match.winner === 0} address={address} signer={key} />
+          </div>
+        }
       />
     );
   }
@@ -808,6 +874,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         winnerExtra={
           <div className="mt-3">
             <p className="text-sm text-ash">Signed-in accounts gain 20 XP for a win and lose 10 XP for a loss.</p>
+            {xpNote && <p className="mt-2 text-sm text-bone">{xpNote}</p>}
             {view.winner === view.you && claim && (
               <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void takeReward()}>
                 Claim 0.25 BzB
@@ -848,6 +915,15 @@ export function Ranked({ onBack }: { onBack: () => void }) {
             Find a match sits you with another player, on the phone app or in the browser. An open table is taken first. If none is up, you wait until someone else is looking. Leaving or conceding closes that match as a loss, and the player who stays gets the win. The next Find a match is a new queue. Auto start is the only way to play a bot. Each player can claim up to four 0.25 BzB wins a day, with a Seal Forge card NFT and a wallet.
           </p>
           {!address && <p className="mt-2 text-sm text-bone">{isApk() ? "Make a wallet in the game if you want the BzB. You can still play." : "Connect a wallet if you want the BzB. You can still play."}</p>}
+          {address && signedIn && <p className="mt-2 text-sm text-bone">Signed in. Auto start and Find a match award 20 XP for a win and 10 XP less for a loss.</p>}
+          {address && !signedIn && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-bone">Not signed in. This match will not add XP until you sign in.</p>
+              <button type="button" className="veil-btn veil-btn-primary" disabled={busy || signing || Boolean(id)} onClick={() => void signInForXp()}>
+                {signing ? "Signing…" : "Sign in for XP"}
+              </button>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {SEALS.map((item) => (
               <button
@@ -934,7 +1010,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         </section>
         <section className="rounded-md border border-brass bg-panel p-4">
           <h2 className="text-sm tracking-widest text-brass">A FRIEND</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on the phone app or in the browser. They sit with that code. The duel runs between the two devices.</p>
+          <p className="mt-2 text-sm leading-relaxed text-ash">Host a code and send it to someone on the phone app or in the browser. They sit with that code. The duel runs between the two devices and does not award XP. For ranked XP, use Find a match or Host a table below.</p>
           {hostingFriend ? (
             <>
               <p className="friend-code">{hostingFriend}</p>

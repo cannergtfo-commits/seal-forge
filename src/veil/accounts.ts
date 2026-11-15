@@ -323,19 +323,27 @@ async function nftPortrait(
   }
 }
 
-export async function applyXp(results: { address: string; win: boolean }[]): Promise<void> {
-  if (!results.length) return;
+export async function applyXp(results: { address: string; win: boolean }[]): Promise<{ address: string; win: boolean }[]> {
+  if (!results.length) return [];
   const sql = await getSql();
+  const failed: { address: string; win: boolean }[] = [];
+  let changed = false;
   for (const result of results) {
     const address = result.address.toLowerCase();
     const delta = result.win ? WIN_XP : -LOSS_XP;
-    if (result.win) {
-      await sql`update veil_profiles set xp = xp + ${delta}, wins = wins + 1 where address = ${address}`;
-    } else {
-      await sql`update veil_profiles set xp = greatest(0, xp + ${delta}), losses = losses + 1 where address = ${address}`;
+    try {
+      const updated = result.win
+        ? await sql`update veil_profiles set xp = xp + ${delta}, wins = wins + 1 where address = ${address} returning address`
+        : await sql`update veil_profiles set xp = greatest(0, xp + ${delta}), losses = losses + 1 where address = ${address} returning address`;
+      if (updated.length) changed = true;
+      else console.warn(`[xp] no signed-in profile for ${address}, match result skipped`);
+    } catch (error) {
+      console.error(`[xp] failed to write ${result.win ? "win" : "loss"} for ${address}`, error);
+      failed.push(result);
     }
   }
-  await snapshotProfiles();
+  if (changed) await snapshotProfiles();
+  return failed;
 }
 
 export async function leaderboard(): Promise<Profile[]> {
