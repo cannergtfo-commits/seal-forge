@@ -6,7 +6,7 @@ import { veilBalances } from "@/veil/holds";
 import { gameKeySigns } from "@/veil/signer";
 import { redactKey } from "@/veil/keys";
 import { bookProfile, saveBook } from "@/veil/phone-book";
-import { PORTRAITS, GIFT_LEVEL, cleanName, deckSeal, rankFor } from "@/veil/ranks";
+import { PORTRAITS, GIFT_WINS, cleanName, deckSeal, rankFor } from "@/veil/ranks";
 import { localProfile, readProgress, writeProgress, type ProgressSeal } from "@/veil/progress";
 import { clearSession, readSession, writeSession, type AccountSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
@@ -264,12 +264,15 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
                 <span className="level-fill" style={{ width: `${width}%` }} />
               </div>
               <p className="mt-1 text-xs text-ash">{rank?.next ? `${rank.next - profile.xp} XP to level ${(rank?.level ?? 1) + 1}` : "Highest rank"}</p>
-              {rank && rank.level >= GIFT_LEVEL && !profile.gifted && session && session.token !== "device" && (
+              {profile.wins >= GIFT_WINS && !profile.gifted && session && session.token !== "device" && (
                 <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void claimPack()}>
-                  {busy ? "Gifting…" : "Claim the level 2 pack"}
+                  {busy ? "Gifting…" : "Claim your first-win pack"}
                 </button>
               )}
-              {profile.gifted && <p className="mt-2 text-sm text-ash">The level 2 Founding Forge pack was already gifted to this profile.</p>}
+              {profile.wins < GIFT_WINS && !profile.gifted && session && session.token !== "device" && (
+                <p className="mt-2 text-sm text-ash">Win one match on a server table (Auto start or Find a match) to unlock a free Founding Forge pack.</p>
+              )}
+              {profile.gifted && <p className="mt-2 text-sm text-ash">Your first-win Founding Forge pack was already gifted to this profile.</p>}
               {(!session || session.token === "device") && (
                 <button type="button" className="veil-btn mt-3" disabled={busy} onClick={() => void signIn()}>
                   Sign in to earn and save XP

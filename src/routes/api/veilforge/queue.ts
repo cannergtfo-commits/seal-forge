@@ -4,7 +4,7 @@ import { applyXp, profileByToken } from "@/veil/accounts";
 import type { Faction } from "@/veil/cards";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { signPrize } from "@/veil/keeper-sign";
-import { deckSeal, parseDeck } from "@/veil/ranks";
+import { MMR_START, deckSeal, parseDeck } from "@/veil/ranks";
 import {
   act,
   deferScores,
@@ -64,19 +64,19 @@ async function signedClaim(id: string) {
  * A body address with no valid session plays as a guest: free play still works,
  * but no XP, no reward, and no wallet deck (Techno P0 #2a).
  */
-async function sessionWallet(token: unknown): Promise<string> {
-  if (typeof token !== "string" || !token || token === "device") return "";
+async function sessionWallet(token: unknown): Promise<{ address: string; mmr: number }> {
+  if (typeof token !== "string" || !token || token === "device") return { address: "", mmr: MMR_START };
   const profile = await profileByToken(token).catch(() => null);
-  return profile && isAddress(profile.address) ? getAddress(profile.address) : "";
+  return profile && isAddress(profile.address) ? { address: getAddress(profile.address), mmr: profile.mmr } : { address: "", mmr: MMR_START };
 }
 
 async function readSeat(body: { name?: string; faction?: string; address?: string; token?: string; deck?: unknown; stage?: unknown }): Promise<
   | { error: string; status: number }
-  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string; stage: number; auth: "signed-in" | "signed-out" | "guest" }
+  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string; stage: number; mmr: number; auth: "signed-in" | "signed-out" | "guest" }
 > {
   if (!body.faction || !factions.has(body.faction as Faction)) return { error: "Pick a seal.", status: 400 };
   const claimed = body.address && isAddress(body.address) ? body.address : "";
-  const verified = await sessionWallet(body.token);
+  const { address: verified, mmr } = await sessionWallet(body.token);
   // A session for a different wallet than the one connected is treated as signed out.
   const address = verified && (!claimed || claimed.toLowerCase() === verified.toLowerCase()) ? verified : "";
   const auth = address ? "signed-in" : claimed ? "signed-out" : "guest";
@@ -108,7 +108,7 @@ async function readSeat(body: { name?: string; faction?: string; address?: strin
   const stageWallet = address || claimed;
   const asked = typeof body.stage === "number" ? body.stage : Number(body.stage);
   const stage = stageWallet && Number.isInteger(asked) && asked >= 1 && asked <= 64 && (await ownsStage(stageWallet, asked).catch(() => false)) ? asked : 0;
-  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote, stage, auth };
+  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote, stage, mmr: address ? mmr : MMR_START, auth };
 }
 
 export const Route = createFileRoute("/api/veilforge/queue")({

@@ -46,8 +46,10 @@ export function rankFor(xp: number): { level: number; name: string; min: number;
   return { level: index + 1, name: current.name, min: current.min, next };
 }
 
-/** Ash, the second rank. One Founding Forge pack. */
-export const GIFT_LEVEL = 2;
+/** The free Founding Forge pack unlocks after this many server-scored wins (was: reach level 2). */
+export const GIFT_WINS = 1;
+
+export { MMR_START, eloDelta, mmrBand } from "./mmr";
 
 export function cleanName(value: string): string | null {
   const name = value.trim().replace(/\s+/g, " ");

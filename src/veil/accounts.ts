@@ -6,8 +6,8 @@ import { getSql } from "@/lib/db";
 import { CARDS } from "./cards";
 import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
-import { applyRoomResult, type RoomResult } from "./integrity-store";
-import { GIFT_LEVEL, LOSS_XP, WIN_XP, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
+import { applyMmr, applyRoomResult, type RoomResult } from "./integrity-store";
+import { GIFT_WINS, LOSS_XP, WIN_XP, eloDelta, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
   address: string;
@@ -26,6 +26,7 @@ export type Profile = {
   gifted: boolean;
   giftOrder: string;
   giftReady: boolean;
+  mmr: number;
 };
 
 type Row = {
@@ -43,6 +44,7 @@ type Row = {
   gifted: number;
   gift_order: string;
   gift_cards: string;
+  mmr?: number;
 };
 
 const challenges = new Map<string, { nonce: string; message: string; at: number }>();
@@ -66,7 +68,8 @@ function toProfile(row: Row): Profile {
     deckName: row.deck_name ?? "",
     gifted: Number(row.gifted) === 1,
     giftOrder: row.gift_order ?? "",
-    giftReady: rankFor(xp).level >= GIFT_LEVEL,
+    giftReady: (Number(row.wins) || 0) >= GIFT_WINS,
+    mmr: Number(row.mmr ?? 1000) || 1000,
   };
 }
 
@@ -340,6 +343,8 @@ export async function applyXp(results: RoomResult[]): Promise<RoomResult[]> {
       const outcome = await applyRoomResult(sql, { ...result, address }, { win: WIN_XP, loss: LOSS_XP });
       if (outcome === "applied") changed = true;
       else if (outcome === "no-profile") console.warn(`[xp] no signed-in profile for ${address}, match result skipped`);
+      // MMR moves only for human-vs-human rooms, once per room (the winner's result carries it).
+      if (result.win && result.rival) await applyMmr(sql, { roomId: result.roomId, winner: address, loser: result.rival }, (w, l) => eloDelta(w, l));
     } catch (error) {
       console.error(`[xp] failed to write ${result.win ? "win" : "loss"} for ${address}`, error);
       failed.push(result);
