@@ -17,6 +17,7 @@ import {
   type Target,
 } from "./logic";
 import { DAILY_WINS } from "./deployed";
+import { MMR_START, mmrBand } from "./mmr";
 import {
   findPrize,
   loadRoomSnapshot,
@@ -71,6 +72,8 @@ type Ticket = {
   eligible: boolean;
   lobby: string | null;
   stage: number;
+  mmr: number;
+  queuedAt: number;
   seen: number;
   epoch: number;
 };
@@ -91,10 +94,12 @@ function scoreRoom(room: Room): ScoreResult[] {
   markDirty(room);
   const out: ScoreResult[] = [];
   const vsBot = Boolean(room.seats[0].bot || room.seats[1].bot);
+  const wallet = (seat: SeatInfo) => (!seat.bot && /^0x[0-9a-fA-F]{40}$/.test(seat.address) ? seat.address : "");
   for (const side of [0, 1] as const) {
     const seat = room.seats[side];
-    if (seat.bot || !/^0x[0-9a-fA-F]{40}$/.test(seat.address)) continue;
-    out.push({ roomId: room.id, address: seat.address, win: room.match.winner === side, turns: room.match.turnCount, conceded: room.conceded, vsBot });
+    if (!wallet(seat)) continue;
+    const rival = wallet(room.seats[side === 0 ? 1 : 0]) || undefined;
+    out.push({ roomId: room.id, address: seat.address, win: room.match.winner === side, turns: room.match.turnCount, conceded: room.conceded, vsBot, rival });
   }
   return out;
 }
@@ -142,9 +147,23 @@ export function deferScores(results: ScoreResult[]): void {
 
 const FRESH_MS = 8_000;
 
-function waitingRival(selfId: string): Ticket | undefined {
+/**
+ * The closest-rated fresh ticket inside the rating band. The band widens with the
+ * longer wait of the two players, so nobody waits long in a small player base.
+ */
+function waitingRival(self: { id: string; mmr: number; queuedAt: number }): Ticket | undefined {
   const now = Date.now();
-  return [...tickets.values()].find((ticket) => ticket.roomId === null && ticket.lobby === null && ticket.id !== selfId && now - ticket.at < FRESH_MS);
+  let best: Ticket | undefined;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (const ticket of tickets.values()) {
+    if (ticket.roomId !== null || ticket.lobby !== null || ticket.id === self.id || now - ticket.at >= FRESH_MS) continue;
+    const gap = Math.abs((ticket.mmr ?? MMR_START) - self.mmr);
+    const waited = Math.max(now - (ticket.queuedAt ?? ticket.at), now - self.queuedAt);
+    if (gap > mmrBand(waited) || gap >= bestGap) continue;
+    best = ticket;
+    bestGap = gap;
+  }
+  return best;
 }
 const LOBBY_MS = 15 * 60 * 1000;
 const tickets = new Map<string, Ticket>();
@@ -227,6 +246,8 @@ export function roomsReady(): Promise<void> {
             eligible: seat.eligible,
             lobby: null,
             stage: seat.stage,
+            mmr: MMR_START,
+            queuedAt: Date.now(),
             seen: Date.now(),
             epoch: snap.epochs?.[index] ?? 0,
           });
@@ -447,7 +468,7 @@ function stageOf(value: number | undefined): number {
   return value;
 }
 
-export function joinQueue(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): {
+export function joinQueue(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number }): {
   status: "wait" | "play";
   waitMs: number;
   epoch: number;
@@ -460,7 +481,9 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     existing.lobby = null;
   }
   if (existing) existing.at = Date.now();
-  const waiting = waitingRival(input.id);
+  const mmr = Number.isFinite(input.mmr) ? Number(input.mmr) : MMR_START;
+  const queuedAt = existing && existing.roomId === null && existing.lobby === null && Date.now() - existing.at < FRESH_MS ? existing.queuedAt ?? Date.now() : Date.now();
+  const waiting = waitingRival({ id: input.id, mmr, queuedAt });
   const self: Ticket = existing ?? {
     id: input.id,
     name: input.name.slice(0, 24) || "Duelist",
@@ -472,6 +495,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     eligible: Boolean(input.eligible),
     lobby: null,
     stage: stageOf(input.stage),
+    mmr: Number.isFinite(input.mmr) ? Number(input.mmr) : MMR_START,
+    queuedAt: Date.now(),
     seen: Date.now(),
     epoch: 0,
   };
@@ -482,6 +507,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
   self.eligible = Boolean(input.eligible);
   self.lobby = null;
   self.stage = stageOf(input.stage);
+  self.mmr = mmr;
+  self.queuedAt = queuedAt;
   self.seen = Date.now();
   const epoch = nextEpoch(self);
   tickets.set(self.id, self);
@@ -695,7 +722,7 @@ function pruneLobbies(): void {
   }
 }
 
-function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): Ticket {
+function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number }): Ticket {
   const existing = tickets.get(input.id);
   const self: Ticket = existing ?? {
     id: input.id,
@@ -708,6 +735,8 @@ function seatTicket(input: { id: string; name: string; faction: Faction; address
     eligible: Boolean(input.eligible),
     lobby: null,
     stage: stageOf(input.stage),
+    mmr: Number.isFinite(input.mmr) ? Number(input.mmr) : MMR_START,
+    queuedAt: Date.now(),
     seen: Date.now(),
     epoch: 0,
   };
@@ -738,7 +767,7 @@ export function listLobbies(): LobbyRow[] {
   return rows;
 }
 
-export function hostLobby(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number }): {
+export function hostLobby(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number }): {
   status: "lobby" | "play";
   code: string | null;
   waitMs: number;
@@ -763,7 +792,7 @@ export function hostLobby(input: { id: string; name: string; faction: Faction; a
 
 export function joinLobby(
   code: string,
-  input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number },
+  input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number },
 ): { error?: string; status: "play" | "missing"; epoch?: number; view: ReturnType<typeof publicMatch> | null } {
   pruneLobbies();
   const key = code.trim().toUpperCase();

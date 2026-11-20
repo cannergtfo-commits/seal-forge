@@ -4,7 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { polygon } from "viem/chains";
 import { getSql } from "@/lib/db";
 import { BZB, CARDS_NFT, GIFT, KEEPER, PACKS } from "./deployed";
-import { GIFT_LEVEL, rankFor } from "./ranks";
+import { GIFT_WINS } from "./ranks";
 import { profileByToken, snapshotProfiles, type Profile } from "./accounts";
 import { giftTransfers, recordGiftTransfer } from "./integrity-store";
 
@@ -156,7 +156,8 @@ export async function claimGift(token: string): Promise<{ profile: Profile; stat
   const profile = await profileByToken(token);
   if (!profile) return { error: "Sign in again." };
   if (profile.gifted) return { error: "This profile already took its pack." };
-  if (rankFor(profile.xp).level < GIFT_LEVEL) return { error: "Reach level 2 first." };
+  // First server-scored win unlocks the pack (wins only grow from server-scored rooms or a game-signed backup).
+  if (profile.wins < GIFT_WINS) return { error: "Win one match on a server table first (Auto start or Find a match)." };
   const player = getAddress(profile.address);
   const already = await publicClient.readContract({ address: GIFT, abi: giftAbi, functionName: "claimed", args: [player] });
   if (already && !profile.giftOrder) return { error: "This profile is already marked on the gift contract, so it cannot take a second pack." };
@@ -256,7 +257,7 @@ async function deliver(token: string, profile: Profile, player: Address, orderId
   }
   await mark(profile.address, orderId.toString(), ids.join(","), 1);
   const done = await profileByToken(token);
-  return { profile: done ?? profile, status: "dealt", note: "A Founding Forge pack is in your wallet. Five cards, once per profile." };
+  return { profile: done ?? profile, status: "dealt", note: "Your first-win Founding Forge pack is in your wallet. Five cards, once per profile." };
 }
 
 async function storedCards(address: string): Promise<bigint[]> {
