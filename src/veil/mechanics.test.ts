@@ -172,7 +172,7 @@ describe("Surge", () => {
     assert.equal(m.players[0].units[0]!.atk, 1);
     m = cast(m, "kg-twin-stars", null);
     assert.equal(m.players[0].units[1]!.atk, 2);
-    assert.equal(m.players[0].units[1]!.hp, 2);
+    assert.equal(m.players[0].units[1]!.hp, cardOf("kg-twin-stars").hp + 1);
   });
 
   it("can give Haste, buff a spell's target, ping or draw", () => {
