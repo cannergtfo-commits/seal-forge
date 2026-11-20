@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiVeilforgeFreeMintRouteImport } from './routes/api/veilforge/free-mint'
 import { Route as ApiVeilforgeGiftRouteImport } from './routes/api/veilforge/gift'
 import { Route as ApiVeilforgeHealthRouteImport } from './routes/api/veilforge/health'
 import { Route as ApiVeilforgeProfileRouteImport } from './routes/api/veilforge/profile'
@@ -20,6 +21,11 @@ import { Route as ApiVeilforgeStatusRouteImport } from './routes/api/veilforge/s
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVeilforgeFreeMintRoute = ApiVeilforgeFreeMintRouteImport.update({
+  id: '/api/veilforge/free-mint',
+  path: '/api/veilforge/free-mint',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVeilforgeGiftRoute = ApiVeilforgeGiftRouteImport.update({
@@ -55,6 +61,7 @@ const ApiVeilforgeStatusRoute = ApiVeilforgeStatusRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/veilforge/free-mint': typeof ApiVeilforgeFreeMintRoute
   '/api/veilforge/gift': typeof ApiVeilforgeGiftRoute
   '/api/veilforge/health': typeof ApiVeilforgeHealthRoute
   '/api/veilforge/profile': typeof ApiVeilforgeProfileRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/veilforge/free-mint': typeof ApiVeilforgeFreeMintRoute
   '/api/veilforge/gift': typeof ApiVeilforgeGiftRoute
   '/api/veilforge/health': typeof ApiVeilforgeHealthRoute
   '/api/veilforge/profile': typeof ApiVeilforgeProfileRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/veilforge/free-mint': typeof ApiVeilforgeFreeMintRoute
   '/api/veilforge/gift': typeof ApiVeilforgeGiftRoute
   '/api/veilforge/health': typeof ApiVeilforgeHealthRoute
   '/api/veilforge/profile': typeof ApiVeilforgeProfileRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/veilforge/free-mint'
     | '/api/veilforge/gift'
     | '/api/veilforge/health'
     | '/api/veilforge/profile'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/veilforge/free-mint'
     | '/api/veilforge/gift'
     | '/api/veilforge/health'
     | '/api/veilforge/profile'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/veilforge/free-mint'
     | '/api/veilforge/gift'
     | '/api/veilforge/health'
     | '/api/veilforge/profile'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiVeilforgeFreeMintRoute: typeof ApiVeilforgeFreeMintRoute
   ApiVeilforgeGiftRoute: typeof ApiVeilforgeGiftRoute
   ApiVeilforgeHealthRoute: typeof ApiVeilforgeHealthRoute
   ApiVeilforgeProfileRoute: typeof ApiVeilforgeProfileRoute
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/veilforge/free-mint': {
+      id: '/api/veilforge/free-mint'
+      path: '/api/veilforge/free-mint'
+      fullPath: '/api/veilforge/free-mint'
+      preLoaderRoute: typeof ApiVeilforgeFreeMintRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/veilforge/gift': {
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiVeilforgeFreeMintRoute: ApiVeilforgeFreeMintRoute,
   ApiVeilforgeGiftRoute: ApiVeilforgeGiftRoute,
   ApiVeilforgeHealthRoute: ApiVeilforgeHealthRoute,
   ApiVeilforgeProfileRoute: ApiVeilforgeProfileRoute,
