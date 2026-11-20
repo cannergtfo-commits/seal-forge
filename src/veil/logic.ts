@@ -116,8 +116,8 @@ export function canAttack(m: Match, unit: Unit): boolean {
   if (!unit.ready || unit.frozen) return false;
   if (power(m, unit) <= 0) return false;
   const card = cardOf(unit.defId);
-  if (card.text.includes("Cannot attack")) return false;
-  if (unit.sick && !card.tags.includes("swift") && !card.tags.includes("haste") && !(card.faction === "goblin" && hasAura(m, unit.owner, "goblinSwift"))) return false;
+  if (card.noAttack) return false;
+  if (unit.sick && !card.tags.includes("haste") && !(card.faction === "goblin" && hasAura(m, unit.owner, "goblinSwift"))) return false;
   return true;
 }
 
@@ -201,7 +201,7 @@ function reap(m: Match): void {
       seat.traps = seat.traps.filter((trap) => trap.uid !== snare.uid);
       seat.grave.push(snare.defId);
       seat.hp = Math.min(30, seat.hp + 3);
-      note(m, "Soul Snare heals 3.");
+      note(m, `${cardOf(snare.defId).name} heals 3.`);
     }
   }
 }
@@ -279,14 +279,14 @@ function legalHit(m: Match, target: Target): boolean {
 function applyPlay(m: Match, card: CardDef, owner: Side, unit: Unit | null, target: Target | null): string | null {
   const effect = card.play;
   if (!effect) return null;
-  if (card.id === "spark" && effect.t === "hit") {
+  if (effect.t === "hit" && effect.selfLose) {
     const err = hit(m, effect.n, target);
     if (err) return err;
-    loseLife(m, owner, 1, 0);
-    note(m, "Hell Spark burns you for 1.");
+    loseLife(m, owner, effect.selfLose, 0);
+    note(m, `${card.name} burns you for ${effect.selfLose}.`);
     return null;
   }
-  return runEffect(m, effect, owner, unit, target);
+  return runEffect(m, effect, owner, unit, target, card);
 }
 
 function hit(m: Match, n: number, target: Target | null): string | null {
@@ -304,7 +304,7 @@ function hit(m: Match, n: number, target: Target | null): string | null {
   return null;
 }
 
-function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null, target: Target | null): string | null {
+function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null, target: Target | null, source: CardDef): string | null {
   if (effect.t === "healSelf") {
     m.players[owner].hp = Math.min(30, m.players[owner].hp + effect.n);
     note(m, `Healed ${effect.n}.`);
@@ -323,7 +323,7 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
   }
   if (effect.t === "boom") {
     hurt(m, other(owner), 1, null);
-    note(m, "Boomlobber pings for 1.");
+    note(m, `${source.name} pings for 1.`);
     return null;
   }
   if (effect.t === "rally") {
@@ -338,7 +338,7 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
       unit.hp += 1;
       unit.maxHp += 1;
     }
-    note(m, "APEX reinforces the line.");
+    note(m, `${source.name} reinforces the line.`);
     return null;
   }
   if (effect.t === "twin") {
@@ -347,7 +347,7 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
       self.atk += 1;
       self.hp += 1;
       self.maxHp += 1;
-      note(m, "Twin Knives find a pack.");
+      note(m, `${source.name} finds a pack.`);
     }
     return null;
   }
@@ -476,35 +476,35 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
   const trap = m.players[defender].traps.find((item) => item.uid === trapUid);
   if (!trap) return { state, error: "That trap is not set." };
   const card = cardOf(trap.defId);
-  if (card.trap === "soul") return { state, error: "Soul Snare flips on its own." };
+  if (card.trap === "soul") return { state, error: `${card.name} springs on its own.` };
   if (trapNeedsTarget(card.trap) && !targetUid) return { state, error: "Choose an attacker." };
   const attacker = targetUid ? m.attackers.map((id) => findUnit(m, id)).find((unit) => unit?.uid === targetUid) : null;
   if (card.trap === "pikes") {
     if (!attacker) return { state, error: "Choose an attacker." };
     attacker.hp -= 3;
-    note(m, `Ambush Pikes deal 3 to ${cardOf(attacker.defId).name}.`);
+    note(m, `${card.name} deals 3 to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "snare") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    if (power(m, attacker) > 2) return { state, error: "Pit Snare only catches attack 2 or less." };
+    if (power(m, attacker) > 2) return { state, error: `${card.name} only catches attack 2 or less.` };
     attacker.hp = 0;
-    note(m, `Pit Snare destroys ${cardOf(attacker.defId).name}.`);
+    note(m, `${card.name} destroys ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "glade") {
     if (!attacker) return { state, error: "Choose an attacker." };
     m.players[defender].hp = Math.min(30, m.players[defender].hp + 2);
     attacker.hp -= 1;
-    note(m, "Hidden Glade heals 2 and deals 1.");
+    note(m, `${card.name} heals 2 and deals 1.`);
   } else if (card.trap === "firewall") {
     m.players[defender].ward += 4;
-    note(m, "Firewall raises a ward of 4.");
+    note(m, `${card.name} raises a ward of 4.`);
   } else if (card.trap === "cross") {
     if (!attacker) return { state, error: "Choose an attacker." };
     attacker.hp -= 2;
-    note(m, `Crossroad Trap deals 2 to ${cardOf(attacker.defId).name}.`);
+    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "horizon") {
     if (!attacker) return { state, error: "Choose an attacker." };
     attacker.hp -= 2;
     attacker.frozen = true;
-    note(m, `Event Horizon deals 2 to ${cardOf(attacker.defId).name} and freezes it.`);
+    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name} and freezes it.`);
   }
   m.players[defender].traps = m.players[defender].traps.filter((item) => item.uid !== trap.uid);
   m.players[defender].grave.push(card.id);
@@ -573,9 +573,7 @@ export function attackTraps(m: Match): Trap[] {
   return m.players[other(m.turn)].traps.filter((trap) => cardOf(trap.defId).trap !== "soul");
 }
 
-export function cardText(card: CardDef): string {
-  return card.text;
-}
+export { cardText } from "./card-text";
 
 export function checkRules(): string {
   let m = startMatch("elf", "goblin", 7);
