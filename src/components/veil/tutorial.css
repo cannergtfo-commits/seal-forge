@@ -1,0 +1,232 @@
+/* S3 guided first match: coach marks, offer and finish copy. */
+.tutorial-root .arena-clock {
+  visibility: hidden;
+}
+
+.tut-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+}
+
+.tut-ring {
+  position: fixed;
+  border: 2px solid var(--color-brass);
+  border-radius: 0.8rem;
+  box-shadow:
+    0 0 0 9999px rgb(5 6 9 / 28%),
+    0 0 18px rgb(227 160 74 / 65%),
+    inset 0 0 12px rgb(227 160 74 / 30%);
+  pointer-events: none;
+}
+
+.tut-card {
+  position: fixed;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem 0.8rem;
+  border: 1px solid rgb(227 160 74 / 70%);
+  border-radius: 0.75rem;
+  background: linear-gradient(180deg, rgb(28 24 20 / 97%), rgb(14 14 18 / 97%));
+  box-shadow: 0 10px 30px rgb(0 0 0 / 60%);
+  color: var(--color-bone);
+  pointer-events: auto;
+}
+
+.tut-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tut-step {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brass);
+}
+
+.tut-kw {
+  padding: 0 0.4rem;
+  border: 1px solid rgb(126 200 195 / 60%);
+  border-radius: 999px;
+  color: var(--color-signal);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.tut-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.tut-body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.tut-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.tut-actions .veil-btn {
+  min-height: 2.6rem;
+}
+
+.tut-link {
+  border: 0;
+  background: none;
+  padding: 0.35rem 0.1rem;
+  color: var(--color-ash);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tut-link:hover,
+.tut-link:focus-visible {
+  color: var(--color-bone);
+}
+
+.tut-show {
+  position: fixed;
+  top: 4.25rem;
+  right: 0.75rem;
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--color-brass);
+  border-radius: 999px;
+  background: rgb(14 14 18 / 92%);
+  color: var(--color-bone);
+  font-size: 0.8rem;
+}
+
+.tut-finish {
+  margin-top: 0.75rem;
+}
+
+.tut-finish-title {
+  margin: 0;
+  color: var(--color-brass);
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+}
+
+.tut-finish-body {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--color-ash);
+}
+
+.tut-banner {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgb(227 160 74 / 70%);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgb(48 32 14 / 85%), rgb(16 16 20 / 85%));
+}
+
+.tut-offer-kicker {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: var(--color-brass);
+}
+
+.tut-offer-body {
+  margin: 0.35rem 0 0.25rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--color-bone);
+}
+
+.tut-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(5 6 9 / 75%);
+}
+
+.tut-modal-card {
+  width: min(28rem, 100%);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgb(227 160 74 / 70%);
+  border-radius: 0.85rem;
+  background: var(--color-panel);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 60%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tut-layer[data-motion="full"] .tut-ring {
+    transition:
+      top 220ms ease,
+      left 220ms ease,
+      width 220ms ease,
+      height 220ms ease;
+    animation: tut-pulse 1.6s ease-in-out infinite;
+  }
+
+  .tut-layer[data-motion="full"] .tut-card {
+    transition:
+      top 220ms ease,
+      left 220ms ease;
+    animation: tut-in 260ms ease-out;
+  }
+}
+
+@keyframes tut-pulse {
+  0%,
+  100% {
+    border-color: rgb(227 160 74 / 95%);
+  }
+  50% {
+    border-color: rgb(255 214 150 / 100%);
+  }
+}
+
+@keyframes tut-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .tut-card {
+    padding: 0.6rem 0.75rem 0.65rem;
+  }
+
+  .tut-body {
+    font-size: 0.85rem;
+  }
+
+  .tut-ring {
+    box-shadow:
+      0 0 0 9999px rgb(5 6 9 / 18%),
+      0 0 12px rgb(227 160 74 / 60%);
+  }
+}

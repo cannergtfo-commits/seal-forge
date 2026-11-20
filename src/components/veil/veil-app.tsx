@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyRound, Layers, Library, Package, ScrollText, Shield, Swords, User, Wallet } from "lucide-react";
+import { GraduationCap, KeyRound, Layers, Library, Package, ScrollText, Shield, Swords, User, Wallet } from "lucide-react";
 import { BzbBox } from "@/components/veil/bzb-box";
 import { ConnectButton } from "@/components/veil/connect-button";
 import { CardBack, CardFace } from "@/components/veil/card";
@@ -12,6 +12,8 @@ import { PackOpen } from "@/components/veil/pack-open";
 import { PackSupply } from "@/components/veil/pack-supply";
 import { PolygonWallet } from "@/components/veil/polygon-wallet";
 import { Profile } from "@/components/veil/profile";
+import { GuidedDuel, TutorialOffer } from "@/components/veil/tutorial";
+import { setTutorialState, shouldOfferTutorial } from "@/veil/tutorial-script";
 import { PRACTICE, botOf } from "@/veil/bots";
 import { Table } from "@/components/veil/table";
 import { armArenaMusic, stopArenaMusic } from "@/veil/arena-music";
@@ -32,7 +34,7 @@ import { isApk } from "@/veil/shell";
 import { readSession } from "@/veil/session";
 import { isAddress } from "viem";
 
-type Screen = "home" | "start" | "duel" | "ranked" | "fight" | "packs" | "binder" | "codex" | "market" | "profile" | "deck" | "stages" | "wallet" | "rules";
+type Screen = "home" | "start" | "duel" | "ranked" | "fight" | "packs" | "binder" | "codex" | "market" | "profile" | "deck" | "stages" | "wallet" | "rules" | "tutorial";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -126,6 +128,21 @@ export function VeilApp() {
   const signedFor = useRef<string | null>(null);
   const notePull = useVault((state) => state.notePull);
   const scoreRef = useRef<PackScore | null>(null);
+  // S3 guided duel: offered once to new players (localStorage), before ranked, packs or the market.
+  const [tutorialFresh, setTutorialFresh] = useState(false);
+  const [tutorialOffer, setTutorialOffer] = useState<Screen | null>(null);
+  useEffect(() => setTutorialFresh(shouldOfferTutorial()), [screen]);
+
+  function gated(next: Screen) {
+    if (shouldOfferTutorial()) setTutorialOffer(next);
+    else setScreen(next);
+  }
+
+  function startTutorial() {
+    setTutorialOffer(null);
+    armArenaMusic();
+    setScreen("tutorial");
+  }
 
   useEffect(() => {
     const finish = () => setReady(true);
@@ -149,7 +166,7 @@ export function VeilApp() {
   useEffect(() => () => scoreRef.current?.stop(), []);
 
   useEffect(() => {
-    if (screen !== "fight" && screen !== "ranked") stopArenaMusic();
+    if (screen !== "fight" && screen !== "ranked" && screen !== "tutorial") stopArenaMusic();
   }, [screen]);
 
   useEffect(() => {
@@ -303,16 +320,26 @@ export function VeilApp() {
               <p>Aureth endure through ancient grace, Veymar through ambition, Rixen through cunning, Quorin through cold invention, and Malrec through darkness.</p>
               <p>As the Seals begin to break, old rivalries return and the fate of every realm hangs in the balance.</p>
             </div>
+            {tutorialFresh && (
+              <TutorialOffer
+                variant="banner"
+                onStart={startTutorial}
+                onLater={() => {
+                  setTutorialState("dismissed");
+                  setTutorialFresh(false);
+                }}
+              />
+            )}
             <div className="mt-5 hall-actions">
-              <button type="button" className="veil-btn veil-btn-primary" disabled={!ready} onClick={() => setScreen("packs")}>
+              <button type="button" className="veil-btn veil-btn-primary" disabled={!ready} onClick={() => gated("packs")}>
                 <Package className="h-4 w-4" aria-hidden />
                 Open a pack
               </button>
-              <button type="button" className="veil-btn" disabled={!ready} onClick={() => setScreen("ranked")}>
+              <button type="button" className="veil-btn" disabled={!ready} onClick={() => gated("ranked")}>
                 <Swords className="h-4 w-4" aria-hidden />
                 Find a match
               </button>
-              <button type="button" className="veil-btn" disabled={!ready} onClick={() => setScreen("market")}>
+              <button type="button" className="veil-btn" disabled={!ready} onClick={() => gated("market")}>
                 Market
               </button>
               <button type="button" className="veil-btn" disabled={!ready} onClick={() => setScreen("deck")}>
@@ -334,6 +361,10 @@ export function VeilApp() {
               </button>
               <button type="button" className="veil-btn" onClick={() => setScreen("duel")}>
                 Practice
+              </button>
+              <button type="button" className="veil-btn" onClick={startTutorial}>
+                <GraduationCap className="h-4 w-4" aria-hidden />
+                Guided duel
               </button>
               <button type="button" className="veil-btn" onClick={() => setScreen("wallet")}>
                 <Wallet className="h-4 w-4" aria-hidden />
@@ -381,7 +412,21 @@ export function VeilApp() {
       {screen === "start" && <NewPlayer onBack={() => setScreen("home")} onWallet={() => setScreen("wallet")} />}
 
       {screen === "ranked" && <Ranked onBack={() => setScreen("home")} />}
-      {screen === "profile" && <Profile onBack={() => setScreen("home")} onDeck={() => setScreen("deck")} />}
+      {screen === "profile" && <Profile onBack={() => setScreen("home")} onDeck={() => setScreen("deck")} onTutorial={startTutorial} />}
+
+      {screen === "tutorial" && <GuidedDuel onExit={() => setScreen("home")} onPractice={() => setScreen("duel")} />}
+
+      {tutorialOffer && (
+        <TutorialOffer
+          onStart={startTutorial}
+          onLater={() => {
+            const next = tutorialOffer;
+            setTutorialState("dismissed");
+            setTutorialOffer(null);
+            setScreen(next);
+          }}
+        />
+      )}
       {screen === "market" && <Market onBack={() => setScreen("home")} />}
 
       {screen === "duel" && (
@@ -541,6 +586,10 @@ export function VeilApp() {
         <>
           <Bar title="Rules" onBack={() => setScreen("home")} />
           <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 text-sm leading-relaxed text-ash">
+            <button type="button" className="veil-btn veil-btn-primary" onClick={startTutorial}>
+              <GraduationCap className="h-4 w-4" aria-hidden />
+              Replay guided duel
+            </button>
             <p className="text-bone">Each player has 20 life. Life from healing stops at 30. Reduce the rival to 0 to win.</p>
             <p>Maximum mana starts at 0 and rises by 1 at the start of each of your turns, up to 10. It refills to that maximum. Cards cost mana to play.</p>
             <p>You draw one card each turn. An empty deck deals 1 fatigue instead. Hands hold 7 cards; extras are discarded. The board holds 6 units. You may set 3 traps.</p>

@@ -382,6 +382,7 @@ export function Table({
   link,
   winnerExtra,
   stage = 0,
+  untimed = false,
 }: {
   match: Match;
   setMatch: (match: Match) => void;
@@ -393,6 +394,8 @@ export function Table({
   link?: TableLink;
   winnerExtra?: ReactNode;
   stage?: number;
+  /** Local only: the clocks never auto-pass (guided duel). */
+  untimed?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [attackers, setAttackers] = useState<string[]>([]);
@@ -889,7 +892,7 @@ export function Table({
     const wire = linkRef.current;
     const current = live.current.match;
     const style = live.current.bot.style;
-    if (current.winner !== null) return;
+    if (current.winner !== null || (untimed && !wire)) return;
     if (wire) {
       if (current.phase === "defend" && current.turn === 1) {
         const chosen = blocksRef.current;
