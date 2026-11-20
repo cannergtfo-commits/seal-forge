@@ -387,26 +387,27 @@ export function hardMain(m: Match, me: Side): Match {
 
   const canStillAttack = !m.attacked && m.turnCount > 1;
   const baseline = canStillAttack ? withAttack(m, me) : evaluate(m, me);
-  let best: { uid: string; target: Target | null; score: number } | null = null;
+  let best: { uid: string; target: Target | null; tithe?: boolean; score: number } | null = null;
   for (const { uid, card } of playable(m, me)) {
-    for (const target of targetsFor(m, me, card)) {
-      const result = playCard(m, uid, target);
-      if (result.error) continue;
-      const after = result.state;
-      const setsUpAttack =
-        canStillAttack &&
-        (card.kind === "spell" || card.tags.includes("haste") || card.play?.t === "hit");
-      let score = setsUpAttack ? withAttack(after, me) : evaluate(after, me);
-      if (canStillAttack && !setsUpAttack)
-        score = Math.max(score, score + (baseline - evaluate(m, me)));
-      score += card.cost * 0.15;
-      if (card.surge && !surgeActive(m) && waitsForSurge(m, me, uid, card))
-        score -= surgeValue(card);
-      if (!best || score > best.score) best = { uid, target, score };
-    }
+    for (const target of targetsFor(m, me, card))
+      for (const tithe of card.tithe ? [true, false] : [undefined]) {
+        const result = playCard(m, uid, target, { tithe });
+        if (result.error) continue;
+        const after = result.state;
+        const setsUpAttack =
+          canStillAttack &&
+          (card.kind === "spell" || card.tags.includes("haste") || card.play?.t === "hit");
+        let score = setsUpAttack ? withAttack(after, me) : evaluate(after, me);
+        if (canStillAttack && !setsUpAttack)
+          score = Math.max(score, score + (baseline - evaluate(m, me)));
+        score += card.cost * 0.15;
+        if (card.surge && !surgeActive(m) && waitsForSurge(m, me, uid, card))
+          score -= surgeValue(card);
+        if (!best || score > best.score) best = { uid, target, tithe, score };
+      }
   }
   if (best && best.score > baseline + 0.2) {
-    const result = playCard(m, best.uid, best.target);
+    const result = playCard(m, best.uid, best.target, { tithe: best.tithe });
     if (!result.error) return result.state;
   }
 

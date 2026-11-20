@@ -15,6 +15,7 @@ import {
   springTrap,
   surgeActive,
   hasBloom,
+  hasTag,
   toughness,
   other,
   type Match,
@@ -176,6 +177,11 @@ function choosePlay(m: Match, style: BotStyle, me: Side): { uid: string; target:
         else if (options.some((item) => item !== option && item.card.cost + option.card.cost <= seat.mana)) score -= 4;
       }
       if (option.card.kind === "unit" && seat.units.length < foes.length) score += 3;
+      // Formation: the third unit switches every Formation unit on.
+      if (option.card.kind === "unit" && seat.units.length === 2) {
+        const formed = seat.units.filter((unit) => hasTag(unit, "formation")).length + Number(option.card.tags.includes("formation"));
+        score += 2 * formed;
+      }
       if (option.card.kind === "trap" && foes.length > 0 && seat.traps.length === 0) score += 3;
       if (option.card.tags.includes("haste")) score += 2;
       if (style === "aggro") {

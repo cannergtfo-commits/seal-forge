@@ -6,6 +6,7 @@ import {
   type CardDef,
   type Faction,
   type PlayEffect,
+  type Tag,
 } from "./cards";
 
 export type Side = 0 | 1;
@@ -27,6 +28,10 @@ export type Unit = {
   plating?: number;
   /** Plating left to absorb damage this turn. Refills at the start of every turn. */
   plateLeft?: number;
+  /** Keywords gained after it was played (Tithe, spells). */
+  granted?: Tag[];
+  /** True while this unit has its Formation +1 health applied. */
+  formed?: boolean;
 };
 
 export type Trap = { uid: string; defId: string; owner: Side };
@@ -109,9 +114,42 @@ function hasAura(m: Match, owner: Side, aura: "goblinAtk" | "goblinSwift"): bool
   return m.players[owner].units.some((unit) => cardOf(unit.defId).aura === aura);
 }
 
+/** True when the unit has the keyword, printed or granted. */
+export function hasTag(unit: Unit, tag: Tag): boolean {
+  return cardOf(unit.defId).tags.includes(tag) || Boolean(unit.granted?.includes(tag));
+}
+
+/** Formation is on while its owner controls 3 or more units. */
+export function formationActive(m: Match, unit: Unit): boolean {
+  return hasTag(unit, "formation") && m.players[unit.owner].units.filter((item) => item.hp > 0).length >= 3;
+}
+
+/**
+ * Keeps Formation's +1 health in step with the board. Losing it lowers max health,
+ * and current health only drops to the new max, so losing the bonus never kills.
+ */
+function syncFormation(m: Match): void {
+  for (const seat of m.players) {
+    for (const unit of seat.units) {
+      if (unit.hp <= 0) continue;
+      const on = formationActive(m, unit);
+      if (on && !unit.formed) {
+        unit.formed = true;
+        unit.hp += 1;
+        unit.maxHp += 1;
+      } else if (!on && unit.formed) {
+        unit.formed = false;
+        unit.maxHp -= 1;
+        unit.hp = Math.max(1, Math.min(unit.hp, unit.maxHp));
+      }
+    }
+  }
+}
+
 export function power(m: Match, unit: Unit): number {
   const card = cardOf(unit.defId);
   let atk = unit.atk + unit.swing;
+  if (formationActive(m, unit)) atk += 1;
   if (card.faction === "goblin" && card.aura !== "goblinAtk" && hasAura(m, unit.owner, "goblinAtk")) atk += 1;
   return Math.max(0, atk);
 }
@@ -123,7 +161,7 @@ export function canAttack(m: Match, unit: Unit): boolean {
   if (power(m, unit) <= 0) return false;
   const card = cardOf(unit.defId);
   if (card.noAttack) return false;
-  if (unit.sick && !card.tags.includes("haste") && !(card.faction === "goblin" && hasAura(m, unit.owner, "goblinSwift"))) return false;
+  if (unit.sick && !hasTag(unit, "haste") && !(card.faction === "goblin" && hasAura(m, unit.owner, "goblinSwift"))) return false;
   return true;
 }
 
@@ -184,7 +222,7 @@ function loseLife(m: Match, side: Side, n: number, floorAt: number): void {
 }
 
 export function hasBloom(unit: Unit): boolean {
-  return cardOf(unit.defId).tags.includes("bloom");
+  return hasTag(unit, "bloom");
 }
 
 /** Bloom: whenever you heal (your life or an ally unit), each of your Bloom units gets +1 attack. */
@@ -272,6 +310,7 @@ function reap(m: Match): void {
     dead.push(...fresh);
   }
   if (dead.length === 0) return;
+  syncFormation(m);
   for (const seat of m.players) {
     const snare = seat.traps.find((trap) => cardOf(trap.defId).trap === "soul");
     if (snare && dead.length) {
@@ -409,7 +448,13 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     return null;
   }
   if (effect.t === "rally") {
-    for (const unit of m.players[owner].units) unit.swing += 1;
+    for (const unit of m.players[owner].units) {
+      unit.swing += 1;
+      if (hasTag(unit, "formation")) {
+        unit.hp += 1;
+        unit.maxHp += 1;
+      }
+    }
     note(m, "Rally: +1 attack this turn.");
     return null;
   }
@@ -488,7 +533,26 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
   return null;
 }
 
-export function playCard(state: Match, handUid: string, target: Target | null): { state: Match; error?: string } {
+/** Tithe choice for `playCard`: true pays, false declines, omitted uses `titheSafe`. */
+export type PlayOptions = { tithe?: boolean };
+
+/**
+ * The default Tithe rule (also the AI's): pay only if you stay well clear of the
+ * damage the rival's board could deal next turn.
+ */
+export function titheSafe(m: Match, side: Side, n: number): boolean {
+  const threat = m.players[other(side)].units
+    .filter((unit) => !unit.frozen && !cardOf(unit.defId).noAttack)
+    .reduce((sum, unit) => sum + power(m, unit), 0);
+  return m.players[side].hp - n > threat + 4;
+}
+
+export function playCard(
+  state: Match,
+  handUid: string,
+  target: Target | null,
+  options: PlayOptions = {},
+): { state: Match; error?: string } {
   const m = clone(state);
   if (m.phase !== "main" || m.winner) return { state, error: "You can only play cards on your main phase." };
   const seat = m.players[m.turn];
@@ -520,7 +584,26 @@ export function playCard(state: Match, handUid: string, target: Target | null): 
   const err = applyPlay(m, card, m.turn, spawned, target);
   if (err) return { state, error: err };
   if (surging && card.surge && m.winner === null) applySurge(m, card, m.turn, spawned, target);
+  if (card.tithe && m.winner === null) {
+    const pay = options.tithe ?? titheSafe(m, m.turn, card.tithe.n);
+    if (pay && m.players[m.turn].hp > card.tithe.n) applyTithe(m, card, m.turn, spawned);
+  }
+  syncFormation(m);
   return { state: m };
+}
+
+function applyTithe(m: Match, card: CardDef, owner: Side, self: Unit | null): void {
+  const tithe = card.tithe;
+  if (!tithe) return;
+  loseLife(m, owner, tithe.n, 1);
+  const effect = tithe.effect;
+  if (effect.t === "draw") draw(m, owner, effect.n);
+  else if (self && effect.t === "self") {
+    self.atk += effect.a;
+    self.hp += effect.h;
+    self.maxHp += effect.h;
+  } else if (self && effect.t === "grant") self.granted = [...(self.granted ?? []), effect.tag];
+  note(m, `Tithe: paid ${tithe.n} life for ${card.name}.`);
 }
 
 /** True when a card played now would Surge: the current player already played a card this turn. */
@@ -651,7 +734,7 @@ export function assignDefenders(state: Match, blocks: Record<string, string | nu
   const anyBlock = attackers.some((attacker) => blocks[attacker.uid]);
   if (anyBlock) {
     for (const attacker of attackers) {
-      if (cardOf(attacker.defId).tags.includes("bulwark") && !blocks[attacker.uid]) {
+      if (hasTag(attacker, "bulwark") && !blocks[attacker.uid]) {
         return { state, error: "Bulwark must be blocked before you block anything else." };
       }
     }
@@ -660,7 +743,7 @@ export function assignDefenders(state: Match, blocks: Record<string, string | nu
     const blockId = blocks[attacker.uid] ?? null;
     const strike = power(m, attacker);
     if (!blockId) {
-      const dealt = hurt(m, defender, strike, cardOf(attacker.defId).tags.includes("drain") ? attacker.owner : null);
+      const dealt = hurt(m, defender, strike, hasTag(attacker, "drain") ? attacker.owner : null);
       note(m, `${cardOf(attacker.defId).name} hits for ${dealt}.`);
       continue;
     }
@@ -671,10 +754,10 @@ export function assignDefenders(state: Match, blocks: Record<string, string | nu
     const landed = damageUnit(blocker, strike);
     damageUnit(attacker, back);
     note(m, `${cardOf(attacker.defId).name} trades with ${cardOf(blocker.defId).name}.`);
-    if (cardOf(attacker.defId).tags.includes("crush") && blocker.hp <= 0) {
+    if (hasTag(attacker, "crush") && blocker.hp <= 0) {
       const extra = landed - before;
       if (extra > 0) {
-        hurt(m, defender, extra, cardOf(attacker.defId).tags.includes("drain") ? attacker.owner : null);
+        hurt(m, defender, extra, hasTag(attacker, "drain") ? attacker.owner : null);
         note(m, `Crush spills ${extra}.`);
       }
     }

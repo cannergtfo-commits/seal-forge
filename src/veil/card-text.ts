@@ -1,10 +1,17 @@
-import type { CardDef, PlayEffect, RequiemEffect, SurgeEffect, TrapKind } from "./cards";
+import type {
+  CardDef,
+  PlayEffect,
+  RequiemEffect,
+  SurgeEffect,
+  TitheEffect,
+  TrapKind,
+} from "./cards";
 import { KEYWORDS, TAG_ORDER, type Keyword, type KeywordId } from "./keywords";
 
 /**
  * One template for every card:
  *
- *   `Keyword, Keyword. <static rule>. Play: <effect>. Surge: <effect>. Requiem: <effect>. — <flavor>`
+ *   `Keyword, Keyword. <static rule>. Play: <effect>. Surge: <effect>. Tithe N: <effect>. Requiem: <effect>. — <flavor>`
  *
  * Spells print their effect without "Play:". Traps start with "Trap. When they attack: …".
  * The text is generated from the data, so a rule change always updates the card face.
@@ -32,6 +39,7 @@ export function rulesText(card: CardDef): string {
       card.kind === "unit" ? `Play: ${lower(effectText(card.play))}` : effectText(card.play),
     );
   if (card.surge) parts.push(`Surge: ${lower(surgeText(card.surge, card))}`);
+  if (card.tithe) parts.push(`Tithe ${card.tithe.n}: ${lower(titheText(card.tithe.effect, card))}`);
   if (card.requiem) parts.push(`Requiem: ${lower(requiemText(card.requiem))}`);
   return parts.join(" ");
 }
@@ -57,7 +65,7 @@ export function effectText(effect: PlayEffect): string {
     case "buff":
       return `An ally unit gets +${effect.a}/+${effect.h}.`;
     case "rally":
-      return "Your units get +1 attack this turn.";
+      return "Your units get +1 attack this turn. Your Formation units also get +1 health.";
     case "charge": {
       const n = effect.n ?? 2;
       const hit = effect.selfHit ?? 1;
@@ -80,6 +88,17 @@ export function effectText(effect: PlayEffect): string {
       return "Deal 1 to the rival.";
     case "grantHaste":
       return "An ally unit gains Haste this turn.";
+  }
+}
+
+export function titheText(effect: TitheEffect, card: Pick<CardDef, "kind">): string {
+  switch (effect.t) {
+    case "draw":
+      return `Draw ${effect.n}${card.kind === "spell" ? " more" : ""}.`;
+    case "self":
+      return `This gets +${effect.a}/+${effect.h}.`;
+    case "grant":
+      return `This gains ${effect.tag.charAt(0).toUpperCase()}${effect.tag.slice(1)}.`;
   }
 }
 
@@ -148,6 +167,8 @@ export function keywordsOf(card: CardDef): Keyword[] {
   if (card.play?.t === "freeze" || card.trap === "horizon") ids.push("freeze");
   if (card.kind === "unit" && card.play) ids.push("play");
   if (card.surge) ids.push("surge");
+  if (card.tithe) ids.push("tithe");
+  if (card.tithe?.effect.t === "grant") ids.push(card.tithe.effect.tag);
   if (card.requiem) ids.push("requiem");
   return ids.map((id) => KEYWORDS[id]);
 }

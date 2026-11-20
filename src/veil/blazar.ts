@@ -15,7 +15,7 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-bulkhead", tokenId: 8, chainRarity: 1, name: "Bulkhead", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "basic", set: "blazar", tags: ["bulwark"] },
   { id: "bz-lance-shot", tokenId: 9, chainRarity: 1, name: "Lance Shot", faction: "human", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "hit", n: 2 } },
   { id: "bz-oath-pilot", tokenId: 10, chainRarity: 1, name: "Oath Pilot", faction: "human", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "basic", set: "blazar", tags: [], flavor: "Same oath. No sky." },
-  { id: "bz-captain-kel", tokenId: 11, chainRarity: 2, name: "Captain Kestrel", faction: "human", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", set: "blazar", tags: [], play: { t: "buff", a: 1, h: 1 } },
+  { id: "bz-captain-kel", tokenId: 11, chainRarity: 2, name: "Captain Kestrel", faction: "human", kind: "unit", cost: 4, atk: 2, hp: 4, rarity: "rare", set: "blazar", tags: ["formation"], play: { t: "buff", a: 1, h: 1 }, version: 2 },
   { id: "bz-admiral-voss", tokenId: 12, chainRarity: 3, name: "Admiral Voss", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "legendary", set: "blazar", tags: [], play: { t: "hit", n: 2 } },
 
   { id: "bz-spark-rat", tokenId: 13, chainRarity: 1, name: "Spark Rat", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
@@ -37,7 +37,7 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-brand-knight", tokenId: 27, chainRarity: 1, name: "Brand Knight", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "basic", set: "blazar", tags: [], flavor: "Hits, then the dark takes the rest." },
   { id: "bz-ash-moth", tokenId: 28, chainRarity: 1, name: "Ash Moth", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "blazar", tags: [], flavor: "Wings the color of a spent star." },
   { id: "bz-hex-moth", tokenId: 29, chainRarity: 2, name: "Hex Moth", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "rare", set: "blazar", tags: ["drain"] },
-  { id: "bz-tyrant-blazar", tokenId: 30, chainRarity: 3, name: "Tyrant of the Blazar", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "legendary", set: "blazar", tags: ["crush"] },
+  { id: "bz-tyrant-blazar", tokenId: 30, chainRarity: 3, name: "Tyrant of the Blazar", faction: "demon", kind: "unit", cost: 7, atk: 5, hp: 5, rarity: "legendary", set: "blazar", tags: ["crush"], tithe: { n: 3, effect: { t: "self", a: 2, h: 0 } }, version: 2 },
 
   { id: "bz-drift-wisp", tokenId: 31, chainRarity: 1, name: "Drift Wisp", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: ["bloom"], version: 2, flavor: "No seal claims it." },
   { id: "bz-eclipse-blade", tokenId: 32, chainRarity: 1, name: "Eclipse Blade", faction: "veil", kind: "unit", cost: 2, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], surge: { t: "self", a: 1, h: 1, haste: true }, version: 2 },
@@ -50,7 +50,7 @@ export const BLAZAR_RAW: RawCard[] = [
 /** Founding cards for the sixth seal. Dark fantasy, not the space set. Starter decks use these. */
 export const UNBOUND_RAW: RawCard[] = [
   { id: "un-lantern", tokenId: 37, chainRarity: 1, name: "Pale Lantern", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "common", set: "founding", tags: [], flavor: "A light that belongs to no grove." },
-  { id: "un-squire", tokenId: 38, chainRarity: 1, name: "Oathless Squire", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", set: "founding", tags: [], flavor: "Steel with the crest filed off." },
+  { id: "un-squire", tokenId: 38, chainRarity: 1, name: "Oathless Squire", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", set: "founding", tags: ["formation"], version: 2, flavor: "Steel with the crest filed off." },
   { id: "un-toll", tokenId: 39, chainRarity: 1, name: "Silver Toll", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", set: "founding", tags: [], play: { t: "hit", n: 2 } },
   { id: "un-choir", tokenId: 40, chainRarity: 1, name: "Ash Choir", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "common", set: "founding", tags: [], requiem: { t: "draw", n: 1 }, version: 2, flavor: "They sing for whoever paid." },
   { id: "un-ward", tokenId: 41, chainRarity: 1, name: "Way Ward", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "common", set: "founding", tags: ["bulwark"] },

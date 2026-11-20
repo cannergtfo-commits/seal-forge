@@ -3,7 +3,7 @@ import type { CardSet, ChainRarity, Edition, Format } from "./sets";
 export type { CardSet, Edition, Format } from "./sets";
 export type Faction = "elf" | "human" | "goblin" | "robot" | "demon" | "veil";
 export type Rarity = "common" | "uncommon" | "rare" | "basic" | "legendary";
-export type Tag = "bulwark" | "drain" | "crush" | "haste" | "bloom";
+export type Tag = "bulwark" | "drain" | "crush" | "haste" | "bloom" | "formation";
 
 export type PlayEffect =
   | { t: "healSelf"; n: number; bloomDraw?: number }
@@ -30,6 +30,12 @@ export type SurgeEffect =
   | { t: "target"; a: number; h: number }
   | { t: "ping"; n: number }
   | { t: "draw"; n: number };
+
+/** "Tithe N: X" — when you play this, you may pay N life for X. */
+export type TitheEffect =
+  | { t: "draw"; n: number }
+  | { t: "self"; a: number; h: number }
+  | { t: "grant"; tag: Tag };
 
 /** "Requiem: X" — what happens when the unit dies. */
 export type RequiemEffect =
@@ -75,6 +81,7 @@ export type CardDef = {
   plating?: number;
   requiem?: RequiemEffect;
   surge?: SurgeEffect;
+  tithe?: { n: number; effect: TitheEffect };
   aura?: "goblinAtk" | "goblinSwift";
   noAttack?: boolean;
 };
@@ -140,7 +147,7 @@ const CORE: CardDef[] = [
   c({ id: "medic", tokenId: 12, chainRarity: 1, name: "Field Medic", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "healUnit", n: 2 } }),
   c({ id: "shot", tokenId: 13, chainRarity: 1, name: "Precise Shot", faction: "human", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 } }),
   c({ id: "oath-knight", tokenId: 14, chainRarity: 2, name: "Knight of the Oath", faction: "human", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], flavor: "A fair fight on purpose." }),
-  c({ id: "rally", tokenId: 15, chainRarity: 2, name: "Rally Banner", faction: "human", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/captain.jpg`, tags: [], play: { t: "rally" } }),
+  c({ id: "rally", tokenId: 15, chainRarity: 2, name: "Rally Banner", faction: "human", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/captain.jpg`, tags: [], play: { t: "rally" }, version: 2 }),
   c({ id: "pikes", tokenId: 16, chainRarity: 2, name: "Ambush Pikes", faction: "human", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], trap: "pikes" }),
   c({ id: "aldren", tokenId: 17, chainRarity: 3, name: "Captain Aldren", faction: "human", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "buff", a: 1, h: 1 } }),
   c({ id: "marshal", tokenId: 18, chainRarity: 3, name: "Siege Marshal", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 } }),
@@ -168,7 +175,7 @@ const CORE: CardDef[] = [
   c({ id: "familiar", tokenId: 37, chainRarity: 1, name: "Imp Familiar", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/imp.jpg`, tags: [], play: { t: "loseHp", n: 1 } }),
   c({ id: "ash-imp", tokenId: 38, chainRarity: 1, name: "Ash Imp", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/imp.jpg`, tags: [], flavor: "Ember eyes. No bargain yet." }),
   c({ id: "spark", tokenId: 39, chainRarity: 1, name: "Hell Spark", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "hit", n: 3, selfLose: 1 } }),
-  c({ id: "pact", tokenId: 40, chainRarity: 1, name: "Blood Pact", faction: "demon", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 2, lose: 2 } }),
+  c({ id: "pact", tokenId: 40, chainRarity: 1, name: "Blood Pact", faction: "demon", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 1, lose: 0 }, tithe: { n: 2, effect: { t: "draw", n: 1 } }, version: 2 }),
   c({ id: "blood-knight", tokenId: 41, chainRarity: 2, name: "Blood Knight", faction: "demon", kind: "unit", cost: 3, atk: 4, hp: 2, rarity: "uncommon", art: `${A}/demon.jpg`, tags: [], flavor: "Hits hard. Does not stay." }),
   c({ id: "hexbrand", tokenId: 42, chainRarity: 2, name: "Hexbrand", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/demon.jpg`, tags: ["drain"] }),
   c({ id: "soul", tokenId: 43, chainRarity: 2, name: "Soul Snare", faction: "demon", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/imp.jpg`, tags: [], trap: "soul" }),

@@ -12,7 +12,7 @@ shield-line	v1	2	1/4	Bulwark.
 medic	v1	2	1/3	Play: heal an ally unit 2.
 shot	v1	1	-	Deal 2 to a unit or a player.
 oath-knight	v1	3	3/3	A fair fight on purpose.
-rally	v1	3	-	Your units get +1 attack this turn.
+rally	v2	2	-	Your units get +1 attack this turn. Your Formation units also get +1 health.
 pikes	v1	2	-	Trap. When they attack: deal 3 to an attacker.
 aldren	v1	4	3/4	Play: an ally unit gets +1/+1.
 marshal	v1	6	5/5	Play: deal 2 to a unit or a player.
@@ -37,14 +37,14 @@ apex	v2	6	3/7	Play: your other Quorin get Plating 1.
 familiar	v1	1	2/1	Play: lose 1 life.
 ash-imp	v1	2	2/2	Ember eyes. No bargain yet.
 spark	v1	2	-	Deal 3 to a unit or a player. Then lose 1 life.
-pact	v1	1	-	Draw 2 and lose 2 life. This can't drop you below 1.
+pact	v2	1	-	Draw 1. Tithe 2: draw 1 more.
 blood-knight	v1	3	4/2	Hits hard. Does not stay.
 hexbrand	v1	3	3/3	Drain.
 soul	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
 vex	v1	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
 tyrant	v1	7	6/6	Crush.
 un-lantern	v1	1	1/2	A light that belongs to no grove.
-un-squire	v1	2	2/2	Steel with the crest filed off.
+un-squire	v2	2	2/2	Formation. — Steel with the crest filed off.
 un-toll	v1	1	-	Deal 2 to a unit or a player.
 un-choir	v2	3	2/3	Requiem: draw 1. — They sing for whoever paid.
 un-ward	v1	3	1/4	Bulwark.
@@ -61,7 +61,7 @@ bz-hull-scout	v1	1	2/1	First boot on the dark hull.
 bz-bulkhead	v1	2	1/4	Bulwark.
 bz-lance-shot	v1	1	-	Deal 2 to a unit or a player.
 bz-oath-pilot	v1	3	3/3	Same oath. No sky.
-bz-captain-kel	v1	4	3/4	Play: an ally unit gets +1/+1.
+bz-captain-kel	v2	4	2/4	Formation. Play: an ally unit gets +1/+1.
 bz-admiral-voss	v1	6	5/5	Play: deal 2 to a unit or a player.
 bz-spark-rat	v1	1	1/1	Haste.
 bz-twin-jets	v2	1	2/1	Surge: this gains Haste.
@@ -80,7 +80,7 @@ bz-pact-ember	v1	2	-	Deal 2 to a unit or a player.
 bz-brand-knight	v1	3	3/2	Hits, then the dark takes the rest.
 bz-ash-moth	v1	2	2/2	Wings the color of a spent star.
 bz-hex-moth	v1	3	3/3	Drain.
-bz-tyrant-blazar	v1	7	6/6	Crush.
+bz-tyrant-blazar	v2	7	5/5	Crush. Tithe 3: this gets +2/+0.
 bz-drift-wisp	v2	1	1/1	Bloom. — No seal claims it.
 bz-eclipse-blade	v2	2	1/1	Surge: this gets +1/+1 and Haste.
 bz-slip	v1	1	-	An ally unit gains Haste this turn.
@@ -110,13 +110,13 @@ kg-steel-throw	v1	1	-	Deal 2 to a unit or a player.
 kg-cloak-captain	v1	2	2/2	The banner is folded. The oath is not.
 kg-rain-line	v1	3	3/3	Even steel. Even night.
 kg-oath-blade	v1	3	3/2	One cut, then the line closes.
-kg-banner-flash	v1	3	-	Your units get +1 attack this turn.
+kg-banner-flash	v2	2	-	Your units get +1 attack this turn. Your Formation units also get +1 health.
 kg-pike-night	v1	2	-	Trap. When they attack: deal 3 to an attacker.
 kg-kestrel-kage	v1	4	3/4	Play: an ally unit gets +1/+1.
 kg-marshal-mask	v1	5	4/4	Play: deal 2 to a unit or a player.
 kg-war-seal	v1	3	-	Deal 3 to a unit or a player.
 kg-ambush-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-voss-kage	v1	6	5/5	Play: deal 2 to a unit or a player. — The oath does not need a sky.
+kg-voss-kage	v2	6	5/4	Formation. — The oath does not need a sky.
 kg-ember-rat	v1	1	1/1	Haste.
 kg-alley-knife	v1	1	2/1	Already swinging.
 kg-twin-stars	v2	1	1/1	Surge: this gets +1/+1.
@@ -158,7 +158,7 @@ kg-brand-hood	v1	3	3/2	A horned shadow with a short blade.
 kg-blood-cut	v1	3	4/2	Hits hard. Does not stay.
 kg-soul-wire	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
 kg-hexbrand-kage	v1	3	3/3	Drain.
-kg-duchess-kage	v1	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
+kg-duchess-kage	v2	5	4/4	Tithe 2: this gains Drain.
 kg-pit-flame	v1	3	-	Deal 3 to a unit or a player.
 kg-soul-seal	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
 kg-tyrant-kage	v1	7	6/6	Crush.
@@ -170,13 +170,13 @@ kg-slip-seal	v1	1	-	An ally unit gains Haste this turn.
 kg-toll-cut	v1	1	-	Deal 2 to a unit or a player.
 kg-road-ward	v1	3	1/4	Bulwark.
 kg-ash-walk	v2	3	2/2	Bloom. Play: heal 2. — It does not take a side.
-kg-nameless-step	v1	3	2/2	The road keeps its own assassins.
+kg-nameless-step	v2	3	2/3	Formation. — The road keeps its own assassins.
 kg-cross-mark	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 kg-pilgrim-kage	v1	3	3/2	Haste.
-kg-faceless	v1	4	3/4	No seal. Just the cut.
+kg-faceless	v2	4	3/3	Tithe 2: this gets +1/+1. — No seal. Just the cut.
 kg-silver-mend	v1	3	-	Heal 4.
 kg-horizon-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-veil-kage	v1	7	5/6	Haste. Play: heal 2. — The sixth seal, wearing no face.
+kg-veil-kage	v2	7	4/6	Tithe 3: draw 2. — The sixth seal, wearing no face.
 as-briar-vanguard	v1	1	2/1	Black braid, leaf mail, and a short spear.
 as-oak-sentinel	v1	2	1/4	Bulwark. — Auburn braid, green plate, a kite shield.
 as-grove-mend	v1	2	-	Heal 3.
@@ -187,8 +187,8 @@ as-oath-squire	v1	1	2/1	Freckles, chestnut hair, and a sword too honest.
 as-banner-dame	v1	2	2/3	She holds the torn banner and does not yield.
 as-precise-oath	v1	1	-	Deal 2 to a unit or a player.
 as-pike-wall	v1	2	-	Trap. When they attack: deal 3 to an attacker.
-as-captain-ysara	v1	4	3/4	Play: an ally unit gets +1/+1. — Dark hair, red cloak, gold-trim steel.
-as-marshal-hala	v1	6	5/5	Play: your units get +1 attack this turn. — Silver war-braid, lion plate.
+as-captain-ysara	v2	4	3/3	Formation. — Dark hair, red cloak, gold-trim steel.
+as-marshal-hala	v2	6	4/5	Play: your units get +1 attack this turn. Your Formation units also get +1 health. — Silver war-braid, lion plate.
 as-cinder-lass	v1	1	2/1	Haste. — Copper hair, ember eyes, two clean knives.
 as-scrap-vixen	v2	1	1/1	Surge: deal 1 to the rival.
 as-reckless-spark	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
