@@ -375,7 +375,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
     };
   }, [view]);
 
-  async function seatBody(): Promise<{ id: string; name: string; faction: Faction; address: string; deck: string[] | null; stage: number }> {
+  async function seatBody(): Promise<{ id: string; name: string; faction: Faction; address: string; deck: string[] | null; stage: number; token?: string }> {
     const stage = stageOwned.includes(stageOn) ? stageOn : 0;
     if (isApk()) {
       const book = address ? readBook(address) : null;
@@ -400,12 +400,15 @@ export function Ranked({ onBack }: { onBack: () => void }) {
         /* the public lanes still work without the profile server */
       }
     }
-    return { id: seatId(), name, faction, address, deck, stage };
+    // The server derives the wallet from this signed session; without it the seat plays as a guest (no XP or BzB).
+    const token = session && session.token !== "device" && address && session.address.toLowerCase() === address.toLowerCase() ? session.token : undefined;
+    return { id: seatId(), name, faction, address, deck, stage, token };
   }
 
   function noteDeck(deck?: string) {
     if (deck === "needs-nfts") setError("That deck includes cards this wallet does not hold, so the starter deck was used.");
     else if (deck === "wrong-seal") setError("That deck is sealed to another seal, so the starter deck was used.");
+    else if (deck === "sign-in") setError("Sign in to play your own deck. The starter deck was used.");
   }
 
   function startLocal() {
@@ -824,7 +827,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
               <p className="mt-2 text-sm text-ash">No BzB. Rewards go only to wallets that hold a Seal Forge card NFT.</p>
             )}
             {view.winner === view.you && !claim && reward !== "needs-card" && (
-              <p className="mt-2 text-sm text-ash">No payout. Either you’ve hit your daily reward cap (4 wins today; each player gets their own four), or the wallet was not connected. XP still applies if you are signed in.</p>
+              <p className="mt-2 text-sm text-ash">No payout. Either you’ve hit your daily reward cap (4 wins today; each player gets their own four), or the wallet was not signed in. XP still applies if you are signed in.</p>
             )}
           </div>
         }
@@ -855,7 +858,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           {address && signedIn && <p className="mt-2 text-sm text-bone">Signed in. Auto start and Find a match award 20 XP for a win and 10 XP less for a loss.</p>}
           {address && !signedIn && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-sm text-bone">Not signed in. This match will not add XP until you sign in.</p>
+              <p className="text-sm text-bone">Not signed in. This match will not add XP or pay BzB until you sign in.</p>
               <button type="button" className="veil-btn veil-btn-primary" disabled={busy || signing || Boolean(id)} onClick={() => void signInForXp()}>
                 {signing ? "Signing…" : "Sign in for XP"}
               </button>
