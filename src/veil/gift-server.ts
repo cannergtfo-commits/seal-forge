@@ -6,6 +6,7 @@ import { getSql } from "@/lib/db";
 import { BZB, CARDS_NFT, GIFT, KEEPER, PACKS } from "./deployed";
 import { GIFT_LEVEL, rankFor } from "./ranks";
 import { profileByToken, snapshotProfiles, type Profile } from "./accounts";
+import { giftTransfers, recordGiftTransfer } from "./integrity-store";
 
 const transport = http("https://polygon-bor-rpc.publicnode.com");
 const publicClient = createPublicClient({ chain: polygon, transport });
@@ -87,6 +88,28 @@ async function write(fn: string, args: readonly unknown[], abi: typeof giftAbi |
     if (receipt.status !== "success") throw new Error("The gift transaction failed.");
     return receipt;
   });
+}
+
+/** Like write(), but stores the tx hash as soon as it is broadcast, before waiting for the receipt. */
+async function writeRecorded(fn: string, args: readonly unknown[], abi: typeof cardsAbi, to: Address, onHash: (hash: Hex) => Promise<void>) {
+  return send(async () => {
+    const { account, wallet } = keeper();
+    const hash = await wallet.writeContract({ address: to, abi: abi as never, functionName: fn, args: args as never, account });
+    await onHash(hash);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    if (receipt.status !== "success") throw new Error("The gift transaction failed.");
+    return receipt;
+  });
+}
+
+/** "sent" when a recorded transfer landed, "failed" when it reverted, "pending" when it is still unknown. */
+async function transferState(hash: string): Promise<"sent" | "failed" | "pending"> {
+  try {
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as Hex, timeout: 30_000 });
+    return receipt.status === "success" ? "sent" : "failed";
+  } catch {
+    return "pending";
+  }
 }
 
 async function ensureApprovals() {
@@ -212,10 +235,24 @@ async function deliver(token: string, profile: Profile, player: Address, orderId
     ids = stored;
   }
   if (!ids.length) return { error: "The cards are missing from this gift. Try the claim again." };
-  for (const id of ids) {
-    const holding = await publicClient.readContract({ address: CARDS_NFT, abi: cardsAbi, functionName: "balanceOf", args: [getAddress(KEEPER), id] });
-    if (holding < 1n) continue;
-    await write("safeTransferFrom", [getAddress(KEEPER), player, id, 1n, "0x"], cardsAbi, CARDS_NFT);
+  // Each distinct card id is sent once (amount = copies in the pack) and its tx hash is stored
+  // the moment it is broadcast. A retry decides from those receipts, never from the keeper's
+  // balance, which can hold copies from other packs.
+  const counts = new Map<string, bigint>();
+  for (const id of ids) counts.set(id.toString(), (counts.get(id.toString()) ?? 0n) + 1n);
+  const sql = await getSql();
+  const orderKey = orderId.toString();
+  const sent = await giftTransfers(sql, profile.address, orderKey);
+  for (const [id, amount] of counts) {
+    const prior = sent.get(id);
+    if (prior) {
+      const state = await transferState(prior);
+      if (state === "sent") continue;
+      if (state === "pending") return { profile, status: "opening", note: "A card transfer is still confirming. Claim again in a minute." };
+    }
+    await writeRecorded("safeTransferFrom", [getAddress(KEEPER), player, BigInt(id), amount, "0x"], cardsAbi, CARDS_NFT, (hash) =>
+      recordGiftTransfer(sql, { wallet: profile.address, orderId: orderKey, tokenId: id, amount: Number(amount), txHash: hash }),
+    );
   }
   await mark(profile.address, orderId.toString(), ids.join(","), 1);
   const done = await profileByToken(token);
