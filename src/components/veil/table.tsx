@@ -4,6 +4,8 @@ import { CardBack, CardFace } from "@/components/veil/card";
 import { SealMark } from "@/components/veil/deck";
 import { stepRival } from "@/veil/ai";
 import { musicWanted, playArenaTrack, toggleArenaMusic } from "@/veil/arena-music";
+import { useMatchSfx } from "@/veil/sfx";
+import { SoundMenu } from "@/components/veil/sound-menu";
 import type { Bot } from "@/veil/bots";
 import { FACTIONS, cardOf, needsTarget, trapNeedsTarget, type Faction } from "@/veil/cards";
 import {
@@ -399,6 +401,8 @@ export function Table({
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
   const [music, setMusic] = useState(musicWanted);
+  // S4: combat SFX are derived from Match diffs; deny buzz on a new error.
+  useMatchSfx(match, error);
   const backdrop = stageVisual(stage);
   useEffect(() => {
     playArenaTrack(backdrop?.music ?? null);
@@ -884,17 +888,20 @@ export function Table({
             <ArenaClock clockKey={clockKey} span={span} reacting={reacting} label={clockLabel} over={match.winner !== null} leftMsRef={leftMsRef} onDoneRef={onDoneRef} />
             <p className="arena-now">{line}</p>
           </div>
-          <button
-            type="button"
-            className="arena-btn"
-            aria-label={music ? "Mute music" : "Unmute music"}
-            onClick={() => setMusic(toggleArenaMusic())}
-          >
-            <span className="arena-music-label">{music ? "Mute" : "Unmute"}</span>
-            <span className="arena-music-mark" aria-hidden>
-              {music ? "Mute" : "Off"}
-            </span>
-          </button>
+          <div className="arena-hud-sound">
+            <SoundMenu onMusic={setMusic} />
+            <button
+              type="button"
+              className="arena-btn"
+              aria-label={music ? "Mute music" : "Unmute music"}
+              onClick={() => setMusic(toggleArenaMusic())}
+            >
+              <span className="arena-music-label">{music ? "Mute" : "Unmute"}</span>
+              <span className="arena-music-mark" aria-hidden>
+                {music ? "Mute" : "Off"}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="arena-play" ref={playRef}>
