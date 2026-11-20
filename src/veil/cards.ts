@@ -3,23 +3,33 @@ import type { CardSet, ChainRarity, Edition, Format } from "./sets";
 export type { CardSet, Edition, Format } from "./sets";
 export type Faction = "elf" | "human" | "goblin" | "robot" | "demon" | "veil";
 export type Rarity = "common" | "uncommon" | "rare" | "basic" | "legendary";
-export type Tag = "bulwark" | "drain" | "crush" | "haste";
+export type Tag = "bulwark" | "drain" | "crush" | "haste" | "bloom";
 
 export type PlayEffect =
-  | { t: "healSelf"; n: number }
+  | { t: "healSelf"; n: number; bloomDraw?: number }
   | { t: "loseHp"; n: number }
   | { t: "draw"; n: number; lose: number }
   | { t: "hit"; n: number; selfLose?: number }
   | { t: "healUnit"; n: number }
   | { t: "buff"; a: number; h: number }
   | { t: "rally" }
-  | { t: "charge" }
+  | { t: "charge"; n?: number; selfHit?: number }
   | { t: "freeze" }
   | { t: "overclock" }
   | { t: "twin" }
   | { t: "apex"; h?: number; plating?: number }
   | { t: "boom" }
   | { t: "grantHaste" };
+
+/**
+ * "Surge: X" — if you already played another card this turn, X happens too.
+ * `self` buffs the unit itself (and can give it Haste); `target` adds to the spell's target.
+ */
+export type SurgeEffect =
+  | { t: "self"; a: number; h: number; haste?: boolean }
+  | { t: "target"; a: number; h: number }
+  | { t: "ping"; n: number }
+  | { t: "draw"; n: number };
 
 /** "Requiem: X" — what happens when the unit dies. */
 export type RequiemEffect =
@@ -64,6 +74,7 @@ export type CardDef = {
   /** Plating N: prevents the first N damage to this unit each turn. */
   plating?: number;
   requiem?: RequiemEffect;
+  surge?: SurgeEffect;
   aura?: "goblinAtk" | "goblinSwift";
   noAttack?: boolean;
 };
@@ -114,7 +125,7 @@ function c(partial: Omit<CardData, "set"> & { art?: string }): CardDef {
 }
 
 const CORE: CardDef[] = [
-  c({ id: "moonpetal", tokenId: 1, chainRarity: 1, name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: [], requiem: { t: "heal", n: 1 } }),
+  c({ id: "moonpetal", tokenId: 1, chainRarity: 1, name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: ["bloom"], version: 2 }),
   c({ id: "thorn-dryad", tokenId: 2, chainRarity: 1, name: "Thorn Dryad", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 3, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 1 } }),
   c({ id: "starlit", tokenId: 3, chainRarity: 1, name: "Starlit Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "common", art: `${A}/elf.jpg`, tags: [], play: { t: "hit", n: 1 } }),
   c({ id: "briar", tokenId: 4, chainRarity: 1, name: "Briar Snare", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "freeze" } }),
@@ -122,7 +133,7 @@ const CORE: CardDef[] = [
   c({ id: "mend", tokenId: 6, chainRarity: 2, name: "Verdant Mend", faction: "elf", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 4 } }),
   c({ id: "glade", tokenId: 7, chainRarity: 2, name: "Hidden Glade", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], trap: "glade" }),
   c({ id: "lysara", tokenId: 8, chainRarity: 3, name: "Lysara, Grove Warden", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/elf.jpg`, tags: [], play: { t: "healSelf", n: 2 }, flavor: "Blonde, fair, and fully in command of the grove." }),
-  c({ id: "treant", tokenId: 9, chainRarity: 3, name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 5, hp: 7, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark"] }),
+  c({ id: "treant", tokenId: 9, chainRarity: 3, name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 7, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark", "bloom"], version: 2 }),
 
   c({ id: "scout", tokenId: 10, chainRarity: 1, name: "Scout Rider", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/knight.jpg`, tags: [], flavor: "First steel on the road." }),
   c({ id: "shield-line", tokenId: 11, chainRarity: 1, name: "Shield Line", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/knight.jpg`, tags: ["bulwark"] }),
@@ -135,14 +146,14 @@ const CORE: CardDef[] = [
   c({ id: "marshal", tokenId: 18, chainRarity: 3, name: "Siege Marshal", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 } }),
 
   c({ id: "scrap", tokenId: 19, chainRarity: 1, name: "Scrap Runner", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], flavor: "Fast, thin, and already swinging." }),
-  c({ id: "twins", tokenId: 20, chainRarity: 1, name: "Twin Knives", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "twin" } }),
+  c({ id: "twins", tokenId: 20, chainRarity: 1, name: "Twin Knives", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], surge: { t: "self", a: 1, h: 1 }, version: 2 }),
   c({ id: "raider", tokenId: 21, chainRarity: 1, name: "Cave Raider", faction: "goblin", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/goblin.jpg`, tags: ["haste"] }),
-  c({ id: "charge", tokenId: 22, chainRarity: 1, name: "Reckless Charge", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "charge" } }),
+  c({ id: "charge", tokenId: 22, chainRarity: 1, name: "Reckless Charge", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "charge", n: 2, selfHit: 0 }, surge: { t: "target", a: 0, h: 2 }, version: 2 }),
   c({ id: "boom", tokenId: 23, chainRarity: 2, name: "Boomlobber", faction: "goblin", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], play: { t: "boom" } }),
   c({ id: "drummer", tokenId: 24, chainRarity: 2, name: "War Drummer", faction: "goblin", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "uncommon", art: `${A}/king.jpg`, tags: [], aura: "goblinSwift" }),
   c({ id: "pit", tokenId: 25, chainRarity: 2, name: "Pit Snare", faction: "goblin", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], trap: "snare" }),
   c({ id: "skarn", tokenId: 26, chainRarity: 3, name: "King Skarn", faction: "goblin", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "rare", art: `${A}/king.jpg`, tags: [], aura: "goblinAtk" }),
-  c({ id: "grenade", tokenId: 27, chainRarity: 3, name: "Horde Grenade", faction: "goblin", kind: "spell", cost: 4, atk: 0, hp: 0, rarity: "rare", art: `${A}/king.jpg`, tags: [], play: { t: "hit", n: 4 } }),
+  c({ id: "grenade", tokenId: 27, chainRarity: 3, name: "Horde Grenade", faction: "goblin", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "rare", art: `${A}/king.jpg`, tags: [], play: { t: "hit", n: 3 }, surge: { t: "ping", n: 1 }, version: 2 }),
 
   c({ id: "clock", tokenId: 28, chainRarity: 1, name: "Clockwork Scout", faction: "robot", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], flavor: "A lens and a thin wing." }),
   c({ id: "sentry", tokenId: 29, chainRarity: 1, name: "Sentry Drone", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/robot.jpg`, tags: ["bulwark"] }),

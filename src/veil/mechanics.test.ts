@@ -12,6 +12,7 @@ import {
   type Unit,
 } from "./logic.ts";
 import { guaranteedDamage, unitValue } from "./ai-hard.ts";
+import { stepRival } from "./ai.ts";
 
 export function unit(m: Match, defId: string, owner: Side, extra: Partial<Unit> = {}): Unit {
   const card = cardOf(defId);
@@ -149,5 +150,87 @@ describe("Requiem", () => {
       x.players[0].units.push(unit(x, "welder", 0, { hp: 1 }));
     });
     assert.equal(m.players[0].units.find((u) => u.defId === "welder")!.hp, 3);
+  });
+});
+
+describe("Surge", () => {
+  it("does nothing on the first card of the turn and fires after another card", () => {
+    let m = board(0);
+    m.played = 0;
+    m = cast(m, "twins", null);
+    assert.equal(m.players[0].units[0]!.atk, 1);
+    m = cast(m, "kg-twin-stars", null);
+    assert.equal(m.players[0].units[1]!.atk, 2);
+    assert.equal(m.players[0].units[1]!.hp, 2);
+  });
+
+  it("can give Haste, buff a spell's target, ping or draw", () => {
+    let m = board(0);
+    m.played = 1;
+    m = cast(m, "bz-twin-jets", null);
+    assert.equal(m.players[0].units[0]!.sick, false);
+    const jets = m.players[0].units[0]!;
+    m = cast(m, "charge", { kind: "unit", uid: jets.uid });
+    const pumped = m.players[0].units[0]!;
+    assert.equal(pumped.swing, 2);
+    assert.equal(pumped.hp, 3, "no self-hit, and Surge adds +0/+2");
+    m = cast(m, "grenade", { kind: "face", side: 1 });
+    assert.equal(m.players[1].hp, 20 - 3 - 1);
+    const hand = m.players[0].hand.length;
+    m = cast(m, "kg-horde-star", { kind: "face", side: 1 });
+    assert.equal(m.players[0].hand.length, hand + 1);
+  });
+
+  it("resets each turn", () => {
+    let m = board(0);
+    m.played = 3;
+    m = endTurn(m).state;
+    assert.equal(m.played, 0);
+  });
+
+  it("is sequenced by Hard: the cheap card goes first", () => {
+    const m = board(0);
+    m.players[0].mana = 3;
+    m.players[0].hand = [
+      { uid: "s", defId: "bz-eclipse-blade" },
+      { uid: "c", defId: "scrap" },
+    ];
+    const first = stepRival(m, "hard", 0)!;
+    assert.ok(
+      first.players[0].units.some((u) => u.defId === "scrap"),
+      "Hard should play the 1-drop first",
+    );
+    const second = stepRival(first, "hard", 0)!;
+    const blade = second.players[0].units.find((u) => u.defId === "bz-eclipse-blade");
+    assert.ok(blade && blade.atk === 2 && !blade.sick, "then the Surge card, which surges");
+  });
+});
+
+describe("Bloom", () => {
+  it("grows on every heal, including drain and ally heals", () => {
+    let m = board(0);
+    m.players[0].hp = 10;
+    m.players[0].units = [unit(m, "moonpetal", 0), unit(m, "scrap", 0, { hp: 1, maxHp: 2 })];
+    m = cast(m, "mend", null);
+    assert.equal(m.players[0].units[0]!.atk, 2);
+    const scrap = m.players[0].units[1]!;
+    m = cast(m, "medic", { kind: "unit", uid: scrap.uid });
+    assert.equal(m.players[0].units[0]!.atk, 3);
+  });
+
+  it("counts its own Play heal", () => {
+    let m = board(0);
+    m = cast(m, "bz-lysara-blazar", null);
+    assert.equal(m.players[0].units[0]!.atk, 5);
+  });
+
+  it("lets the Bloom heal spells draw", () => {
+    let m = board(0);
+    m.players[0].deck = ["scrap", "scrap"];
+    m = cast(m, "bz-moon-well", null);
+    assert.equal(m.players[0].hand.length, 0);
+    m.players[0].units = [unit(m, "moonpetal", 0)];
+    m = cast(m, "kg-quiet-mend", null);
+    assert.equal(m.players[0].hand.length, 1);
   });
 });

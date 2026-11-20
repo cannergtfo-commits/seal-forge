@@ -54,6 +54,8 @@ export type Match = {
   log: string[];
   attackers: string[];
   attacked: boolean;
+  /** Cards the player whose turn it is has played this turn (for Surge). */
+  played?: number;
   seed: number;
   seq: number;
 };
@@ -149,7 +151,7 @@ function hurt(m: Match, side: Side, amount: number, drainOwner: Side | null): nu
   const dealt = amount - soaked;
   seat.hp -= dealt;
   if (drainOwner !== null && dealt > 0) {
-    m.players[drainOwner].hp = Math.min(30, m.players[drainOwner].hp + dealt);
+    healPlayer(m, drainOwner, dealt);
   }
   crown(m);
   return dealt;
@@ -181,6 +183,24 @@ function loseLife(m: Match, side: Side, n: number, floorAt: number): void {
   if (seat.hp <= 0) crown(m);
 }
 
+export function hasBloom(unit: Unit): boolean {
+  return cardOf(unit.defId).tags.includes("bloom");
+}
+
+/** Bloom: whenever you heal (your life or an ally unit), each of your Bloom units gets +1 attack. */
+function bloom(m: Match, side: Side): void {
+  const grown = m.players[side].units.filter((unit) => unit.hp > 0 && hasBloom(unit));
+  for (const unit of grown) unit.atk += 1;
+  if (grown.length) note(m, `Bloom: ${grown.length === 1 ? cardOf(grown[0]!.defId).name : `${grown.length} units`} +1 attack.`);
+}
+
+/** Every life gain goes through here, so Bloom sees it. Life caps at 30. */
+function healPlayer(m: Match, side: Side, amount: number): void {
+  if (amount <= 0) return;
+  m.players[side].hp = Math.min(30, m.players[side].hp + amount);
+  bloom(m, side);
+}
+
 /** Deals damage to a unit through its Plating. Returns the damage that got through. */
 export function damageUnit(unit: Unit, amount: number): number {
   if (amount <= 0) return 0;
@@ -202,7 +222,7 @@ function runRequiem(m: Match, unit: Unit, card: CardDef): void {
   const owner = unit.owner;
   const seat = m.players[owner];
   if (effect.t === "heal") {
-    seat.hp = Math.min(30, seat.hp + effect.n);
+    healPlayer(m, owner, effect.n);
     note(m, `Requiem: ${card.name} mends ${effect.n}.`);
   } else if (effect.t === "draw") {
     draw(m, owner, effect.n);
@@ -217,6 +237,7 @@ function runRequiem(m: Match, unit: Unit, card: CardDef): void {
     const hurtAlly = [...seat.units].filter((item) => item.hp < item.maxHp).sort((a, b) => a.hp - b.hp)[0];
     if (hurtAlly) {
       hurtAlly.hp = Math.min(hurtAlly.maxHp, hurtAlly.hp + effect.n);
+      bloom(m, owner);
       note(m, `Requiem: ${cardOf(hurtAlly.defId).name} heals ${effect.n}.`);
     }
   } else if (effect.t === "recall") {
@@ -256,7 +277,7 @@ function reap(m: Match): void {
     if (snare && dead.length) {
       seat.traps = seat.traps.filter((trap) => trap.uid !== snare.uid);
       seat.grave.push(snare.defId);
-      seat.hp = Math.min(30, seat.hp + 3);
+      healPlayer(m, m.players.indexOf(seat) as Side, 3);
       note(m, `${cardOf(snare.defId).name} heals 3.`);
     }
   }
@@ -268,6 +289,7 @@ function beginTurn(m: Match): void {
   m.phase = "main";
   m.attackers = [];
   m.attacked = false;
+  m.played = 0;
   const seat = m.players[m.turn];
   seat.manaMax = Math.min(10, seat.manaMax + 1);
   seat.mana = seat.manaMax;
@@ -365,8 +387,9 @@ function hit(m: Match, n: number, target: Target | null): string | null {
 
 function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null, target: Target | null, source: CardDef): string | null {
   if (effect.t === "healSelf") {
-    m.players[owner].hp = Math.min(30, m.players[owner].hp + effect.n);
+    healPlayer(m, owner, effect.n);
     note(m, `Healed ${effect.n}.`);
+    if (effect.bloomDraw && m.players[owner].units.some((unit) => hasBloom(unit))) draw(m, owner, effect.bloomDraw);
     return null;
   }
   if (effect.t === "loseHp") {
@@ -422,6 +445,7 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
   if (effect.t === "healUnit") {
     if (unit.owner !== owner) return "Heal an ally.";
     unit.hp = Math.min(unit.maxHp, unit.hp + effect.n);
+    bloom(m, owner);
     note(m, `${cardOf(unit.defId).name} heals ${effect.n}.`);
     return null;
   }
@@ -440,8 +464,8 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
   }
   if (effect.t === "charge") {
     if (unit.owner !== owner) return "Charge an ally.";
-    unit.swing += 2;
-    damageUnit(unit, 1);
+    unit.swing += effect.n ?? 2;
+    damageUnit(unit, effect.selfHit ?? 1);
     note(m, `${cardOf(unit.defId).name} charges.`);
     reap(m);
     return null;
@@ -479,6 +503,8 @@ export function playCard(state: Match, handUid: string, target: Target | null): 
 
   seat.mana -= card.cost;
   seat.hand = seat.hand.filter((cardInHand) => cardInHand.uid !== hand.uid);
+  const surging = surgeActive(m);
+  m.played = (m.played ?? 0) + 1;
   let spawned: Unit | null = null;
   if (card.kind === "unit") {
     spawned = makeUnit(m, card, m.turn);
@@ -493,7 +519,35 @@ export function playCard(state: Match, handUid: string, target: Target | null): 
   }
   const err = applyPlay(m, card, m.turn, spawned, target);
   if (err) return { state, error: err };
+  if (surging && card.surge && m.winner === null) applySurge(m, card, m.turn, spawned, target);
   return { state: m };
+}
+
+/** True when a card played now would Surge: the current player already played a card this turn. */
+export function surgeActive(m: Match): boolean {
+  return (m.played ?? 0) > 0;
+}
+
+function applySurge(m: Match, card: CardDef, owner: Side, self: Unit | null, target: Target | null): void {
+  const effect = card.surge;
+  if (!effect) return;
+  if (effect.t === "self" && self) {
+    self.atk += effect.a;
+    self.hp += effect.h;
+    self.maxHp += effect.h;
+    if (effect.haste) self.sick = false;
+  } else if (effect.t === "target" && target?.kind === "unit") {
+    const unit = findUnit(m, target.uid);
+    if (!unit) return;
+    unit.atk += effect.a;
+    unit.hp += effect.h;
+    unit.maxHp += effect.h;
+  } else if (effect.t === "ping") {
+    hurt(m, other(owner), effect.n, null);
+  } else if (effect.t === "draw") {
+    draw(m, owner, effect.n);
+  }
+  note(m, `Surge: ${card.name}.`);
 }
 
 export function endTurn(state: Match): { state: Match; error?: string } {
@@ -554,7 +608,7 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
     note(m, `${card.name} destroys ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "glade") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    m.players[defender].hp = Math.min(30, m.players[defender].hp + 2);
+    healPlayer(m, defender, 2);
     damageUnit(attacker, 1);
     note(m, `${card.name} heals 2 and deals 1.`);
   } else if (card.trap === "firewall") {

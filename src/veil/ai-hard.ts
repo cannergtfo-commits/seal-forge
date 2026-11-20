@@ -33,6 +33,7 @@ import {
   power,
   skipTrap,
   springTrap,
+  surgeActive,
   toughness,
   type Match,
   type Side,
@@ -69,6 +70,22 @@ export function requiemValue(card: CardDef): number {
   if (effect.t === "lose") return -effect.n * 0.5;
   if (effect.t === "healAlly") return effect.n * 0.4;
   return 1.6;
+}
+
+/** Rough value of a card's Surge bonus, in stat points. */
+export function surgeValue(card: CardDef): number {
+  const effect = card.surge;
+  if (!effect) return 0;
+  if (effect.t === "self") return effect.a * 1.05 + effect.h * 0.8 + (effect.haste ? 1.5 : 0);
+  if (effect.t === "target") return effect.a * 1.05 + effect.h * 0.8;
+  if (effect.t === "ping") return effect.n * 0.6;
+  return effect.n * 1.6;
+}
+
+/** True when another card can be played first and this one still fits in the mana left. */
+function waitsForSurge(m: Match, me: Side, uid: string, card: CardDef): boolean {
+  const mana = m.players[me].mana;
+  return playable(m, me).some((item) => item.uid !== uid && item.card.cost + card.cost <= mana);
 }
 
 /** Lasting board value of a unit. Ignores this-turn swing. */
@@ -118,7 +135,10 @@ export function evaluate(m: Match, me: Side, next: Side = other(me)): number {
   score += exposed >= mine.hp + mine.ward ? -60 : 0;
   score += lifeValue(myHp);
   const theirExposed = next === me ? exposure(m, foe) : 0;
-  score -= lifeValue(theirs.hp + theirs.ward * 0.8 - theirExposed * 0.4) * (aggressive ? 1.25 : 1);
+  // When pressing, the life they have already lost counts 25% more. (Scaling their whole life
+  // total instead would punish getting ahead on board.)
+  const theirLife = lifeValue(theirs.hp + theirs.ward * 0.8 - theirExposed * 0.4);
+  score -= theirLife + (aggressive ? 0.25 * Math.min(0, theirLife - lifeValue(20)) : 0);
   for (const unit of mine.units) score += unitValue(m, unit);
   for (const unit of theirs.units) score -= unitValue(m, unit);
   score += handValue(mine.hand.length) - handValue(theirs.hand.length);
@@ -254,7 +274,8 @@ export function lethalStep(
     .filter(
       ({ card }) =>
         (card.play && LETHAL_PARTS.has(card.play.t)) ||
-        (card.kind === "unit" && card.tags.includes("haste")),
+        (card.kind === "unit" &&
+          (card.tags.includes("haste") || (card.surge?.t === "self" && card.surge.haste))),
     )
     .slice(0, 7);
   if (!parts.length) return null;
@@ -379,6 +400,8 @@ export function hardMain(m: Match, me: Side): Match {
       if (canStillAttack && !setsUpAttack)
         score = Math.max(score, score + (baseline - evaluate(m, me)));
       score += card.cost * 0.15;
+      if (card.surge && !surgeActive(m) && waitsForSurge(m, me, uid, card))
+        score -= surgeValue(card);
       if (!best || score > best.score) best = { uid, target, score };
     }
   }

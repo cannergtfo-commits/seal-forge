@@ -13,6 +13,8 @@ import {
   power,
   skipTrap,
   springTrap,
+  surgeActive,
+  hasBloom,
   toughness,
   other,
   type Match,
@@ -166,7 +168,13 @@ function choosePlay(m: Match, style: BotStyle, me: Side): { uid: string; target:
         else if (m.players[other(me)].hp > 10) score -= 2;
       }
       if (option.card.cost === seat.mana) score += 2;
-      if (option.card.play?.t === "healSelf" && seat.hp > 16) score -= 8;
+      const blooms = seat.units.filter((unit) => hasBloom(unit)).length;
+      if (option.card.play?.t === "healSelf" && seat.hp > 16 && !blooms) score -= 8;
+      if ((option.card.play?.t === "healSelf" || option.card.play?.t === "healUnit") && blooms) score += 2 * blooms;
+      if (option.card.surge) {
+        if (surgeActive(m)) score += 3;
+        else if (options.some((item) => item !== option && item.card.cost + option.card.cost <= seat.mana)) score -= 4;
+      }
       if (option.card.kind === "unit" && seat.units.length < foes.length) score += 3;
       if (option.card.kind === "trap" && foes.length > 0 && seat.traps.length === 0) score += 3;
       if (option.card.tags.includes("haste")) score += 2;
