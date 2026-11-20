@@ -114,7 +114,16 @@ export async function releaseUnsignedPrize(sql: Sql, roomId: string, wallet: str
   return true;
 }
 
-export type RoomResult = { roomId: string; address: string; win: boolean; turns: number; conceded: boolean; vsBot: boolean };
+export type RoomResult = {
+  roomId: string;
+  address: string;
+  win: boolean;
+  turns: number;
+  conceded: boolean;
+  vsBot: boolean;
+  /** The other seat's wallet when both seats were signed-in humans (drives MMR). */
+  rival?: string;
+};
 
 /**
  * Record one match result and apply XP in the same statement. The XP update only
@@ -196,4 +205,43 @@ export async function recordGiftTransfer(sql: Sql, input: { wallet: string; orde
   await sql`
     insert into veil_gift_transfers (wallet, order_id, token_id, amount, tx_hash) values (${input.wallet.toLowerCase()}, ${input.orderId}, ${input.tokenId}, ${input.amount}, ${input.txHash})
     on conflict (wallet, order_id, token_id) do update set tx_hash = excluded.tx_hash, amount = excluded.amount, created_at = now()`;
+}
+
+export async function mmrOf(sql: Sql, wallet: string): Promise<number | null> {
+  const rows = await sql<{ mmr: number }>`select mmr from veil_profiles where address = ${wallet.toLowerCase()}`;
+  return rows[0] ? Number(rows[0].mmr) : null;
+}
+
+/**
+ * Move both players' MMR for one human-vs-human room. The room row is the
+ * idempotency key: a second call for the same room changes nothing.
+ */
+export async function applyMmr(
+  sql: Sql,
+  input: { roomId: string; winner: string; loser: string },
+  delta: (winner: number, loser: number) => [number, number],
+): Promise<"applied" | "duplicate" | "no-profile"> {
+  const winner = input.winner.toLowerCase();
+  const loser = input.loser.toLowerCase();
+  if (winner === loser) return "duplicate";
+  const [w, l] = await Promise.all([mmrOf(sql, winner), mmrOf(sql, loser)]);
+  if (w === null || l === null) return "no-profile";
+  const [up, down] = delta(w, l);
+  const rows = await sql.query<{ updated: number }>(
+    `with ins as (
+       insert into veil_mmr_matches (room_id, winner, loser, winner_delta, loser_delta)
+       values ($1, $2, $3, $4, $5)
+       on conflict (room_id) do nothing
+       returning room_id
+     ), upd as (
+       update veil_profiles
+          set mmr = greatest(0, mmr + case when address = $2 then $4 else $5 end),
+              mmr_games = mmr_games + 1
+        where address in ($2, $3) and exists (select 1 from ins)
+        returning address
+     )
+     select (select count(*) from upd)::int as updated`,
+    [input.roomId, winner, loser, up, down],
+  );
+  return Number(rows[0]?.updated ?? 0) > 0 ? "applied" : "duplicate";
 }

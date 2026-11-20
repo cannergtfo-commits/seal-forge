@@ -49,6 +49,8 @@ export function rankFor(xp: number): { level: number; name: string; min: number;
 /** Ash, the second rank. One Founding Forge pack. */
 export const GIFT_LEVEL = 2;
 
+export { MMR_START, eloDelta, mmrBand } from "./mmr";
+
 export function cleanName(value: string): string | null {
   const name = value.trim().replace(/\s+/g, " ");
   if (name.length < 2 || name.length > 18) return null;
