@@ -15,8 +15,10 @@ import {
   joinQueue,
   leaveSeat,
   listLobbies,
+  notePrizeSigned,
   pollQueue,
   prizeFor,
+  releaseUnsentPrize,
   rewardGate,
   roomsReady,
   scoreboard,
@@ -39,6 +41,22 @@ async function finish(id: string) {
     }
   }
   await flushRooms();
+}
+
+/** The live voucher for this seat, signed. Every reconnect gets the same matchId back. */
+async function signedClaim(id: string) {
+  const found = await prizeFor(id).catch((error) => {
+    console.error("[reward] could not read the prize ledger", error);
+    return null;
+  });
+  if (!found) return null;
+  const signature = await signPrize(found.prize.player, found.prize.matchId);
+  if (!signature) {
+    await releaseUnsentPrize(found.roomId, found.prize.player);
+    return null;
+  }
+  await notePrizeSigned(found.roomId);
+  return { ...found.prize, signature };
 }
 
 /**
@@ -103,9 +121,8 @@ export const Route = createFileRoute("/api/veilforge/queue")({
         const id = url.searchParams.get("id") ?? "";
         const found = pollQueue(id);
         await finish(id);
-        const prize = prizeFor(id);
-        const signature = prize ? await signPrize(prize.player, prize.matchId) : null;
-        return Response.json({ ...found, reward: rewardGate(id), claim: prize && signature ? { ...prize, signature } : null });
+        const claim = await signedClaim(id);
+        return Response.json({ ...found, reward: rewardGate(id), claim });
       },
       POST: async ({ request }) => {
         await roomsReady();
@@ -157,9 +174,8 @@ export const Route = createFileRoute("/api/veilforge/queue")({
         if (body.op === "act" && body.action) {
           const result = act(id, body.action);
           await finish(id);
-          const prize = prizeFor(id);
-          const signature = prize ? await signPrize(prize.player, prize.matchId) : null;
-          return Response.json({ ...result, reward: rewardGate(id), claim: prize && signature ? { ...prize, signature } : null });
+          const claim = await signedClaim(id);
+          return Response.json({ ...result, reward: rewardGate(id), claim });
         }
         return Response.json({ error: "Unknown request." }, { status: 400 });
       },
