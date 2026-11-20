@@ -45,7 +45,7 @@ export function UnitMarks({ unit }: { unit: Unit }) {
 }
 
 /** "Draw 1 more" style line for a card's Tithe. */
-export function titheLine(card: CardDef): string {
+function titheLine(card: CardDef): string {
   if (!card.tithe) return "";
   return titheText(card.tithe.effect, card);
 }
