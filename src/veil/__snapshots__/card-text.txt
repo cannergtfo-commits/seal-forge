@@ -1,4 +1,4 @@
-moonpetal	v1	1	1/1	Requiem: heal 1.
+moonpetal	v2	1	1/1	Bloom.
 thorn-dryad	v1	2	2/3	Play: heal 1.
 starlit	v1	2	2/1	Play: deal 1 to a unit or a player.
 briar	v1	2	-	Freeze a unit.
@@ -6,7 +6,7 @@ dawnbow	v1	3	3/2	Haste.
 mend	v1	3	-	Heal 4.
 glade	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
 lysara	v1	4	3/4	Play: heal 2. — Blonde, fair, and fully in command of the grove.
-treant	v1	6	5/7	Bulwark.
+treant	v2	6	4/7	Bulwark, Bloom.
 scout	v1	1	2/1	First steel on the road.
 shield-line	v1	2	1/4	Bulwark.
 medic	v1	2	1/3	Play: heal an ally unit 2.
@@ -17,14 +17,14 @@ pikes	v1	2	-	Trap. When they attack: deal 3 to an attacker.
 aldren	v1	4	3/4	Play: an ally unit gets +1/+1.
 marshal	v1	6	5/5	Play: deal 2 to a unit or a player.
 scrap	v1	1	2/1	Fast, thin, and already swinging.
-twins	v1	1	1/1	Play: if you control another Rixen, this gets +1/+1.
+twins	v2	1	1/1	Surge: this gets +1/+1.
 raider	v1	2	2/2	Haste.
-charge	v1	1	-	An ally unit gets +2 attack this turn and takes 1.
+charge	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
 boom	v1	3	3/2	Play: deal 1 to the rival.
 drummer	v1	3	2/3	Your Rixen can attack the turn they're played.
 pit	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
 skarn	v1	5	4/4	Your other Rixen have +1 attack.
-grenade	v1	4	-	Deal 4 to a unit or a player.
+grenade	v2	3	-	Deal 3 to a unit or a player. Surge: deal 1 to the rival.
 clock	v1	1	1/2	A lens and a thin wing.
 sentry	v1	2	1/4	Bulwark.
 wisp-bot	v1	2	1/2	Play: heal an ally unit 3.
@@ -53,10 +53,10 @@ un-cross	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 un-nameless	v1	5	4/4	No seal. Just the road.
 bz-comet-fox	v2	1	1/2	Requiem: heal 2.
 bz-void-archer	v1	2	2/1	Haste.
-bz-moon-well	v1	2	-	Heal 2.
-bz-orbit-dryad	v1	3	2/4	A ring of pale wood around a dead star.
+bz-moon-well	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
+bz-orbit-dryad	v2	3	2/3	Bloom. — A ring of pale wood around a dead star.
 bz-eclipse-sentinel	v1	4	3/3	Haste. — The bow fires before the light returns.
-bz-lysara-blazar	v1	6	4/5	Haste. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
+bz-lysara-blazar	v2	6	4/5	Bloom. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
 bz-hull-scout	v1	1	2/1	First boot on the dark hull.
 bz-bulkhead	v1	2	1/4	Bulwark.
 bz-lance-shot	v1	1	-	Deal 2 to a unit or a player.
@@ -64,8 +64,8 @@ bz-oath-pilot	v1	3	3/3	Same oath. No sky.
 bz-captain-kel	v1	4	3/4	Play: an ally unit gets +1/+1.
 bz-admiral-voss	v1	6	5/5	Play: deal 2 to a unit or a player.
 bz-spark-rat	v1	1	1/1	Haste.
-bz-twin-jets	v1	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-bz-scrap-comet	v1	1	-	An ally unit gets +2 attack this turn and takes 1.
+bz-twin-jets	v2	1	2/1	Surge: this gains Haste.
+bz-scrap-comet	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
 bz-boom-drone	v1	3	2/2	Play: deal 1 to the rival.
 bz-void-raider	v1	3	3/2	Haste.
 bz-skarn-rift	v1	6	4/4	Haste. Your other Rixen have +1 attack.
@@ -81,8 +81,8 @@ bz-brand-knight	v1	3	3/2	Hits, then the dark takes the rest.
 bz-ash-moth	v1	2	2/2	Wings the color of a spent star.
 bz-hex-moth	v1	3	3/3	Drain.
 bz-tyrant-blazar	v1	7	6/6	Crush.
-bz-drift-wisp	v1	1	1/1	Requiem: heal 1. — No seal claims it.
-bz-eclipse-blade	v1	2	2/1	Haste.
+bz-drift-wisp	v2	1	1/1	Bloom. — No seal claims it.
+bz-eclipse-blade	v2	2	1/1	Surge: this gets +1/+1 and Haste.
 bz-slip	v1	1	-	An ally unit gains Haste this turn.
 bz-quiet-star	v2	3	1/4	Plating 1. — It does not take a side.
 bz-horizon	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
@@ -90,9 +90,9 @@ bz-the-veil	v2	7	5/5	Requiem: return another random Unbound card from your grave
 kg-leaf-fox	v1	1	1/1	Requiem: heal 1.
 kg-silk-step	v1	1	2/1	A bare foot on wet bamboo.
 kg-night-bow	v1	2	2/1	Haste.
-kg-reed-cloak	v1	2	1/3	The grove hides the blade.
+kg-reed-cloak	v2	2	1/3	Bloom. — The grove hides the blade.
 kg-moon-needle	v1	1	-	Deal 2 to a unit or a player.
-kg-quiet-mend	v1	2	-	Heal 2.
+kg-quiet-mend	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
 kg-bamboo-snare	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
 kg-twin-leaf	v1	3	2/4	Two shadows. One breath.
 kg-grove-guard	v1	3	2/4	Bulwark.
@@ -101,7 +101,7 @@ kg-crescent	v1	4	3/3	Haste. — The bow fires before the moonlight returns.
 kg-warden-veil	v1	4	3/4	Play: heal 2.
 kg-deep-mend	v1	3	-	Heal 4.
 kg-hidden-grove	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-lysara-kage	v1	6	4/5	Haste. Play: heal 2. — Blonde, fair, and silent in the bamboo.
+kg-lysara-kage	v2	6	4/4	Haste. Play: heal 2. — Blonde, fair, and silent in the bamboo.
 kg-rain-scout	v1	1	2/1	First steel in the rain.
 kg-iron-squire	v1	1	1/2	A short blade and a kept oath.
 kg-oath-wall	v1	2	1/4	Bulwark.
@@ -119,17 +119,17 @@ kg-ambush-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze i
 kg-voss-kage	v1	6	5/5	Play: deal 2 to a unit or a player. — The oath does not need a sky.
 kg-ember-rat	v1	1	1/1	Haste.
 kg-alley-knife	v1	1	2/1	Already swinging.
-kg-twin-stars	v1	1	1/1	Play: if you control another Rixen, this gets +1/+1.
+kg-twin-stars	v2	1	1/1	Surge: this gets +1/+1.
 kg-scrap-dash	v1	2	2/1	A mask of bent tin.
 kg-cinder-cut	v1	2	3/1	Fast, thin, and burning.
 kg-mask-runner	v1	2	2/2	The grin is painted on.
-kg-reckless-dash	v1	1	-	An ally unit gets +2 attack this turn and takes 1.
+kg-reckless-dash	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
 kg-boom-pouch	v1	3	2/2	Play: deal 1 to the rival.
 kg-drum-shadow	v1	3	2/3	Your Rixen can attack the turn they're played.
 kg-cross-wire	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 kg-void-blade	v1	3	3/2	Haste.
 kg-skarn-mask	v1	5	4/4	Your other Rixen have +1 attack.
-kg-horde-star	v1	4	-	Deal 4 to a unit or a player.
+kg-horde-star	v2	3	-	Deal 3 to a unit or a player. Surge: draw 1.
 kg-pit-seal	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
 kg-skarn-kage	v1	6	4/4	Haste. Your other Rixen have +1 attack.
 kg-ion-scout	v1	1	1/2	A lens under a hood of plates.
@@ -164,12 +164,12 @@ kg-soul-seal	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
 kg-tyrant-kage	v1	7	6/6	Crush.
 kg-pale-step	v1	1	1/1	Requiem: heal 1. — No seal claims it.
 kg-quiet-hand	v2	1	1/1	Plating 1. — A faceless cloth. No crest.
-kg-silver-blade	v1	2	2/1	Haste.
+kg-silver-blade	v2	2	2/1	Surge: this gains Haste.
 kg-no-crest	v1	2	2/2	Steel with the mark filed off.
 kg-slip-seal	v1	1	-	An ally unit gains Haste this turn.
 kg-toll-cut	v1	1	-	Deal 2 to a unit or a player.
 kg-road-ward	v1	3	1/4	Bulwark.
-kg-ash-walk	v1	3	2/3	It does not take a side.
+kg-ash-walk	v2	3	2/2	Bloom. Play: heal 2. — It does not take a side.
 kg-nameless-step	v1	3	2/2	The road keeps its own assassins.
 kg-cross-mark	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 kg-pilgrim-kage	v1	3	3/2	Haste.
@@ -182,7 +182,7 @@ as-oak-sentinel	v1	2	1/4	Bulwark. — Auburn braid, green plate, a kite shield.
 as-grove-mend	v1	2	-	Heal 3.
 as-hidden-bough	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
 as-selene-bow	v1	4	3/3	Haste. — White hair, silver mail, one shot before the grove answers.
-as-lysara-ash	v1	6	4/6	Play: heal 2. — Blonde, emerald plate, the grove's last crown.
+as-lysara-ash	v2	6	4/5	Play: heal 2. — Blonde, emerald plate, the grove's last crown.
 as-oath-squire	v1	1	2/1	Freckles, chestnut hair, and a sword too honest.
 as-banner-dame	v1	2	2/3	She holds the torn banner and does not yield.
 as-precise-oath	v1	1	-	Deal 2 to a unit or a player.
@@ -190,8 +190,8 @@ as-pike-wall	v1	2	-	Trap. When they attack: deal 3 to an attacker.
 as-captain-ysara	v1	4	3/4	Play: an ally unit gets +1/+1. — Dark hair, red cloak, gold-trim steel.
 as-marshal-hala	v1	6	5/5	Play: your units get +1 attack this turn. — Silver war-braid, lion plate.
 as-cinder-lass	v1	1	2/1	Haste. — Copper hair, ember eyes, two clean knives.
-as-scrap-vixen	v1	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-as-reckless-spark	v1	1	-	An ally unit gets +2 attack this turn and takes 1.
+as-scrap-vixen	v2	1	1/1	Surge: deal 1 to the rival.
+as-reckless-spark	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
 as-pit-wire	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
 as-nima-knives	v1	3	3/2	Haste. — Black hair with a red streak, and too many knives.
 as-sable-crown	v1	5	4/4	Haste. Your other Rixen have +1 attack.

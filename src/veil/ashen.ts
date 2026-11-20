@@ -7,7 +7,7 @@ export const ASHEN_RAW: RawCard[] = [
   { id: "as-grove-mend", tokenId: 3, chainRarity: 1, name: "Grove Mend", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "healSelf", n: 3 } },
   { id: "as-hidden-bough", tokenId: 4, chainRarity: 1, name: "Hidden Bough", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], trap: "glade" },
   { id: "as-selene-bow", tokenId: 5, chainRarity: 2, name: "Selene the Moon Bow", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "ashen", tags: ["haste"], flavor: "White hair, silver mail, one shot before the grove answers." },
-  { id: "as-lysara-ash", tokenId: 6, chainRarity: 3, name: "Lysara Ashcrown", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 6, rarity: "legendary", set: "ashen", tags: [], play: { t: "healSelf", n: 2 }, flavor: "Blonde, emerald plate, the grove's last crown." },
+  { id: "as-lysara-ash", tokenId: 6, chainRarity: 3, name: "Lysara Ashcrown", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 5, rarity: "legendary", set: "ashen", tags: [], play: { t: "healSelf", n: 2 }, version: 2, flavor: "Blonde, emerald plate, the grove's last crown." },
 
   { id: "as-oath-squire", tokenId: 7, chainRarity: 1, name: "Oath Squire", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "ashen", tags: [], flavor: "Freckles, chestnut hair, and a sword too honest." },
   { id: "as-banner-dame", tokenId: 8, chainRarity: 1, name: "Banner Dame", faction: "human", kind: "unit", cost: 2, atk: 2, hp: 3, rarity: "basic", set: "ashen", tags: [], flavor: "She holds the torn banner and does not yield." },
@@ -17,8 +17,8 @@ export const ASHEN_RAW: RawCard[] = [
   { id: "as-marshal-hala", tokenId: 12, chainRarity: 3, name: "Marshal Hala", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "legendary", set: "ashen", tags: [], play: { t: "rally" }, flavor: "Silver war-braid, lion plate." },
 
   { id: "as-cinder-lass", tokenId: 13, chainRarity: 1, name: "Cinder Lass", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "ashen", tags: ["haste"], flavor: "Copper hair, ember eyes, two clean knives." },
-  { id: "as-scrap-vixen", tokenId: 14, chainRarity: 1, name: "Scrap Vixen", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "ashen", tags: [], play: { t: "twin" } },
-  { id: "as-reckless-spark", tokenId: 15, chainRarity: 1, name: "Reckless Spark", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "charge" } },
+  { id: "as-scrap-vixen", tokenId: 14, chainRarity: 1, name: "Scrap Vixen", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "ashen", tags: [], surge: { t: "ping", n: 1 }, version: 2 },
+  { id: "as-reckless-spark", tokenId: 15, chainRarity: 1, name: "Reckless Spark", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "charge", n: 2, selfHit: 0 }, surge: { t: "target", a: 0, h: 2 }, version: 2 },
   { id: "as-pit-wire", tokenId: 16, chainRarity: 1, name: "Pit Wire", faction: "goblin", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], trap: "snare" },
   { id: "as-nima-knives", tokenId: 17, chainRarity: 2, name: "Nima of the Knives", faction: "goblin", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "rare", set: "ashen", tags: ["haste"], flavor: "Black hair with a red streak, and too many knives." },
   { id: "as-sable-crown", tokenId: 18, chainRarity: 3, name: "Sable of the Tin Crown", faction: "goblin", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "legendary", set: "ashen", tags: ["haste"], aura: "goblinAtk" },

@@ -6,10 +6,10 @@ export type RawCard = CardData;
 export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-comet-fox", tokenId: 1, chainRarity: 1, name: "Comet Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "blazar", tags: [], requiem: { t: "heal", n: 2 }, version: 2 },
   { id: "bz-void-archer", tokenId: 2, chainRarity: 1, name: "Void Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
-  { id: "bz-moon-well", tokenId: 3, chainRarity: 1, name: "Moon Well", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "healSelf", n: 2 } },
-  { id: "bz-orbit-dryad", tokenId: 4, chainRarity: 1, name: "Orbit Dryad", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "blazar", tags: [], flavor: "A ring of pale wood around a dead star." },
+  { id: "bz-moon-well", tokenId: 3, chainRarity: 1, name: "Moon Well", faction: "elf", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "healSelf", n: 2, bloomDraw: 1 }, version: 2 },
+  { id: "bz-orbit-dryad", tokenId: 4, chainRarity: 1, name: "Orbit Dryad", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "basic", set: "blazar", tags: ["bloom"], version: 2, flavor: "A ring of pale wood around a dead star." },
   { id: "bz-eclipse-sentinel", tokenId: 5, chainRarity: 2, name: "Eclipse Sentinel", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "blazar", tags: ["haste"], flavor: "The bow fires before the light returns." },
-  { id: "bz-lysara-blazar", tokenId: 6, chainRarity: 3, name: "Lysara of the Blazar", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 5, rarity: "legendary", set: "blazar", tags: ["haste"], play: { t: "healSelf", n: 2 }, flavor: "Blonde, fair, and crowned in comet-fire." },
+  { id: "bz-lysara-blazar", tokenId: 6, chainRarity: 3, name: "Lysara of the Blazar", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 5, rarity: "legendary", set: "blazar", tags: ["bloom"], play: { t: "healSelf", n: 2 }, version: 2, flavor: "Blonde, fair, and crowned in comet-fire." },
 
   { id: "bz-hull-scout", tokenId: 7, chainRarity: 1, name: "Hull Scout", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: [], flavor: "First boot on the dark hull." },
   { id: "bz-bulkhead", tokenId: 8, chainRarity: 1, name: "Bulkhead", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "basic", set: "blazar", tags: ["bulwark"] },
@@ -19,8 +19,8 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-admiral-voss", tokenId: 12, chainRarity: 3, name: "Admiral Voss", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "legendary", set: "blazar", tags: [], play: { t: "hit", n: 2 } },
 
   { id: "bz-spark-rat", tokenId: 13, chainRarity: 1, name: "Spark Rat", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
-  { id: "bz-twin-jets", tokenId: 14, chainRarity: 1, name: "Twin Jets", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], play: { t: "twin" } },
-  { id: "bz-scrap-comet", tokenId: 15, chainRarity: 1, name: "Scrap Comet", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "charge" } },
+  { id: "bz-twin-jets", tokenId: 14, chainRarity: 1, name: "Twin Jets", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: [], surge: { t: "self", a: 0, h: 0, haste: true }, version: 2 },
+  { id: "bz-scrap-comet", tokenId: 15, chainRarity: 1, name: "Scrap Comet", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "charge", n: 2, selfHit: 0 }, surge: { t: "target", a: 0, h: 2 }, version: 2 },
   { id: "bz-boom-drone", tokenId: 16, chainRarity: 1, name: "Boom Drone", faction: "goblin", kind: "unit", cost: 3, atk: 2, hp: 2, rarity: "basic", set: "blazar", tags: [], play: { t: "boom" } },
   { id: "bz-void-raider", tokenId: 17, chainRarity: 2, name: "Void Raider", faction: "goblin", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "rare", set: "blazar", tags: ["haste"] },
   { id: "bz-skarn-rift", tokenId: 18, chainRarity: 3, name: "Skarn the Rift", faction: "goblin", kind: "unit", cost: 6, atk: 4, hp: 4, rarity: "legendary", set: "blazar", tags: ["haste"], aura: "goblinAtk" },
@@ -39,8 +39,8 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-hex-moth", tokenId: 29, chainRarity: 2, name: "Hex Moth", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "rare", set: "blazar", tags: ["drain"] },
   { id: "bz-tyrant-blazar", tokenId: 30, chainRarity: 3, name: "Tyrant of the Blazar", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "legendary", set: "blazar", tags: ["crush"] },
 
-  { id: "bz-drift-wisp", tokenId: 31, chainRarity: 1, name: "Drift Wisp", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], requiem: { t: "heal", n: 1 }, flavor: "No seal claims it." },
-  { id: "bz-eclipse-blade", tokenId: 32, chainRarity: 1, name: "Eclipse Blade", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
+  { id: "bz-drift-wisp", tokenId: 31, chainRarity: 1, name: "Drift Wisp", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: ["bloom"], version: 2, flavor: "No seal claims it." },
+  { id: "bz-eclipse-blade", tokenId: 32, chainRarity: 1, name: "Eclipse Blade", faction: "veil", kind: "unit", cost: 2, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], surge: { t: "self", a: 1, h: 1, haste: true }, version: 2 },
   { id: "bz-slip", tokenId: 33, chainRarity: 1, name: "Blazar Slip", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "grantHaste" } },
   { id: "bz-quiet-star", tokenId: 34, chainRarity: 1, name: "Quiet Star", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "basic", set: "blazar", tags: [], plating: 1, version: 2, flavor: "It does not take a side." },
   { id: "bz-horizon", tokenId: 35, chainRarity: 2, name: "Event Horizon", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "rare", set: "blazar", tags: [], trap: "horizon" },

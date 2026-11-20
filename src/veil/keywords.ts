@@ -19,9 +19,11 @@ export type KeywordId =
   | "bulwark"
   | "drain"
   | "crush"
+  | "bloom"
   | "plating"
   | "noAttack"
   | "play"
+  | "surge"
   | "requiem"
   | "freeze"
   | "trap";
@@ -71,6 +73,14 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "⚒",
     aiValue: 1.5,
   },
+  bloom: {
+    id: "bloom",
+    label: "Bloom",
+    kind: "tag",
+    reminder: "Whenever you heal (yourself or an ally unit), this gets +1 attack for good.",
+    icon: "✿",
+    aiValue: 1.5,
+  },
   plating: {
     id: "plating",
     label: "Plating",
@@ -93,6 +103,14 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     kind: "trigger",
     reminder: "Happens when you play this card.",
     icon: "▶",
+    aiValue: 0,
+  },
+  surge: {
+    id: "surge",
+    label: "Surge",
+    kind: "trigger",
+    reminder: "Surge: if you already played another card this turn, this also does the effect.",
+    icon: "⚡",
     aiValue: 0,
   },
   requiem: {
@@ -122,7 +140,7 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
 };
 
 /** Unit keyword tags, in the order they print on a card. */
-export const TAG_ORDER = ["haste", "bulwark", "drain", "crush"] as const;
+export const TAG_ORDER = ["haste", "bulwark", "drain", "crush", "bloom"] as const;
 
 export function keyword(id: KeywordId): Keyword {
   return KEYWORDS[id];
