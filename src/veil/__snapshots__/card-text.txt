@@ -6,7 +6,7 @@ dawnbow	v1	3	3/2	Haste.
 mend	v1	3	-	Heal 4.
 glade	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
 lysara	v1	4	3/4	Play: heal 2. — Blonde, fair, and fully in command of the grove.
-treant	v2	6	4/6	Bulwark, Bloom.
+treant	v2	6	3/6	Bulwark, Bloom.
 scout	v1	1	2/1	First steel on the road.
 shield-line	v1	2	1/4	Bulwark.
 medic	v1	2	1/3	Play: heal an ally unit 2.
@@ -56,13 +56,13 @@ bz-void-archer	v1	2	2/1	Haste.
 bz-moon-well	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
 bz-orbit-dryad	v2	3	2/3	Bloom. — A ring of pale wood around a dead star.
 bz-eclipse-sentinel	v1	4	3/3	Haste. — The bow fires before the light returns.
-bz-lysara-blazar	v2	6	3/5	Bloom. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
+bz-lysara-blazar	v2	6	3/4	Bloom. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
 bz-hull-scout	v1	1	2/1	First boot on the dark hull.
 bz-bulkhead	v2	2	1/3	Bulwark.
 bz-lance-shot	v2	2	-	Deal 2 to a unit or a player.
 bz-oath-pilot	v1	3	3/3	Same oath. No sky.
 bz-captain-kel	v2	4	1/3	Formation. Play: an ally unit gets +1/+1.
-bz-admiral-voss	v2	6	3/4	Play: deal 1 to every enemy unit.
+bz-admiral-voss	v2	6	3/3	Play: deal 1 to every enemy unit.
 bz-spark-rat	v2	1	1/2	Haste.
 bz-twin-jets	v2	1	2/1	Surge: this gains Haste.
 bz-scrap-comet	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
@@ -117,11 +117,11 @@ kg-marshal-mask	v2	5	3/3	Play: deal 2 to a unit or a player.
 kg-war-seal	v1	3	-	Deal 3 to a unit or a player.
 kg-ambush-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
 kg-voss-kage	v2	6	4/4	Formation. — The oath does not need a sky.
-kg-ember-rat	v1	1	1/1	Haste.
+kg-ember-rat	v2	1	1/2	Haste.
 kg-alley-knife	v1	1	2/1	Already swinging.
-kg-twin-stars	v2	1	1/1	Surge: this gets +1/+1.
+kg-twin-stars	v2	1	1/2	Surge: this gets +1/+1.
 kg-scrap-dash	v2	2	2/2	Surge: this gains Haste. — A mask of bent tin.
-kg-cinder-cut	v1	2	3/1	Fast, thin, and burning.
+kg-cinder-cut	v2	2	3/2	Fast, thin, and burning.
 kg-mask-runner	v1	2	2/2	The grin is painted on.
 kg-reckless-dash	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
 kg-boom-pouch	v1	3	2/2	Play: deal 1 to the rival.
@@ -146,7 +146,7 @@ kg-null-hood	v1	4	2/6	Bulwark.
 kg-apex-shadow	v2	4	4/4	The array leans in.
 kg-hex-lance	v1	3	-	Deal 3 to a unit or a player.
 kg-still-array	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-apex-kage	v2	7	4/7	Play: your other Quorin get +0/+1 and Plating 1.
+kg-apex-kage	v2	7	4/6	Play: your other Quorin get +0/+1 and Plating 1.
 kg-cinder-imp	v2	1	2/1	Play: lose 1 life.
 kg-ash-step	v2	2	2/3	Ember eyes under a black hood.
 kg-ember-cloak	v1	2	2/1	The cloth smolders and does not burn.
@@ -161,12 +161,12 @@ kg-hexbrand-kage	v1	3	3/3	Drain.
 kg-duchess-kage	v2	5	4/4	Tithe 2: this gains Drain.
 kg-pit-flame	v1	3	-	Deal 3 to a unit or a player.
 kg-soul-seal	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
-kg-tyrant-kage	v2	7	6/5	Drain, Crush.
+kg-tyrant-kage	v2	7	6/4	Drain, Crush.
 kg-pale-step	v1	1	1/1	Requiem: heal 1. — No seal claims it.
 kg-quiet-hand	v2	1	1/1	Plating 1. — A faceless cloth. No crest.
 kg-silver-blade	v2	2	2/1	Surge: this gains Haste.
 kg-no-crest	v1	2	2/2	Steel with the mark filed off.
-kg-slip-seal	v1	1	-	An ally unit gains Haste this turn.
+kg-slip-seal	v2	2	-	An ally unit gains Haste this turn.
 kg-toll-cut	v2	1	-	Deal 1 to a unit or a player. Surge: deal 1 to the rival.
 kg-road-ward	v1	3	1/4	Bulwark.
 kg-ash-walk	v2	3	2/2	Bloom. Play: heal 2. — It does not take a side.
@@ -188,7 +188,7 @@ as-banner-dame	v1	2	2/3	She holds the torn banner and does not yield.
 as-precise-oath	v2	2	-	Deal 2 to a unit or a player.
 as-pike-wall	v2	3	-	Trap. When they attack: deal 3 to an attacker.
 as-captain-ysara	v2	4	3/3	Formation. — Dark hair, red cloak, gold-trim steel.
-as-marshal-hala	v2	6	4/5	Play: your units get +1 attack this turn. Your Formation units also get +1 health. — Silver war-braid, lion plate.
+as-marshal-hala	v2	6	4/4	Play: your units get +1 attack this turn. Your Formation units also get +1 health. — Silver war-braid, lion plate.
 as-cinder-lass	v1	1	2/1	Haste. — Copper hair, ember eyes, two clean knives.
 as-scrap-vixen	v2	1	1/1	Surge: deal 1 to the rival.
 as-reckless-spark	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.

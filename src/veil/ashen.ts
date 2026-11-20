@@ -14,7 +14,7 @@ export const ASHEN_RAW: RawCard[] = [
   { id: "as-precise-oath", tokenId: 9, chainRarity: 1, name: "Precise Oath", faction: "human", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "hit", n: 2 }, version: 2 },
   { id: "as-pike-wall", tokenId: 10, chainRarity: 1, name: "Pike Wall", faction: "human", kind: "trap", cost: 3, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], trap: "pikes", version: 2 },
   { id: "as-captain-ysara", tokenId: 11, chainRarity: 2, name: "Captain Ysara", faction: "human", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "ashen", tags: ["formation"], version: 2, flavor: "Dark hair, red cloak, gold-trim steel." },
-  { id: "as-marshal-hala", tokenId: 12, chainRarity: 3, name: "Marshal Hala", faction: "human", kind: "unit", cost: 6, atk: 4, hp: 5, rarity: "legendary", set: "ashen", tags: [], play: { t: "rally" }, version: 2, flavor: "Silver war-braid, lion plate." },
+  { id: "as-marshal-hala", tokenId: 12, chainRarity: 3, name: "Marshal Hala", faction: "human", kind: "unit", cost: 6, atk: 4, hp: 4, rarity: "legendary", set: "ashen", tags: [], play: { t: "rally" }, version: 2, flavor: "Silver war-braid, lion plate." },
 
   { id: "as-cinder-lass", tokenId: 13, chainRarity: 1, name: "Cinder Lass", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "ashen", tags: ["haste"], flavor: "Copper hair, ember eyes, two clean knives." },
   { id: "as-scrap-vixen", tokenId: 14, chainRarity: 1, name: "Scrap Vixen", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "ashen", tags: [], surge: { t: "ping", n: 1 }, version: 2 },

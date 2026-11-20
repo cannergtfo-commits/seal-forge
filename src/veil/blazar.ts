@@ -9,14 +9,14 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-moon-well", tokenId: 3, chainRarity: 1, name: "Moon Well", faction: "elf", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "healSelf", n: 2, bloomDraw: 1 }, version: 2 },
   { id: "bz-orbit-dryad", tokenId: 4, chainRarity: 1, name: "Orbit Dryad", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "basic", set: "blazar", tags: ["bloom"], version: 2, flavor: "A ring of pale wood around a dead star." },
   { id: "bz-eclipse-sentinel", tokenId: 5, chainRarity: 2, name: "Eclipse Sentinel", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "blazar", tags: ["haste"], flavor: "The bow fires before the light returns." },
-  { id: "bz-lysara-blazar", tokenId: 6, chainRarity: 3, name: "Lysara of the Blazar", faction: "elf", kind: "unit", cost: 6, atk: 3, hp: 5, rarity: "legendary", set: "blazar", tags: ["bloom"], play: { t: "healSelf", n: 2 }, version: 2, flavor: "Blonde, fair, and crowned in comet-fire." },
+  { id: "bz-lysara-blazar", tokenId: 6, chainRarity: 3, name: "Lysara of the Blazar", faction: "elf", kind: "unit", cost: 6, atk: 3, hp: 4, rarity: "legendary", set: "blazar", tags: ["bloom"], play: { t: "healSelf", n: 2 }, version: 2, flavor: "Blonde, fair, and crowned in comet-fire." },
 
   { id: "bz-hull-scout", tokenId: 7, chainRarity: 1, name: "Hull Scout", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: [], flavor: "First boot on the dark hull." },
   { id: "bz-bulkhead", tokenId: 8, chainRarity: 1, name: "Bulkhead", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "blazar", tags: ["bulwark"], version: 2 },
   { id: "bz-lance-shot", tokenId: 9, chainRarity: 1, name: "Lance Shot", faction: "human", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "hit", n: 2 }, version: 2 },
   { id: "bz-oath-pilot", tokenId: 10, chainRarity: 1, name: "Oath Pilot", faction: "human", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "basic", set: "blazar", tags: [], flavor: "Same oath. No sky." },
   { id: "bz-captain-kel", tokenId: 11, chainRarity: 2, name: "Captain Kestrel", faction: "human", kind: "unit", cost: 4, atk: 1, hp: 3, rarity: "rare", set: "blazar", tags: ["formation"], play: { t: "buff", a: 1, h: 1 }, version: 2 },
-  { id: "bz-admiral-voss", tokenId: 12, chainRarity: 3, name: "Admiral Voss", faction: "human", kind: "unit", cost: 6, atk: 3, hp: 4, rarity: "legendary", set: "blazar", tags: [], play: { t: "sweep", n: 1 }, version: 2 },
+  { id: "bz-admiral-voss", tokenId: 12, chainRarity: 3, name: "Admiral Voss", faction: "human", kind: "unit", cost: 6, atk: 3, hp: 3, rarity: "legendary", set: "blazar", tags: [], play: { t: "sweep", n: 1 }, version: 2 },
 
   { id: "bz-spark-rat", tokenId: 13, chainRarity: 1, name: "Spark Rat", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "blazar", tags: ["haste"], version: 2 },
   { id: "bz-twin-jets", tokenId: 14, chainRarity: 1, name: "Twin Jets", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: [], surge: { t: "self", a: 0, h: 0, haste: true }, version: 2 },

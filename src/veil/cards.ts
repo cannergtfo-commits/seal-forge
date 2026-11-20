@@ -145,7 +145,7 @@ const CORE: CardDef[] = [
   c({ id: "mend", tokenId: 6, chainRarity: 2, name: "Verdant Mend", faction: "elf", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 4 } }),
   c({ id: "glade", tokenId: 7, chainRarity: 2, name: "Hidden Glade", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], trap: "glade" }),
   c({ id: "lysara", tokenId: 8, chainRarity: 3, name: "Lysara, Grove Warden", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/elf.jpg`, tags: [], play: { t: "healSelf", n: 2 }, flavor: "Blonde, fair, and fully in command of the grove." }),
-  c({ id: "treant", tokenId: 9, chainRarity: 3, name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 4, hp: 6, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark", "bloom"], version: 2 }),
+  c({ id: "treant", tokenId: 9, chainRarity: 3, name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 3, hp: 6, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark", "bloom"], version: 2 }),
 
   c({ id: "scout", tokenId: 10, chainRarity: 1, name: "Scout Rider", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/knight.jpg`, tags: [], flavor: "First steel on the road." }),
   c({ id: "shield-line", tokenId: 11, chainRarity: 1, name: "Shield Line", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/knight.jpg`, tags: ["bulwark"] }),
