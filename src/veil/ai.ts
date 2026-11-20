@@ -72,7 +72,7 @@ function targetFor(m: Match, handUid: string, me: Side): Target | null {
     const hurt = [...aiUnits(m, me)].filter((unit) => unit.hp < unit.maxHp).sort((a, b) => a.hp - b.hp)[0];
     return hurt ? { kind: "unit", uid: hurt.uid } : aiUnits(m, me)[0] ? { kind: "unit", uid: aiUnits(m, me)[0]!.uid } : null;
   }
-  if (effect === "buff" || effect === "charge" || effect === "grantHaste") {
+  if (effect === "buff" || effect === "charge" || effect === "grantHaste" || effect === "grant") {
     const allies = [...aiUnits(m, me)];
     if (effect === "grantHaste") {
       const waiting = allies.find((unit) => unit.sick && !cardOf(unit.defId).tags.includes("haste"));
@@ -260,7 +260,7 @@ function aiTrap(m: Match, style: BotStyle, me: Side): Match {
     const card = cardOf(trap.defId);
     if (!trapNeedsTarget(card.trap)) return springTrap(m, trap.uid, null).state;
     const small = [...attackers].sort((a, b) => power(m, a) - power(m, b))[0];
-    if (!small || (card.trap === "snare" && power(m, small) > 2)) return skipTrap(m).state;
+    if (!small || (card.trap === "snare" && power(m, small) > (card.trapN ?? 2))) return skipTrap(m).state;
     const sprung = springTrap(m, trap.uid, small.uid);
     return sprung.error ? skipTrap(m).state : sprung.state;
   }
@@ -277,7 +277,7 @@ function aiTrap(m: Match, style: BotStyle, me: Side): Match {
       continue;
     }
     if (!trapNeedsTarget(kind)) continue;
-    const legal = kind === "snare" ? attackers.filter((unit) => power(m, unit) <= 2) : attackers;
+    const legal = kind === "snare" ? attackers.filter((unit) => power(m, unit) <= (card.trapN ?? 2)) : attackers;
     const picked = [...legal].sort((a, b) => power(m, b) - power(m, a))[0];
     if (!picked) continue;
     let score = power(m, picked);

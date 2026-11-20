@@ -516,6 +516,12 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     return null;
   }
   if (effect.t === "hit") return hit(m, effect.n, target);
+  if (effect.t === "sweep") {
+    for (const foe of m.players[other(owner)].units) damageUnit(foe, effect.n);
+    note(m, `${source.name} deals ${effect.n} to every enemy unit.`);
+    reap(m);
+    return null;
+  }
   if (effect.t === "unseal" && !target && source.kind === "unit") return null;
   if (!target || target.kind !== "unit") return "Choose a unit.";
   const unit = findUnit(m, target.uid);
@@ -533,6 +539,12 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     unit.hp += effect.h;
     unit.maxHp += effect.h;
     note(m, `${cardOf(unit.defId).name} gets +${effect.a}/+${effect.h}.`);
+    return null;
+  }
+  if (effect.t === "grant") {
+    if (unit.owner !== owner) return "Choose an ally.";
+    unit.granted = [...(unit.granted ?? []), effect.tag];
+    note(m, `${cardOf(unit.defId).name} gains ${effect.tag.charAt(0).toUpperCase() + effect.tag.slice(1)}.`);
     return null;
   }
   if (effect.t === "unseal") {
@@ -732,11 +744,13 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
   if (attacker && !canTarget(m, defender, attacker)) return { state, error: `${cardOf(attacker.defId).name} has Veilstep.` };
   if (card.trap === "pikes") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 3);
-    note(m, `${card.name} deals 3 to ${cardOf(attacker.defId).name}.`);
+    const n = card.trapN ?? 3;
+    damageUnit(attacker, n);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "snare") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    if (power(m, attacker) > 2) return { state, error: `${card.name} only catches attack 2 or less.` };
+    const cap = card.trapN ?? 2;
+    if (power(m, attacker) > cap) return { state, error: `${card.name} only catches attack ${cap} or less.` };
     attacker.hp = 0;
     note(m, `${card.name} destroys ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "glade") {
@@ -749,13 +763,15 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
     note(m, `${card.name} raises a ward of 4.`);
   } else if (card.trap === "cross") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 2);
-    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name}.`);
+    const n = card.trapN ?? 2;
+    damageUnit(attacker, n);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "horizon") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 2);
+    const n = card.trapN ?? 2;
+    damageUnit(attacker, n);
     attacker.frozen = true;
-    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name} and freezes it.`);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name} and freezes it.`);
   }
   m.players[defender].traps = m.players[defender].traps.filter((item) => item.uid !== trap.uid);
   m.players[defender].grave.push(card.id);

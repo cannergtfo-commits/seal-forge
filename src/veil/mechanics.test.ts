@@ -232,7 +232,7 @@ describe("Bloom", () => {
   it("counts its own Play heal", () => {
     let m = board(0);
     m = cast(m, "bz-lysara-blazar", null);
-    assert.equal(m.players[0].units[0]!.atk, 5);
+    assert.equal(m.players[0].units[0]!.atk, cardOf("bz-lysara-blazar").atk + 1);
   });
 
   it("lets the Bloom heal spells draw", () => {
@@ -449,3 +449,45 @@ describe("Unseal", () => {
 function skipTrapState(m: Match): Match {
   return skipTrap(m).state;
 }
+
+describe("Rebalance effects", () => {
+  it("sweep hits every enemy unit", () => {
+    let m = board(0);
+    m.players[1].units = [unit(m, "scrap", 1), unit(m, "clock", 1)];
+    m = cast(m, "bz-admiral-voss", null);
+    assert.equal(m.players[1].units.length, 1);
+    assert.equal(m.players[1].units[0]!.hp, 1);
+  });
+
+  it("grant gives an ally a keyword", () => {
+    let m = board(0);
+    const scout = unit(m, "scout", 0);
+    m.players[0].units = [scout];
+    m = cast(m, "kg-kestrel-kage", { kind: "unit", uid: scout.uid });
+    assert.deepEqual(m.players[0].units[0]!.granted, ["bulwark"]);
+  });
+
+  it("trap numbers come from the card", () => {
+    let m = board(0);
+    const lance = unit(m, "oath-knight", 0, { sick: false });
+    m.players[0].units = [lance];
+    m.players[1].traps = [{ uid: "t", defId: "pikes", owner: 1 }];
+    m = declareAttack(m, [lance.uid]).state;
+    m = springTrap(m, "t", lance.uid).state;
+    assert.equal(m.players[0].units[0]!.hp, 1, "Pikes now deal 2");
+
+    let n = board(0);
+    const knight = unit(n, "oath-knight", 0, { sick: false });
+    n.players[0].units = [knight];
+    n.players[1].traps = [{ uid: "p", defId: "pit", owner: 1 }];
+    n = declareAttack(n, [knight.uid]).state;
+    n = springTrap(n, "p", knight.uid).state;
+    assert.equal(n.players[0].units.length, 0, "Pit Snare now catches attack 3");
+  });
+
+  it("renamed cards keep their printed NFT name", () => {
+    assert.equal(cardOf("pact").name, "Ichor Covenant");
+    assert.equal(cardOf("pact").printedName, "Blood Pact");
+    assert.equal(cardOf("familiar").printedName, "Imp Familiar");
+  });
+});
