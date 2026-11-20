@@ -30,7 +30,7 @@ import {
 } from "./integrity-store";
 
 export type Act =
-  | { t: "play"; uid: string; target: Target | null }
+  | { t: "play"; uid: string; target: Target | null; tithe?: boolean }
   | { t: "attack"; ids: string[] }
   | { t: "block"; blocks: Record<string, string | null> }
   | { t: "trap"; uid: string; target: string | null }
@@ -571,7 +571,7 @@ export function act(id: string, action: Act): { error?: string; view: ReturnType
   if (room.match.winner !== null) return { view: publicMatch(room, seat) };
   if (sideToAct(room.match) !== seat) return { error: "Not your step.", view: publicMatch(room, seat) };
   let result: { state: Match; error?: string };
-  if (action.t === "play") result = playCard(room.match, action.uid, action.target);
+  if (action.t === "play") result = playCard(room.match, action.uid, action.target, { tithe: typeof action.tithe === "boolean" ? action.tithe : undefined });
   else if (action.t === "attack") result = declareAttack(room.match, action.ids);
   else if (action.t === "block") result = assignDefenders(room.match, action.blocks);
   else if (action.t === "trap") result = springTrap(room.match, action.uid, action.target);

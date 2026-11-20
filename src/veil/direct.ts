@@ -10,7 +10,7 @@ import {
 } from "./logic";
 
 export type SeatAct =
-  | { t: "play"; uid: string; target: { kind: "unit"; uid: string } | { kind: "face"; side: Side } | null }
+  | { t: "play"; uid: string; target: { kind: "unit"; uid: string } | { kind: "face"; side: Side } | null; tithe?: boolean }
   | { t: "attack"; ids: string[] }
   | { t: "block"; blocks: Record<string, string | null> }
   | { t: "trap"; uid: string; target: string | null }
@@ -63,7 +63,7 @@ export function actor(match: Match): Side {
 export function applySeat(match: Match, seat: Side, action: SeatAct): { state: Match; error?: string } {
   if (match.winner !== null) return { state: match, error: "The duel is over." };
   if (actor(match) !== seat) return { state: match, error: "Not your step." };
-  if (action.t === "play") return playCard(match, action.uid, action.target);
+  if (action.t === "play") return playCard(match, action.uid, action.target, { tithe: typeof action.tithe === "boolean" ? action.tithe : undefined });
   if (action.t === "attack") return declareAttack(match, action.ids);
   if (action.t === "block") return assignDefenders(match, action.blocks);
   if (action.t === "trap") return springTrap(match, action.uid, action.target);

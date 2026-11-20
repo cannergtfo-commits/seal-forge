@@ -1,215 +1,215 @@
-moonpetal	1	1/1	When this dies: heal 1.
-thorn-dryad	2	2/3	Play: heal 1.
-starlit	2	2/1	Play: deal 1 to a unit or a player.
-briar	2	-	Freeze a unit.
-dawnbow	3	3/2	Haste.
-mend	3	-	Heal 4.
-glade	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
-lysara	4	3/4	Play: heal 2. — Blonde, fair, and fully in command of the grove.
-treant	6	5/7	Bulwark.
-scout	1	2/1	First steel on the road.
-shield-line	2	1/4	Bulwark.
-medic	2	1/3	Play: heal an ally unit 2.
-shot	1	-	Deal 2 to a unit or a player.
-oath-knight	3	3/3	A fair fight on purpose.
-rally	3	-	Your units get +1 attack this turn.
-pikes	2	-	Trap. When they attack: deal 3 to an attacker.
-aldren	4	3/4	Play: an ally unit gets +1/+1.
-marshal	6	5/5	Play: deal 2 to a unit or a player.
-scrap	1	2/1	Fast, thin, and already swinging.
-twins	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-raider	2	2/2	Haste.
-charge	1	-	An ally unit gets +2 attack this turn and takes 1.
-boom	3	3/2	Play: deal 1 to the rival.
-drummer	3	2/3	Your Rixen can attack the turn they're played.
-pit	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
-skarn	5	4/4	Your other Rixen have +1 attack.
-grenade	4	-	Deal 4 to a unit or a player.
-clock	1	1/2	A lens and a thin wing.
-sentry	2	1/4	Bulwark.
-wisp-bot	2	1/2	Play: heal an ally unit 3.
-overclock	2	-	A Quorin ally gets +2/+1 and can attack this turn.
-welder	3	2/4	Play: heal 2.
-core	3	0/6	Bulwark. Can't attack.
-firewall	2	-	Trap. When they attack: prevent the next 4 damage to you.
-lance	4	4/3	A clean hole through a plan.
-apex	6	4/7	Play: your other Quorin get +0/+1.
-familiar	1	2/1	Play: lose 1 life.
-ash-imp	2	2/2	Ember eyes. No bargain yet.
-spark	2	-	Deal 3 to a unit or a player. Then lose 1 life.
-pact	1	-	Draw 2 and lose 2 life. This can't drop you below 1.
-blood-knight	3	4/2	Hits hard. Does not stay.
-hexbrand	3	3/3	Drain.
-soul	2	-	Trap. Springs by itself when any unit dies: heal 3.
-vex	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
-tyrant	7	6/6	Crush.
-un-lantern	1	1/2	A light that belongs to no grove.
-un-squire	2	2/2	Steel with the crest filed off.
-un-toll	1	-	Deal 2 to a unit or a player.
-un-choir	3	2/3	They sing for whoever paid.
-un-ward	3	1/4	Bulwark.
-un-pilgrim	2	2/1	Haste.
-un-cross	2	-	Trap. When they attack: deal 2 to an attacker.
-un-nameless	5	4/4	No seal. Just the road.
-bz-comet-fox	1	1/1	When this dies: heal 1.
-bz-void-archer	2	2/1	Haste.
-bz-moon-well	2	-	Heal 2.
-bz-orbit-dryad	3	2/4	A ring of pale wood around a dead star.
-bz-eclipse-sentinel	4	3/3	Haste. — The bow fires before the light returns.
-bz-lysara-blazar	6	4/5	Haste. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
-bz-hull-scout	1	2/1	First boot on the dark hull.
-bz-bulkhead	2	1/4	Bulwark.
-bz-lance-shot	1	-	Deal 2 to a unit or a player.
-bz-oath-pilot	3	3/3	Same oath. No sky.
-bz-captain-kel	4	3/4	Play: an ally unit gets +1/+1.
-bz-admiral-voss	6	5/5	Play: deal 2 to a unit or a player.
-bz-spark-rat	1	1/1	Haste.
-bz-twin-jets	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-bz-scrap-comet	1	-	An ally unit gets +2 attack this turn and takes 1.
-bz-boom-drone	3	2/2	Play: deal 1 to the rival.
-bz-void-raider	3	3/2	Haste.
-bz-skarn-rift	6	4/4	Haste. Your other Rixen have +1 attack.
-bz-ion-wisp	2	1/2	Play: heal an ally unit 2.
-bz-hull-drone	2	1/4	Bulwark.
-bz-cold-weld	2	-	Heal 2.
-bz-sentry-prism	3	2/4	A lens that does not blink.
-bz-null-array	4	2/6	Bulwark.
-bz-apex-blazar	7	4/7	Play: your other Quorin get +0/+1.
-bz-cinder-imp	1	2/1	Play: lose 1 life.
-bz-pact-ember	2	-	Deal 2 to a unit or a player.
-bz-brand-knight	3	3/2	Hits, then the dark takes the rest.
-bz-ash-moth	2	2/2	Wings the color of a spent star.
-bz-hex-moth	3	3/3	Drain.
-bz-tyrant-blazar	7	6/6	Crush.
-bz-drift-wisp	1	1/1	When this dies: heal 1. — No seal claims it.
-bz-eclipse-blade	2	2/1	Haste.
-bz-slip	1	-	An ally unit gains Haste this turn.
-bz-quiet-star	3	2/4	It does not take a side.
-bz-horizon	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-bz-the-veil	7	5/6	Haste. Play: heal 2. — The sixth seal, wearing a dead star.
-kg-leaf-fox	1	1/1	When this dies: heal 1.
-kg-silk-step	1	2/1	A bare foot on wet bamboo.
-kg-night-bow	2	2/1	Haste.
-kg-reed-cloak	2	1/3	The grove hides the blade.
-kg-moon-needle	1	-	Deal 2 to a unit or a player.
-kg-quiet-mend	2	-	Heal 2.
-kg-bamboo-snare	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
-kg-twin-leaf	3	2/4	Two shadows. One breath.
-kg-grove-guard	3	2/4	Bulwark.
-kg-petal-cut	2	-	Freeze a unit.
-kg-crescent	4	3/3	Haste. — The bow fires before the moonlight returns.
-kg-warden-veil	4	3/4	Play: heal 2.
-kg-deep-mend	3	-	Heal 4.
-kg-hidden-grove	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-lysara-kage	6	4/5	Haste. Play: heal 2. — Blonde, fair, and silent in the bamboo.
-kg-rain-scout	1	2/1	First steel in the rain.
-kg-iron-squire	1	1/2	A short blade and a kept oath.
-kg-oath-wall	2	1/4	Bulwark.
-kg-night-medic	2	1/3	Play: heal an ally unit 2.
-kg-steel-throw	1	-	Deal 2 to a unit or a player.
-kg-cloak-captain	2	2/2	The banner is folded. The oath is not.
-kg-rain-line	3	3/3	Even steel. Even night.
-kg-oath-blade	3	3/2	One cut, then the line closes.
-kg-banner-flash	3	-	Your units get +1 attack this turn.
-kg-pike-night	2	-	Trap. When they attack: deal 3 to an attacker.
-kg-kestrel-kage	4	3/4	Play: an ally unit gets +1/+1.
-kg-marshal-mask	5	4/4	Play: deal 2 to a unit or a player.
-kg-war-seal	3	-	Deal 3 to a unit or a player.
-kg-ambush-seal	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-voss-kage	6	5/5	Play: deal 2 to a unit or a player. — The oath does not need a sky.
-kg-ember-rat	1	1/1	Haste.
-kg-alley-knife	1	2/1	Already swinging.
-kg-twin-stars	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-kg-scrap-dash	2	2/1	A mask of bent tin.
-kg-cinder-cut	2	3/1	Fast, thin, and burning.
-kg-mask-runner	2	2/2	The grin is painted on.
-kg-reckless-dash	1	-	An ally unit gets +2 attack this turn and takes 1.
-kg-boom-pouch	3	2/2	Play: deal 1 to the rival.
-kg-drum-shadow	3	2/3	Your Rixen can attack the turn they're played.
-kg-cross-wire	2	-	Trap. When they attack: deal 2 to an attacker.
-kg-void-blade	3	3/2	Haste.
-kg-skarn-mask	5	4/4	Your other Rixen have +1 attack.
-kg-horde-star	4	-	Deal 4 to a unit or a player.
-kg-pit-seal	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
-kg-skarn-kage	6	4/4	Haste. Your other Rixen have +1 attack.
-kg-ion-scout	1	1/2	A lens under a hood of plates.
-kg-clock-step	2	2/2	The footfall is measured.
-kg-plate-hood	2	1/4	Bulwark.
-kg-weld-wisp	2	1/2	Play: heal an ally unit 2.
-kg-repair-line	2	1/3	A stitch of cold light.
-kg-overclock-spark	2	-	A Quorin ally gets +2/+1 and can attack this turn.
-kg-cold-seal	2	-	Heal 2.
-kg-prism-sentry	3	2/4	It does not blink.
-kg-lens-blade	3	3/2	A clean hole, then silence.
-kg-ward-plate	2	-	Trap. When they attack: prevent the next 4 damage to you.
-kg-null-hood	4	2/6	Bulwark.
-kg-apex-shadow	4	4/3	The array leans in.
-kg-hex-lance	3	-	Deal 3 to a unit or a player.
-kg-still-array	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-apex-kage	7	4/7	Play: your other Quorin get +0/+1.
-kg-cinder-imp	1	2/1	Play: lose 1 life.
-kg-ash-step	2	2/2	Ember eyes under a black hood.
-kg-ember-cloak	2	2/1	The cloth smolders and does not burn.
-kg-ash-knight	2	3/1	Hits, then the dark takes the rest.
-kg-pact-spark	2	-	Deal 2 to a unit or a player.
-kg-hell-seal	2	-	Deal 3 to a unit or a player.
-kg-pact-ink	1	-	Draw 2 and lose 2 life. This can't drop you below 1.
-kg-brand-hood	3	3/2	A horned shadow with a short blade.
-kg-blood-cut	3	4/2	Hits hard. Does not stay.
-kg-soul-wire	2	-	Trap. Springs by itself when any unit dies: heal 3.
-kg-hexbrand-kage	3	3/3	Drain.
-kg-duchess-kage	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
-kg-pit-flame	3	-	Deal 3 to a unit or a player.
-kg-soul-seal	2	-	Trap. Springs by itself when any unit dies: heal 3.
-kg-tyrant-kage	7	6/6	Crush.
-kg-pale-step	1	1/1	When this dies: heal 1. — No seal claims it.
-kg-quiet-hand	1	1/2	A faceless cloth. No crest.
-kg-silver-blade	2	2/1	Haste.
-kg-no-crest	2	2/2	Steel with the mark filed off.
-kg-slip-seal	1	-	An ally unit gains Haste this turn.
-kg-toll-cut	1	-	Deal 2 to a unit or a player.
-kg-road-ward	3	1/4	Bulwark.
-kg-ash-walk	3	2/3	It does not take a side.
-kg-nameless-step	3	2/2	The road keeps its own assassins.
-kg-cross-mark	2	-	Trap. When they attack: deal 2 to an attacker.
-kg-pilgrim-kage	3	3/2	Haste.
-kg-faceless	4	3/4	No seal. Just the cut.
-kg-silver-mend	3	-	Heal 4.
-kg-horizon-seal	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
-kg-veil-kage	7	5/6	Haste. Play: heal 2. — The sixth seal, wearing no face.
-as-briar-vanguard	1	2/1	Black braid, leaf mail, and a short spear.
-as-oak-sentinel	2	1/4	Bulwark. — Auburn braid, green plate, a kite shield.
-as-grove-mend	2	-	Heal 3.
-as-hidden-bough	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
-as-selene-bow	4	3/3	Haste. — White hair, silver mail, one shot before the grove answers.
-as-lysara-ash	6	4/6	Play: heal 2. — Blonde, emerald plate, the grove's last crown.
-as-oath-squire	1	2/1	Freckles, chestnut hair, and a sword too honest.
-as-banner-dame	2	2/3	She holds the torn banner and does not yield.
-as-precise-oath	1	-	Deal 2 to a unit or a player.
-as-pike-wall	2	-	Trap. When they attack: deal 3 to an attacker.
-as-captain-ysara	4	3/4	Play: an ally unit gets +1/+1. — Dark hair, red cloak, gold-trim steel.
-as-marshal-hala	6	5/5	Play: your units get +1 attack this turn. — Silver war-braid, lion plate.
-as-cinder-lass	1	2/1	Haste. — Copper hair, ember eyes, two clean knives.
-as-scrap-vixen	1	1/1	Play: if you control another Rixen, this gets +1/+1.
-as-reckless-spark	1	-	An ally unit gets +2 attack this turn and takes 1.
-as-pit-wire	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
-as-nima-knives	3	3/2	Haste. — Black hair with a red streak, and too many knives.
-as-sable-crown	5	4/4	Haste. Your other Rixen have +1 attack.
-as-ion-duelist	1	1/2	A cyan bob, chrome joints, and a thin rapier.
-as-hull-maiden	2	1/4	Bulwark. — Broad white-cyan plate and a tower shield.
-as-cold-weld	2	-	Heal an ally unit 2.
-as-veil-firewall	2	-	Trap. When they attack: prevent the next 4 damage to you.
-as-vesper-null	4	4/3	Cable-black hair, one cyan eye, and a lance that does not miss.
-as-apex-crown	6	4/7	Play: your other Quorin get +0/+1.
-as-cinder-imp	1	2/1	Play: lose 1 life. — Small horns, cropped black hair, a wicked grin.
-as-ash-temptress	2	2/2	Long white hair, small horns, a smile that costs.
-as-blood-pact	1	-	Draw 1 and lose 1 life. This can't drop you below 1.
-as-soul-kiss	2	-	Trap. Springs by itself when any unit dies: heal 3.
-as-duchess-vex	4	3/3	Drain. — Burgundy hair, curved horns, a gown edged in plate.
-as-tyrant-lilu	7	6/6	Crush.
-as-road-sister	1	1/2	When this dies: heal 1. — A pale girl, a linen hood, a walking staff.
-as-ash-miller	2	2/2	Flour on her hands. A sickle at her belt.
-as-silver-toll	1	-	Deal 2 to a unit or a player.
-as-cross-path	2	-	Trap. When they attack: deal 2 to an attacker.
-as-widow-lane	3	1/4	Bulwark. — Grey hair, a black shawl, and a lantern.
-as-the-nameless	5	4/4	Haste. Play: heal 2. — A pale woman, a stolen crown, no seal.
+moonpetal	v2	1	1/1	Bloom.
+thorn-dryad	v1	2	2/3	Play: heal 1.
+starlit	v1	2	2/1	Play: deal 1 to a unit or a player.
+briar	v1	2	-	Freeze a unit.
+dawnbow	v1	3	3/2	Haste.
+mend	v1	3	-	Heal 4.
+glade	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
+lysara	v1	4	3/4	Play: heal 2. — Blonde, fair, and fully in command of the grove.
+treant	v2	6	4/7	Bulwark, Bloom.
+scout	v1	1	2/1	First steel on the road.
+shield-line	v1	2	1/4	Bulwark.
+medic	v1	2	1/3	Play: heal an ally unit 2.
+shot	v1	1	-	Deal 2 to a unit or a player.
+oath-knight	v1	3	3/3	A fair fight on purpose.
+rally	v2	2	-	Your units get +1 attack this turn. Your Formation units also get +1 health.
+pikes	v1	2	-	Trap. When they attack: deal 3 to an attacker.
+aldren	v1	4	3/4	Play: an ally unit gets +1/+1.
+marshal	v1	6	5/5	Play: deal 2 to a unit or a player.
+scrap	v1	1	2/1	Fast, thin, and already swinging.
+twins	v2	1	1/1	Surge: this gets +1/+1.
+raider	v1	2	2/2	Haste.
+charge	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
+boom	v1	3	3/2	Play: deal 1 to the rival.
+drummer	v1	3	2/3	Your Rixen can attack the turn they're played.
+pit	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
+skarn	v1	5	4/4	Your other Rixen have +1 attack.
+grenade	v2	3	-	Deal 3 to a unit or a player. Surge: deal 1 to the rival.
+clock	v1	1	1/2	A lens and a thin wing.
+sentry	v1	2	1/4	Bulwark.
+wisp-bot	v1	2	1/2	Play: heal an ally unit 3.
+overclock	v1	2	-	A Quorin ally gets +2/+1 and can attack this turn.
+welder	v1	3	2/4	Play: heal 2.
+core	v2	3	0/6	Plating 1. Can't attack.
+firewall	v1	2	-	Trap. When they attack: prevent the next 4 damage to you.
+lance	v2	4	4/3	Plating 1. — A clean hole through a plan.
+apex	v2	6	3/7	Play: your other Quorin get Plating 1.
+familiar	v1	1	2/1	Play: lose 1 life.
+ash-imp	v1	2	2/2	Ember eyes. No bargain yet.
+spark	v1	2	-	Deal 3 to a unit or a player. Then lose 1 life.
+pact	v2	1	-	Draw 1. Tithe 2: draw 1 more.
+blood-knight	v1	3	4/2	Hits hard. Does not stay.
+hexbrand	v1	3	3/3	Drain.
+soul	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
+vex	v1	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
+tyrant	v1	7	6/6	Crush.
+un-lantern	v1	1	1/2	A light that belongs to no grove.
+un-squire	v2	2	2/2	Formation. — Steel with the crest filed off.
+un-toll	v1	1	-	Deal 2 to a unit or a player.
+un-choir	v2	3	2/3	Requiem: draw 1. — They sing for whoever paid.
+un-ward	v1	3	1/4	Bulwark.
+un-pilgrim	v1	2	2/1	Haste.
+un-cross	v1	2	-	Trap. When they attack: deal 2 to an attacker.
+un-nameless	v1	5	4/4	No seal. Just the road.
+bz-comet-fox	v2	1	1/2	Requiem: heal 2.
+bz-void-archer	v1	2	2/1	Haste.
+bz-moon-well	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
+bz-orbit-dryad	v2	3	2/3	Bloom. — A ring of pale wood around a dead star.
+bz-eclipse-sentinel	v1	4	3/3	Haste. — The bow fires before the light returns.
+bz-lysara-blazar	v2	6	4/5	Bloom. Play: heal 2. — Blonde, fair, and crowned in comet-fire.
+bz-hull-scout	v1	1	2/1	First boot on the dark hull.
+bz-bulkhead	v1	2	1/4	Bulwark.
+bz-lance-shot	v1	1	-	Deal 2 to a unit or a player.
+bz-oath-pilot	v1	3	3/3	Same oath. No sky.
+bz-captain-kel	v2	4	2/4	Formation. Play: an ally unit gets +1/+1.
+bz-admiral-voss	v1	6	5/5	Play: deal 2 to a unit or a player.
+bz-spark-rat	v1	1	1/1	Haste.
+bz-twin-jets	v2	1	2/1	Surge: this gains Haste.
+bz-scrap-comet	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
+bz-boom-drone	v1	3	2/2	Play: deal 1 to the rival.
+bz-void-raider	v1	3	3/2	Haste.
+bz-skarn-rift	v1	6	4/4	Haste. Your other Rixen have +1 attack.
+bz-ion-wisp	v1	2	1/2	Play: heal an ally unit 2.
+bz-hull-drone	v2	2	1/3	Plating 1.
+bz-cold-weld	v1	2	-	Heal 2.
+bz-sentry-prism	v1	3	2/4	A lens that does not blink.
+bz-null-array	v1	4	2/6	Bulwark.
+bz-apex-blazar	v2	7	4/7	Play: your other Quorin get +0/+1 and Plating 1.
+bz-cinder-imp	v1	1	2/1	Play: lose 1 life.
+bz-pact-ember	v1	2	-	Deal 2 to a unit or a player.
+bz-brand-knight	v1	3	3/2	Hits, then the dark takes the rest.
+bz-ash-moth	v1	2	2/2	Wings the color of a spent star.
+bz-hex-moth	v1	3	3/3	Drain.
+bz-tyrant-blazar	v2	7	5/5	Crush. Tithe 3: this gets +2/+0.
+bz-drift-wisp	v2	1	1/1	Bloom. — No seal claims it.
+bz-eclipse-blade	v2	2	1/1	Surge: this gets +1/+1 and Haste.
+bz-slip	v1	1	-	An ally unit gains Haste this turn.
+bz-quiet-star	v2	3	1/4	Plating 1. — It does not take a side.
+bz-horizon	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
+bz-the-veil	v2	7	5/5	Requiem: return another random Unbound card from your grave to your hand. — The sixth seal, wearing a dead star.
+kg-leaf-fox	v1	1	1/1	Requiem: heal 1.
+kg-silk-step	v1	1	2/1	A bare foot on wet bamboo.
+kg-night-bow	v1	2	2/1	Haste.
+kg-reed-cloak	v2	2	1/3	Bloom. — The grove hides the blade.
+kg-moon-needle	v1	1	-	Deal 2 to a unit or a player.
+kg-quiet-mend	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
+kg-bamboo-snare	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
+kg-twin-leaf	v1	3	2/4	Two shadows. One breath.
+kg-grove-guard	v1	3	2/4	Bulwark.
+kg-petal-cut	v1	2	-	Freeze a unit.
+kg-crescent	v1	4	3/3	Haste. — The bow fires before the moonlight returns.
+kg-warden-veil	v1	4	3/4	Play: heal 2.
+kg-deep-mend	v1	3	-	Heal 4.
+kg-hidden-grove	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
+kg-lysara-kage	v2	6	4/4	Haste. Play: heal 2. — Blonde, fair, and silent in the bamboo.
+kg-rain-scout	v1	1	2/1	First steel in the rain.
+kg-iron-squire	v1	1	1/2	A short blade and a kept oath.
+kg-oath-wall	v1	2	1/4	Bulwark.
+kg-night-medic	v1	2	1/3	Play: heal an ally unit 2.
+kg-steel-throw	v1	1	-	Deal 2 to a unit or a player.
+kg-cloak-captain	v1	2	2/2	The banner is folded. The oath is not.
+kg-rain-line	v1	3	3/3	Even steel. Even night.
+kg-oath-blade	v1	3	3/2	One cut, then the line closes.
+kg-banner-flash	v2	2	-	Your units get +1 attack this turn. Your Formation units also get +1 health.
+kg-pike-night	v1	2	-	Trap. When they attack: deal 3 to an attacker.
+kg-kestrel-kage	v1	4	3/4	Play: an ally unit gets +1/+1.
+kg-marshal-mask	v1	5	4/4	Play: deal 2 to a unit or a player.
+kg-war-seal	v1	3	-	Deal 3 to a unit or a player.
+kg-ambush-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
+kg-voss-kage	v2	6	5/4	Formation. — The oath does not need a sky.
+kg-ember-rat	v1	1	1/1	Haste.
+kg-alley-knife	v1	1	2/1	Already swinging.
+kg-twin-stars	v2	1	1/1	Surge: this gets +1/+1.
+kg-scrap-dash	v1	2	2/1	A mask of bent tin.
+kg-cinder-cut	v1	2	3/1	Fast, thin, and burning.
+kg-mask-runner	v1	2	2/2	The grin is painted on.
+kg-reckless-dash	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
+kg-boom-pouch	v1	3	2/2	Play: deal 1 to the rival.
+kg-drum-shadow	v1	3	2/3	Your Rixen can attack the turn they're played.
+kg-cross-wire	v1	2	-	Trap. When they attack: deal 2 to an attacker.
+kg-void-blade	v1	3	3/2	Haste.
+kg-skarn-mask	v1	5	4/4	Your other Rixen have +1 attack.
+kg-horde-star	v2	3	-	Deal 3 to a unit or a player. Surge: draw 1.
+kg-pit-seal	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
+kg-skarn-kage	v1	6	4/4	Haste. Your other Rixen have +1 attack.
+kg-ion-scout	v1	1	1/2	A lens under a hood of plates.
+kg-clock-step	v1	2	2/2	The footfall is measured.
+kg-plate-hood	v2	2	1/3	Requiem: heal your most damaged unit 2.
+kg-weld-wisp	v1	2	1/2	Play: heal an ally unit 2.
+kg-repair-line	v1	2	1/3	A stitch of cold light.
+kg-overclock-spark	v1	2	-	A Quorin ally gets +2/+1 and can attack this turn.
+kg-cold-seal	v1	2	-	Heal 2.
+kg-prism-sentry	v1	3	2/4	It does not blink.
+kg-lens-blade	v1	3	3/2	A clean hole, then silence.
+kg-ward-plate	v1	2	-	Trap. When they attack: prevent the next 4 damage to you.
+kg-null-hood	v1	4	2/6	Bulwark.
+kg-apex-shadow	v1	4	4/3	The array leans in.
+kg-hex-lance	v1	3	-	Deal 3 to a unit or a player.
+kg-still-array	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
+kg-apex-kage	v2	7	4/7	Play: your other Quorin get +0/+1 and Plating 1.
+kg-cinder-imp	v1	1	2/1	Play: lose 1 life.
+kg-ash-step	v1	2	2/2	Ember eyes under a black hood.
+kg-ember-cloak	v1	2	2/1	The cloth smolders and does not burn.
+kg-ash-knight	v2	2	3/1	Requiem: deal 1 to the rival. — Hits, then the dark takes the rest.
+kg-pact-spark	v1	2	-	Deal 2 to a unit or a player.
+kg-hell-seal	v1	2	-	Deal 3 to a unit or a player.
+kg-pact-ink	v1	1	-	Draw 2 and lose 2 life. This can't drop you below 1.
+kg-brand-hood	v1	3	3/2	A horned shadow with a short blade.
+kg-blood-cut	v1	3	4/2	Hits hard. Does not stay.
+kg-soul-wire	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
+kg-hexbrand-kage	v1	3	3/3	Drain.
+kg-duchess-kage	v2	5	4/4	Tithe 2: this gains Drain.
+kg-pit-flame	v1	3	-	Deal 3 to a unit or a player.
+kg-soul-seal	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
+kg-tyrant-kage	v1	7	6/6	Crush.
+kg-pale-step	v1	1	1/1	Requiem: heal 1. — No seal claims it.
+kg-quiet-hand	v2	1	1/1	Plating 1. — A faceless cloth. No crest.
+kg-silver-blade	v2	2	2/1	Surge: this gains Haste.
+kg-no-crest	v1	2	2/2	Steel with the mark filed off.
+kg-slip-seal	v1	1	-	An ally unit gains Haste this turn.
+kg-toll-cut	v1	1	-	Deal 2 to a unit or a player.
+kg-road-ward	v1	3	1/4	Bulwark.
+kg-ash-walk	v2	3	2/2	Bloom. Play: heal 2. — It does not take a side.
+kg-nameless-step	v2	3	2/3	Formation. — The road keeps its own assassins.
+kg-cross-mark	v1	2	-	Trap. When they attack: deal 2 to an attacker.
+kg-pilgrim-kage	v1	3	3/2	Haste.
+kg-faceless	v2	4	3/3	Tithe 2: this gets +1/+1. — No seal. Just the cut.
+kg-silver-mend	v1	3	-	Heal 4.
+kg-horizon-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
+kg-veil-kage	v2	7	4/6	Tithe 3: draw 2. — The sixth seal, wearing no face.
+as-briar-vanguard	v1	1	2/1	Black braid, leaf mail, and a short spear.
+as-oak-sentinel	v1	2	1/4	Bulwark. — Auburn braid, green plate, a kite shield.
+as-grove-mend	v1	2	-	Heal 3.
+as-hidden-bough	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
+as-selene-bow	v1	4	3/3	Haste. — White hair, silver mail, one shot before the grove answers.
+as-lysara-ash	v2	6	4/5	Play: heal 2. — Blonde, emerald plate, the grove's last crown.
+as-oath-squire	v1	1	2/1	Freckles, chestnut hair, and a sword too honest.
+as-banner-dame	v1	2	2/3	She holds the torn banner and does not yield.
+as-precise-oath	v1	1	-	Deal 2 to a unit or a player.
+as-pike-wall	v1	2	-	Trap. When they attack: deal 3 to an attacker.
+as-captain-ysara	v2	4	3/3	Formation. — Dark hair, red cloak, gold-trim steel.
+as-marshal-hala	v2	6	4/5	Play: your units get +1 attack this turn. Your Formation units also get +1 health. — Silver war-braid, lion plate.
+as-cinder-lass	v1	1	2/1	Haste. — Copper hair, ember eyes, two clean knives.
+as-scrap-vixen	v2	1	1/1	Surge: deal 1 to the rival.
+as-reckless-spark	v2	1	-	An ally unit gets +2 attack this turn. Surge: it also gets +0/+2.
+as-pit-wire	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less attack.
+as-nima-knives	v1	3	3/2	Haste. — Black hair with a red streak, and too many knives.
+as-sable-crown	v1	5	4/4	Haste. Your other Rixen have +1 attack.
+as-ion-duelist	v1	1	1/2	A cyan bob, chrome joints, and a thin rapier.
+as-hull-maiden	v1	2	1/4	Bulwark. — Broad white-cyan plate and a tower shield.
+as-cold-weld	v1	2	-	Heal an ally unit 2.
+as-veil-firewall	v1	2	-	Trap. When they attack: prevent the next 4 damage to you.
+as-vesper-null	v1	4	4/3	Cable-black hair, one cyan eye, and a lance that does not miss.
+as-apex-crown	v2	6	3/7	Play: your other Quorin get Plating 1.
+as-cinder-imp	v1	1	2/1	Play: lose 1 life. — Small horns, cropped black hair, a wicked grin.
+as-ash-temptress	v1	2	2/2	Long white hair, small horns, a smile that costs.
+as-blood-pact	v1	1	-	Draw 1 and lose 1 life. This can't drop you below 1.
+as-soul-kiss	v1	2	-	Trap. Springs by itself when any unit dies: heal 3.
+as-duchess-vex	v1	4	3/3	Drain. — Burgundy hair, curved horns, a gown edged in plate.
+as-tyrant-lilu	v2	7	6/6	Crush. Requiem: you lose 3 life.
+as-road-sister	v1	1	1/2	Requiem: heal 1. — A pale girl, a linen hood, a walking staff.
+as-ash-miller	v1	2	2/2	Flour on her hands. A sickle at her belt.
+as-silver-toll	v1	1	-	Deal 2 to a unit or a player.
+as-cross-path	v1	2	-	Trap. When they attack: deal 2 to an attacker.
+as-widow-lane	v1	3	1/4	Bulwark. — Grey hair, a black shawl, and a lantern.
+as-the-nameless	v1	5	4/4	Haste. Play: heal 2. — A pale woman, a stolen crown, no seal.

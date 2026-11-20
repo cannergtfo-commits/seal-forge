@@ -129,7 +129,7 @@ function ArenaClock({
 }
 
 export type TableAct =
-  | { t: "play"; uid: string; target: Target | null }
+  | { t: "play"; uid: string; target: Target | null; tithe?: boolean }
   | { t: "attack"; ids: string[] }
   | { t: "block"; blocks: Record<string, string | null> }
   | { t: "trap"; uid: string; target: string | null }

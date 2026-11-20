@@ -15,7 +15,20 @@
  * short glyph hint the UI may use or ignore.
  */
 export type KeywordId =
-  "haste" | "bulwark" | "drain" | "crush" | "noAttack" | "play" | "lastBreath" | "freeze" | "trap";
+  | "haste"
+  | "bulwark"
+  | "drain"
+  | "crush"
+  | "bloom"
+  | "formation"
+  | "plating"
+  | "noAttack"
+  | "play"
+  | "surge"
+  | "tithe"
+  | "requiem"
+  | "freeze"
+  | "trap";
 
 export type KeywordKind = "tag" | "static" | "trigger" | "effect";
 
@@ -62,6 +75,30 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "⚒",
     aiValue: 1.5,
   },
+  bloom: {
+    id: "bloom",
+    label: "Bloom",
+    kind: "tag",
+    reminder: "Whenever you heal (yourself or an ally unit), this gets +1 attack for good.",
+    icon: "✿",
+    aiValue: 1.5,
+  },
+  formation: {
+    id: "formation",
+    label: "Formation",
+    kind: "tag",
+    reminder: "While you control 3 or more units, this has +1/+1.",
+    icon: "▲",
+    aiValue: 1,
+  },
+  plating: {
+    id: "plating",
+    label: "Plating",
+    kind: "static",
+    reminder: "Plating N: prevents the first N damage to this unit each turn.",
+    icon: "▣",
+    aiValue: 1.2,
+  },
   noAttack: {
     id: "noAttack",
     label: "Can't attack",
@@ -78,11 +115,27 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "▶",
     aiValue: 0,
   },
-  lastBreath: {
-    id: "lastBreath",
-    label: "When this dies",
+  surge: {
+    id: "surge",
+    label: "Surge",
     kind: "trigger",
-    reminder: "Happens when this unit dies.",
+    reminder: "Surge: if you already played another card this turn, this also does the effect.",
+    icon: "⚡",
+    aiValue: 0,
+  },
+  tithe: {
+    id: "tithe",
+    label: "Tithe",
+    kind: "trigger",
+    reminder: "Tithe N: when you play this, you may pay N life to also do the effect.",
+    icon: "✠",
+    aiValue: 0,
+  },
+  requiem: {
+    id: "requiem",
+    label: "Requiem",
+    kind: "trigger",
+    reminder: "Requiem: when this unit dies, do the effect.",
     icon: "✝",
     aiValue: 0,
   },
@@ -105,7 +158,7 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
 };
 
 /** Unit keyword tags, in the order they print on a card. */
-export const TAG_ORDER = ["haste", "bulwark", "drain", "crush"] as const;
+export const TAG_ORDER = ["haste", "bulwark", "drain", "crush", "bloom", "formation"] as const;
 
 export function keyword(id: KeywordId): Keyword {
   return KEYWORDS[id];
