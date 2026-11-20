@@ -54,7 +54,7 @@ export const UNBOUND_RAW: RawCard[] = [
   { id: "un-toll", tokenId: 39, chainRarity: 1, name: "Silver Toll", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", set: "founding", tags: [], play: { t: "hit", n: 2 } },
   { id: "un-choir", tokenId: 40, chainRarity: 1, name: "Ash Choir", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "common", set: "founding", tags: [], requiem: { t: "draw", n: 1 }, version: 2, flavor: "They sing for whoever paid." },
   { id: "un-ward", tokenId: 41, chainRarity: 1, name: "Way Ward", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "common", set: "founding", tags: ["bulwark"] },
-  { id: "un-pilgrim", tokenId: 42, chainRarity: 1, name: "Road Pilgrim", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "uncommon", set: "founding", tags: ["haste"] },
+  { id: "un-pilgrim", tokenId: 42, chainRarity: 1, name: "Road Pilgrim", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "uncommon", set: "founding", tags: ["veilstep"], version: 2 },
   { id: "un-cross", tokenId: 43, chainRarity: 1, name: "Crossroad Trap", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", set: "founding", tags: [], trap: "cross" },
-  { id: "un-nameless", tokenId: 44, chainRarity: 2, name: "The Nameless", faction: "veil", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "rare", set: "founding", tags: [], flavor: "No seal. Just the road." },
+  { id: "un-nameless", tokenId: 44, chainRarity: 2, name: "The Nameless", faction: "veil", kind: "unit", cost: 5, atk: 3, hp: 4, rarity: "rare", set: "founding", tags: [], play: { t: "unseal" }, version: 2, flavor: "No seal. Just the road." },
 ];

@@ -13,6 +13,8 @@ import {
   power,
   skipTrap,
   springTrap,
+  canTarget,
+  noAttack,
   surgeActive,
   hasBloom,
   hasTag,
@@ -34,6 +36,20 @@ function enemyUnits(m: Match, me: Side): Unit[] {
   return m.players[other(me)].units;
 }
 
+/** Enemy units our cards may target (Veilstep hides the rest). */
+function targetable(m: Match, me: Side): Unit[] {
+  return enemyUnits(m, me).filter((unit) => canTarget(m, me, unit));
+}
+
+/** How much an Unseal takes away from a unit: keywords, abilities and stat buffs. */
+export function unsealGain(m: Match, unit: Unit): number {
+  if (unit.silenced) return 0;
+  const card = cardOf(unit.defId);
+  const keywords = card.tags.length + (unit.granted?.length ?? 0) + (card.aura ? 2 : 0) + (card.requiem ? 1 : 0) + (unit.plating ?? 0);
+  const buffs = unit.atk - card.atk + (unit.maxHp - card.hp) + unit.swing;
+  return keywords * 1.5 + buffs - (noAttack(unit) ? 3 : 0);
+}
+
 function aiUnits(m: Match, me: Side): Unit[] {
   return m.players[me].units;
 }
@@ -46,10 +62,10 @@ function targetFor(m: Match, handUid: string, me: Side): Target | null {
   const effect = card.play?.t;
   if (!needsTarget(card)) return null;
   if (effect === "hit") {
-    const prey = [...enemyUnits(m, me)].sort((a, b) => toughness(a) - toughness(b)).find((unit) => toughness(unit) <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
+    const prey = [...targetable(m, me)].sort((a, b) => toughness(a) - toughness(b)).find((unit) => toughness(unit) <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
     if (prey) return { kind: "unit", uid: prey.uid };
     if (m.players[foe].hp <= 8) return { kind: "face", side: foe };
-    const big = [...enemyUnits(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
+    const big = [...targetable(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
     return big ? { kind: "unit", uid: big.uid } : { kind: "face", side: foe };
   }
   if (effect === "healUnit") {
@@ -70,8 +86,16 @@ function targetFor(m: Match, handUid: string, me: Side): Target | null {
     return bot ? { kind: "unit", uid: bot.uid } : null;
   }
   if (effect === "freeze") {
-    const threat = [...enemyUnits(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
+    const threat = [...targetable(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
     return threat ? { kind: "unit", uid: threat.uid } : null;
+  }
+  if (effect === "unseal") {
+    const best = [...targetable(m, me)].sort((a, b) => unsealGain(m, b) - unsealGain(m, a))[0];
+    if (best && unsealGain(m, best) > 0) return { kind: "unit", uid: best.uid };
+    const own = aiUnits(m, me).find((unit) => noAttack(unit) && !unit.silenced);
+    if (own) return { kind: "unit", uid: own.uid };
+    const any = best ?? aiUnits(m, me)[0];
+    return any ? { kind: "unit", uid: any.uid } : null;
   }
   return null;
 }
@@ -84,7 +108,7 @@ function easyTarget(m: Match, handUid: string, me: Side): Target | null {
   const effect = card.play?.t;
   if (effect === "hit") return { kind: "face", side: other(me) };
   if (effect === "freeze") {
-    const any = enemyUnits(m, me)[0];
+    const any = targetable(m, me)[0];
     return any ? { kind: "unit", uid: any.uid } : null;
   }
   const ally = aiUnits(m, me)[0];
@@ -225,8 +249,11 @@ function aiMain(m: Match, style: BotStyle, me: Side): Match {
 function aiTrap(m: Match, style: BotStyle, me: Side): Match {
   if (style === "hard") return hardTrap(m, me);
   const traps = attackTraps(m).filter((trap) => cardOf(trap.defId).trap !== "soul");
-  const attackers = m.attackers.map((id) => findUnit(m, id)).filter((unit): unit is Unit => Boolean(unit));
-  if (!traps.length || !attackers.length) return skipTrap(m).state;
+  const attackers = m.attackers
+    .map((id) => findUnit(m, id))
+    .filter((unit): unit is Unit => Boolean(unit))
+    .filter((unit) => canTarget(m, me, unit));
+  if (!traps.length) return skipTrap(m).state;
   if (style === "easy") {
     if (m.turnCount % 2 === 0) return skipTrap(m).state;
     const trap = traps[0]!;
@@ -237,7 +264,9 @@ function aiTrap(m: Match, style: BotStyle, me: Side): Match {
     const sprung = springTrap(m, trap.uid, small.uid);
     return sprung.error ? skipTrap(m).state : sprung.state;
   }
-  const incoming = attackers.reduce((sum, unit) => sum + power(m, unit), 0);
+  const incoming = m.attackers
+    .map((id) => findUnit(m, id))
+    .reduce((sum, unit) => sum + (unit ? power(m, unit) : 0), 0);
   let best: { uid: string; target: string | null; score: number } | null = null;
   for (const trap of traps) {
     const card = cardOf(trap.defId);

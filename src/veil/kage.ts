@@ -2,7 +2,7 @@ import type { RawCard } from "./blazar";
 
 /** Set 2. Kage Veil. The same dark fantasy, cut into a ninja war. Ten basic, four rare, one legendary per seal. */
 export const KAGE_RAW: RawCard[] = [
-  { id: "kg-leaf-fox", tokenId: 1, chainRarity: 1, name: "Leaf Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], requiem: { t: "heal", n: 1 } },
+  { id: "kg-leaf-fox", tokenId: 1, chainRarity: 1, name: "Leaf Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: ["veilstep"], version: 2 },
   { id: "kg-silk-step", tokenId: 2, chainRarity: 1, name: "Silk Step", faction: "elf", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: [], flavor: "A bare foot on wet bamboo." },
   { id: "kg-night-bow", tokenId: 3, chainRarity: 1, name: "Night Bow", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: ["haste"] },
   { id: "kg-reed-cloak", tokenId: 4, chainRarity: 1, name: "Reed Cloak", faction: "elf", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "kage", tags: ["bloom"], version: 2, flavor: "The grove hides the blade." },
@@ -11,7 +11,7 @@ export const KAGE_RAW: RawCard[] = [
   { id: "kg-bamboo-snare", tokenId: 7, chainRarity: 1, name: "Bamboo Snare", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], trap: "glade" },
   { id: "kg-twin-leaf", tokenId: 8, chainRarity: 1, name: "Twin Leaf", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "kage", tags: [], flavor: "Two shadows. One breath." },
   { id: "kg-grove-guard", tokenId: 9, chainRarity: 1, name: "Grove Guard", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "kage", tags: ["bulwark"] },
-  { id: "kg-petal-cut", tokenId: 10, chainRarity: 1, name: "Petal Cut", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "freeze" } },
+  { id: "kg-petal-cut", tokenId: 10, chainRarity: 1, name: "Petal Cut", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "unseal", freezeEnemy: true }, version: 2 },
   { id: "kg-crescent", tokenId: 11, chainRarity: 2, name: "Crescent Shot", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "kage", tags: ["haste"], flavor: "The bow fires before the moonlight returns." },
   { id: "kg-warden-veil", tokenId: 12, chainRarity: 2, name: "Warden of the Veil", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", set: "kage", tags: [], play: { t: "healSelf", n: 2 } },
   { id: "kg-deep-mend", tokenId: 13, chainRarity: 2, name: "Deep Mend", faction: "elf", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], play: { t: "healSelf", n: 4 } },
@@ -92,7 +92,7 @@ export const KAGE_RAW: RawCard[] = [
   { id: "kg-ash-walk", tokenId: 83, chainRarity: 1, name: "Ash Walk", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 2, rarity: "basic", set: "kage", tags: ["bloom"], play: { t: "healSelf", n: 2 }, version: 2, flavor: "It does not take a side." },
   { id: "kg-nameless-step", tokenId: 84, chainRarity: 1, name: "Nameless Step", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "basic", set: "kage", tags: ["formation"], version: 2, flavor: "The road keeps its own assassins." },
   { id: "kg-cross-mark", tokenId: 85, chainRarity: 1, name: "Cross Mark", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], trap: "cross" },
-  { id: "kg-pilgrim-kage", tokenId: 86, chainRarity: 2, name: "Night Pilgrim", faction: "veil", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "rare", set: "kage", tags: ["haste"] },
+  { id: "kg-pilgrim-kage", tokenId: 86, chainRarity: 2, name: "Night Pilgrim", faction: "veil", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "rare", set: "kage", tags: ["veilstep"], version: 2 },
   { id: "kg-faceless", tokenId: 87, chainRarity: 2, name: "The Faceless", faction: "veil", kind: "unit", cost: 4, atk: 3, hp: 3, rarity: "rare", set: "kage", tags: [], tithe: { n: 2, effect: { t: "self", a: 1, h: 1 } }, version: 2, flavor: "No seal. Just the cut." },
   { id: "kg-silver-mend", tokenId: 88, chainRarity: 2, name: "Silver Mend", faction: "veil", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], play: { t: "healSelf", n: 4 } },
   { id: "kg-horizon-seal", tokenId: 89, chainRarity: 2, name: "Horizon Seal", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], trap: "horizon" },

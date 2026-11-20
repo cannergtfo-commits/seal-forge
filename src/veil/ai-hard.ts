@@ -24,6 +24,8 @@ import {
   assignDefenders,
   attackTraps,
   canAttack,
+  canTarget,
+  noAttack,
   canBlock,
   declareAttack,
   endTurn,
@@ -91,13 +93,16 @@ function waitsForSurge(m: Match, me: Side, uid: string, card: CardDef): boolean 
 /** Lasting board value of a unit. Ignores this-turn swing. */
 export function unitValue(m: Match, unit: Unit): number {
   const card = cardOf(unit.defId);
-  const atk = card.noAttack ? 0 : Math.max(0, power(m, unit) - unit.swing);
-  const granted = Math.max(0, (unit.plating ?? 0) - (card.plating ?? 0));
+  const atk = noAttack(unit) ? 0 : Math.max(0, power(m, unit) - unit.swing);
+  const granted = Math.max(0, (unit.plating ?? 0) - (unit.silenced ? 0 : (card.plating ?? 0)));
+  const printed = unit.silenced ? 0 : keywordValue(card);
+  const gained = (unit.granted ?? []).reduce((sum, tag) => sum + KEYWORDS[tag].aiValue, 0);
   let value =
     0.6 +
     atk * 1.05 +
     Math.max(0, unit.hp) * 0.8 +
-    keywordValue(card) +
+    printed +
+    gained +
     granted * KEYWORDS.plating.aiValue;
   if (unit.frozen) value -= atk * 0.4;
   return value;
@@ -111,7 +116,7 @@ function handValue(count: number): number {
 function exposure(m: Match, side: Side): number {
   const foe = other(side);
   const threats = m.players[foe].units
-    .filter((unit) => !unit.frozen && !cardOf(unit.defId).noAttack)
+    .filter((unit) => !unit.frozen && !noAttack(unit))
     .map((unit) => Math.max(0, unit.atk))
     .sort((a, b) => b - a);
   const blockers = m.players[side].units.filter((unit) => canBlock(unit)).length;
@@ -158,7 +163,11 @@ export function targetsFor(m: Match, me: Side, card: CardDef): (Target | null)[]
   const foe = other(me);
   const t = card.play?.t;
   const mine = m.players[me].units;
-  const theirs = m.players[foe].units;
+  const theirs = m.players[foe].units.filter((unit) => canTarget(m, me, unit));
+  if (t === "unseal") {
+    const all = [...theirs, ...mine].map((unit) => ({ kind: "unit" as const, uid: unit.uid }));
+    return card.kind === "unit" && !all.length ? [null] : all;
+  }
   if (t === "hit")
     return [
       { kind: "face", side: foe },
@@ -219,12 +228,7 @@ function lethalTarget(m: Match, me: Side, card: CardDef): Target | null {
   const mine = m.players[me].units;
   if (t === "grantHaste") {
     const sick = mine.filter(
-      (unit) =>
-        unit.sick &&
-        !canAttack(m, unit) &&
-        !cardOf(unit.defId).noAttack &&
-        !unit.frozen &&
-        unit.ready,
+      (unit) => unit.sick && !canAttack(m, unit) && !noAttack(unit) && !unit.frozen && unit.ready,
     );
     const pick = sick.sort((a, b) => power(m, b) - power(m, a))[0];
     return pick ? { kind: "unit", uid: pick.uid } : null;
@@ -232,10 +236,7 @@ function lethalTarget(m: Match, me: Side, card: CardDef): Target | null {
   if (t === "overclock") {
     const bots = mine.filter(
       (unit) =>
-        cardOf(unit.defId).faction === "robot" &&
-        unit.ready &&
-        !unit.frozen &&
-        !cardOf(unit.defId).noAttack,
+        cardOf(unit.defId).faction === "robot" && unit.ready && !unit.frozen && !noAttack(unit),
     );
     const pick = bots.sort((a, b) => Number(canAttack(m, a)) - Number(canAttack(m, b)))[0];
     return pick ? { kind: "unit", uid: pick.uid } : null;

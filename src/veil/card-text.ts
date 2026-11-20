@@ -45,6 +45,8 @@ export function rulesText(card: CardDef): string {
 }
 
 function lower(text: string): string {
+  // Keyword verbs keep their capital ("Play: Unseal a unit.").
+  if (Object.values(KEYWORDS).some((kw) => kw.kind === "effect" && text.startsWith(`${kw.label} `))) return text;
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
@@ -88,6 +90,8 @@ export function effectText(effect: PlayEffect): string {
       return "Deal 1 to the rival.";
     case "grantHaste":
       return "An ally unit gains Haste this turn.";
+    case "unseal":
+      return effect.freezeEnemy ? "Unseal a unit. If it's an enemy, freeze it." : "Unseal a unit.";
   }
 }
 
@@ -164,7 +168,13 @@ export function keywordsOf(card: CardDef): Keyword[] {
   if (card.plating) ids.push("plating");
   if (card.noAttack) ids.push("noAttack");
   if (card.kind === "trap") ids.push("trap");
-  if (card.play?.t === "freeze" || card.trap === "horizon") ids.push("freeze");
+  if (card.play?.t === "unseal") ids.push("unseal");
+  if (
+    card.play?.t === "freeze" ||
+    card.trap === "horizon" ||
+    (card.play?.t === "unseal" && card.play.freezeEnemy)
+  )
+    ids.push("freeze");
   if (card.kind === "unit" && card.play) ids.push("play");
   if (card.surge) ids.push("surge");
   if (card.tithe) ids.push("tithe");

@@ -21,6 +21,7 @@ export type KeywordId =
   | "crush"
   | "bloom"
   | "formation"
+  | "veilstep"
   | "plating"
   | "noAttack"
   | "play"
@@ -28,6 +29,7 @@ export type KeywordId =
   | "tithe"
   | "requiem"
   | "freeze"
+  | "unseal"
   | "trap";
 
 export type KeywordKind = "tag" | "static" | "trigger" | "effect";
@@ -91,6 +93,14 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "▲",
     aiValue: 1,
   },
+  veilstep: {
+    id: "veilstep",
+    label: "Veilstep",
+    kind: "tag",
+    reminder: "Until it has attacked, the rival's cards and traps can't target this.",
+    icon: "◌",
+    aiValue: 1,
+  },
   plating: {
     id: "plating",
     label: "Plating",
@@ -147,6 +157,15 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "❄",
     aiValue: 0,
   },
+  unseal: {
+    id: "unseal",
+    label: "Unseal",
+    kind: "effect",
+    reminder:
+      "Unseal a unit: it loses all keywords, abilities and buffs and goes back to its printed stats. Damage stays.",
+    icon: "⊗",
+    aiValue: 0,
+  },
   trap: {
     id: "trap",
     label: "Trap",
@@ -158,7 +177,15 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
 };
 
 /** Unit keyword tags, in the order they print on a card. */
-export const TAG_ORDER = ["haste", "bulwark", "drain", "crush", "bloom", "formation"] as const;
+export const TAG_ORDER = [
+  "haste",
+  "bulwark",
+  "drain",
+  "crush",
+  "bloom",
+  "formation",
+  "veilstep",
+] as const;
 
 export function keyword(id: KeywordId): Keyword {
   return KEYWORDS[id];

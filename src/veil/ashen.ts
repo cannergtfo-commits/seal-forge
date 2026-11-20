@@ -24,7 +24,7 @@ export const ASHEN_RAW: RawCard[] = [
   { id: "as-sable-crown", tokenId: 18, chainRarity: 3, name: "Sable of the Tin Crown", faction: "goblin", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "legendary", set: "ashen", tags: ["haste"], aura: "goblinAtk" },
 
   { id: "as-ion-duelist", tokenId: 19, chainRarity: 1, name: "Ion Duelist", faction: "robot", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "ashen", tags: [], flavor: "A cyan bob, chrome joints, and a thin rapier." },
-  { id: "as-hull-maiden", tokenId: 20, chainRarity: 1, name: "Hull Maiden", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "basic", set: "ashen", tags: ["bulwark"], flavor: "Broad white-cyan plate and a tower shield." },
+  { id: "as-hull-maiden", tokenId: 20, chainRarity: 1, name: "Hull Maiden", faction: "robot", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "ashen", tags: ["veilstep"], version: 2, flavor: "Broad white-cyan plate and a tower shield." },
   { id: "as-cold-weld", tokenId: 21, chainRarity: 1, name: "Cold Weld", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "healUnit", n: 2 } },
   { id: "as-veil-firewall", tokenId: 22, chainRarity: 1, name: "Veil Firewall", faction: "robot", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], trap: "firewall" },
   { id: "as-vesper-null", tokenId: 23, chainRarity: 2, name: "Vesper Null", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", set: "ashen", tags: [], flavor: "Cable-black hair, one cyan eye, and a lance that does not miss." },
@@ -39,7 +39,7 @@ export const ASHEN_RAW: RawCard[] = [
 
   { id: "as-road-sister", tokenId: 31, chainRarity: 1, name: "Road Sister", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "ashen", tags: [], requiem: { t: "heal", n: 1 }, flavor: "A pale girl, a linen hood, a walking staff." },
   { id: "as-ash-miller", tokenId: 32, chainRarity: 1, name: "Ash Miller", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "ashen", tags: [], flavor: "Flour on her hands. A sickle at her belt." },
-  { id: "as-silver-toll", tokenId: 33, chainRarity: 1, name: "Silver Toll", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "hit", n: 2 } },
+  { id: "as-silver-toll", tokenId: 33, chainRarity: 1, name: "Silver Toll", faction: "veil", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], play: { t: "unseal" }, version: 2 },
   { id: "as-cross-path", tokenId: 34, chainRarity: 1, name: "Cross Path", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "ashen", tags: [], trap: "cross" },
   { id: "as-widow-lane", tokenId: 35, chainRarity: 2, name: "Widow Lane", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "rare", set: "ashen", tags: ["bulwark"], flavor: "Grey hair, a black shawl, and a lantern." },
   { id: "as-the-nameless", tokenId: 36, chainRarity: 3, name: "The Nameless", faction: "veil", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "legendary", set: "ashen", tags: ["haste"], play: { t: "healSelf", n: 2 }, flavor: "A pale woman, a stolen crown, no seal." },

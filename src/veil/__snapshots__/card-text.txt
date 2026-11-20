@@ -48,9 +48,9 @@ un-squire	v2	2	2/2	Formation. — Steel with the crest filed off.
 un-toll	v1	1	-	Deal 2 to a unit or a player.
 un-choir	v2	3	2/3	Requiem: draw 1. — They sing for whoever paid.
 un-ward	v1	3	1/4	Bulwark.
-un-pilgrim	v1	2	2/1	Haste.
+un-pilgrim	v2	2	2/1	Veilstep.
 un-cross	v1	2	-	Trap. When they attack: deal 2 to an attacker.
-un-nameless	v1	5	4/4	No seal. Just the road.
+un-nameless	v2	5	3/4	Play: Unseal a unit. — No seal. Just the road.
 bz-comet-fox	v2	1	1/2	Requiem: heal 2.
 bz-void-archer	v1	2	2/1	Haste.
 bz-moon-well	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
@@ -87,7 +87,7 @@ bz-slip	v1	1	-	An ally unit gains Haste this turn.
 bz-quiet-star	v2	3	1/4	Plating 1. — It does not take a side.
 bz-horizon	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
 bz-the-veil	v2	7	5/5	Requiem: return another random Unbound card from your grave to your hand. — The sixth seal, wearing a dead star.
-kg-leaf-fox	v1	1	1/1	Requiem: heal 1.
+kg-leaf-fox	v2	1	1/1	Veilstep.
 kg-silk-step	v1	1	2/1	A bare foot on wet bamboo.
 kg-night-bow	v1	2	2/1	Haste.
 kg-reed-cloak	v2	2	1/3	Bloom. — The grove hides the blade.
@@ -96,7 +96,7 @@ kg-quiet-mend	v2	1	-	Heal 2. If you control a Bloom unit, draw 1.
 kg-bamboo-snare	v1	1	-	Trap. When they attack: heal 2 and deal 1 to an attacker.
 kg-twin-leaf	v1	3	2/4	Two shadows. One breath.
 kg-grove-guard	v1	3	2/4	Bulwark.
-kg-petal-cut	v1	2	-	Freeze a unit.
+kg-petal-cut	v2	2	-	Unseal a unit. If it's an enemy, freeze it.
 kg-crescent	v1	4	3/3	Haste. — The bow fires before the moonlight returns.
 kg-warden-veil	v1	4	3/4	Play: heal 2.
 kg-deep-mend	v1	3	-	Heal 4.
@@ -172,7 +172,7 @@ kg-road-ward	v1	3	1/4	Bulwark.
 kg-ash-walk	v2	3	2/2	Bloom. Play: heal 2. — It does not take a side.
 kg-nameless-step	v2	3	2/3	Formation. — The road keeps its own assassins.
 kg-cross-mark	v1	2	-	Trap. When they attack: deal 2 to an attacker.
-kg-pilgrim-kage	v1	3	3/2	Haste.
+kg-pilgrim-kage	v2	3	3/2	Veilstep.
 kg-faceless	v2	4	3/3	Tithe 2: this gets +1/+1. — No seal. Just the cut.
 kg-silver-mend	v1	3	-	Heal 4.
 kg-horizon-seal	v1	2	-	Trap. When they attack: deal 2 to an attacker and freeze it.
@@ -196,7 +196,7 @@ as-pit-wire	v1	1	-	Trap. When they attack: destroy an attacker with 2 or less at
 as-nima-knives	v1	3	3/2	Haste. — Black hair with a red streak, and too many knives.
 as-sable-crown	v1	5	4/4	Haste. Your other Rixen have +1 attack.
 as-ion-duelist	v1	1	1/2	A cyan bob, chrome joints, and a thin rapier.
-as-hull-maiden	v1	2	1/4	Bulwark. — Broad white-cyan plate and a tower shield.
+as-hull-maiden	v2	2	2/2	Veilstep. — Broad white-cyan plate and a tower shield.
 as-cold-weld	v1	2	-	Heal an ally unit 2.
 as-veil-firewall	v1	2	-	Trap. When they attack: prevent the next 4 damage to you.
 as-vesper-null	v1	4	4/3	Cable-black hair, one cyan eye, and a lance that does not miss.
@@ -209,7 +209,7 @@ as-duchess-vex	v1	4	3/3	Drain. — Burgundy hair, curved horns, a gown edged in 
 as-tyrant-lilu	v2	7	6/6	Crush. Requiem: you lose 3 life.
 as-road-sister	v1	1	1/2	Requiem: heal 1. — A pale girl, a linen hood, a walking staff.
 as-ash-miller	v1	2	2/2	Flour on her hands. A sickle at her belt.
-as-silver-toll	v1	1	-	Deal 2 to a unit or a player.
+as-silver-toll	v2	2	-	Unseal a unit.
 as-cross-path	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 as-widow-lane	v1	3	1/4	Bulwark. — Grey hair, a black shawl, and a lantern.
 as-the-nameless	v1	5	4/4	Haste. Play: heal 2. — A pale woman, a stolen crown, no seal.

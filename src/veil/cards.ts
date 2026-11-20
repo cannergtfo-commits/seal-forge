@@ -3,7 +3,7 @@ import type { CardSet, ChainRarity, Edition, Format } from "./sets";
 export type { CardSet, Edition, Format } from "./sets";
 export type Faction = "elf" | "human" | "goblin" | "robot" | "demon" | "veil";
 export type Rarity = "common" | "uncommon" | "rare" | "basic" | "legendary";
-export type Tag = "bulwark" | "drain" | "crush" | "haste" | "bloom" | "formation";
+export type Tag = "bulwark" | "drain" | "crush" | "haste" | "bloom" | "formation" | "veilstep";
 
 export type PlayEffect =
   | { t: "healSelf"; n: number; bloomDraw?: number }
@@ -15,6 +15,7 @@ export type PlayEffect =
   | { t: "rally" }
   | { t: "charge"; n?: number; selfHit?: number }
   | { t: "freeze" }
+  | { t: "unseal"; freezeEnemy?: boolean }
   | { t: "overclock" }
   | { t: "twin" }
   | { t: "apex"; h?: number; plating?: number }
@@ -249,7 +250,7 @@ export function schoolOf(card: CardDef): string {
 
 export function needsTarget(card: CardDef): boolean {
   const t = card.play?.t;
-  return t === "hit" || t === "healUnit" || t === "buff" || t === "freeze" || t === "charge" || t === "overclock" || t === "grantHaste";
+  return t === "hit" || t === "healUnit" || t === "buff" || t === "freeze" || t === "charge" || t === "overclock" || t === "grantHaste" || t === "unseal";
 }
 
 export function starterIds(faction: Faction): string[] {
