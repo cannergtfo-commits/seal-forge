@@ -7,7 +7,7 @@ import { CARDS } from "./cards";
 import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
 import { applyMmr, applyRoomResult, type RoomResult } from "./integrity-store";
-import { GIFT_LEVEL, LOSS_XP, WIN_XP, eloDelta, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
+import { GIFT_WINS, LOSS_XP, WIN_XP, eloDelta, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
   address: string;
@@ -68,7 +68,7 @@ function toProfile(row: Row): Profile {
     deckName: row.deck_name ?? "",
     gifted: Number(row.gifted) === 1,
     giftOrder: row.gift_order ?? "",
-    giftReady: rankFor(xp).level >= GIFT_LEVEL,
+    giftReady: (Number(row.wins) || 0) >= GIFT_WINS,
     mmr: Number(row.mmr ?? 1000) || 1000,
   };
 }
