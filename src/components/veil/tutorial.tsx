@@ -26,7 +26,7 @@ function findTarget(target: CoachTarget | undefined): Element | null {
   if (!target || typeof document === "undefined") return null;
   const root = document.querySelector(".tutorial-root");
   const all = (root ?? document).querySelectorAll(target.sel);
-  return all[target.index ?? 0] ?? null;
+  return all[target.index ?? 0] ?? findTarget(target.fallback);
 }
 
 function useReducedMotion(): boolean {

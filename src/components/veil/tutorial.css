@@ -1,5 +1,7 @@
 /* S3 guided first match: coach marks, offer and finish copy. */
-.tutorial-root .arena-clock {
+/* No clocks in the guided duel, so hide the timer and the table's own "six seconds" coach line. */
+.tutorial-root .arena-clock,
+.tutorial-root .arena-coach-text {
   visibility: hidden;
 }
 

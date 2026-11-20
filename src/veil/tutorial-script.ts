@@ -48,7 +48,10 @@ export function tutorialMatch(): Match {
 }
 
 /** Where a coach mark points. `index` picks the nth match of `sel` in the table. */
-export type CoachTarget = { sel: string; index?: number };
+export type CoachTarget = { sel: string; index?: number; fallback?: CoachTarget };
+
+/** Points at one card in your hand (by its accessible name), or the whole hand once it's gone. */
+const handCard = (name: string): CoachTarget => ({ sel: `.arena-hand button[aria-label^="${name}."]`, fallback: { sel: ".arena-hand" } });
 
 export type CoachStep = {
   id: string;
@@ -94,7 +97,7 @@ export const STEPS: CoachStep[] = [
     id: "play-unit",
     title: "Play a unit",
     body: "Tap Scrap Runner in your hand to play it. Units fight for you on the board.",
-    target: { sel: ".arena-hand" },
+    target: handCard("Scrap Runner"),
     show: yourMain,
     done: (m) => m.players[0].units.length > 0,
     skip: (m) => m.turnCount > 1,
@@ -128,7 +131,7 @@ export const STEPS: CoachStep[] = [
     title: "Surge",
     keyword: "surge",
     body: "Surge: if you already played a card this turn, it does more. Play any 1-mana card first, then Twin Knives. It gets +1/+1.",
-    target: { sel: ".arena-hand" },
+    target: handCard("Twin Knives"),
     show: yourMain,
     done: (m) => !inHand(m, "twins"),
     skip: (m) => yourTurnNo(m) > 2 && m.turn === 0,
@@ -163,7 +166,7 @@ export const STEPS: CoachStep[] = [
     title: "Traps",
     keyword: "trap",
     body: "Pit Snare is a trap. Tap it to set it face down. When the rival attacks, you can spring it to destroy an attacker with 3 or less attack.",
-    target: { sel: ".arena-hand" },
+    target: handCard("Pit Snare"),
     show: yourMain,
     done: (m) => m.players[0].traps.length > 0 || !inHand(m, "pit"),
     skip: (m) => yourTurnNo(m) > 3 && m.turn === 0,
@@ -173,7 +176,7 @@ export const STEPS: CoachStep[] = [
     title: "Requiem",
     keyword: "requiem",
     body: "Road Sister has Requiem: when it dies, you heal 1. Losing it still pays you back. Play it.",
-    target: { sel: ".arena-hand" },
+    target: handCard("Road Sister"),
     show: yourMain,
     done: (m) => !inHand(m, "as-road-sister"),
     skip: (m) => yourTurnNo(m) > 3 && m.turn === 0,
@@ -200,7 +203,7 @@ export const STEPS: CoachStep[] = [
     id: "finish",
     title: "Finish it",
     body: "Horde Grenade deals 3 to a unit or a player. Aim it at the Golem's life, then attack with everything to win.",
-    target: { sel: ".arena-hand" },
+    target: handCard("Horde Grenade"),
     show: yourMain,
     done: (m) => m.winner !== null,
   },
