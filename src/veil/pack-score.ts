@@ -1,3 +1,5 @@
+import { sfxLevel } from "@/veil/sfx";
+
 export type RarityTier = "basic" | "rare" | "legendary";
 
 export type PackScore = {
@@ -93,7 +95,8 @@ export function armPackScore(): PackScore | null {
       const at = ctx.currentTime;
       master.gain.cancelScheduledValues(at);
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), at);
-      master.gain.exponentialRampToValueAtTime(0.2, at + 0.6);
+      // Follows the effects volume and mute from the sound menu.
+      master.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.2 * sfxLevel()), at + 0.6);
       if (!timer) {
         timer = window.setInterval(() => {
           tone(arp[step % arp.length] ?? 220, 0.42, "sine", 0.07);

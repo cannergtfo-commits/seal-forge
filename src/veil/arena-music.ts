@@ -1,4 +1,12 @@
 const MUSIC_KEY = "seal-music";
+const MUSIC_VOLUME_KEY = "seal-music-volume";
+const MUSIC_DEFAULT_VOLUME = 0.42;
+
+function storedVolume() {
+  if (typeof localStorage === "undefined") return MUSIC_DEFAULT_VOLUME;
+  const raw = Number(localStorage.getItem(MUSIC_VOLUME_KEY));
+  return localStorage.getItem(MUSIC_VOLUME_KEY) !== null && Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : MUSIC_DEFAULT_VOLUME;
+}
 
 function storedWanted() {
   if (typeof localStorage === "undefined") return true;
@@ -8,6 +16,7 @@ function storedWanted() {
 let track: HTMLAudioElement | null = null;
 let trackSrc = "/assets/veil/music/knight-of-the-ruins.mp3";
 let wanted = storedWanted();
+let volume = storedVolume();
 let live = false;
 let watching = false;
 
@@ -18,7 +27,7 @@ function element(src: string) {
   if (!track) {
     track = new Audio(src);
     track.loop = true;
-    track.volume = 0.42;
+    track.volume = volume;
     track.preload = "auto";
     trackSrc = src;
     return track;
@@ -82,4 +91,20 @@ export function toggleArenaMusic() {
 export function stopArenaMusic() {
   live = false;
   track?.pause();
+}
+
+export function musicVolume() {
+  return volume;
+}
+
+/** Music level, 0..1, persisted. Separate from the effects volume in sfx.ts. */
+export function setMusicVolume(next: number) {
+  volume = Math.min(1, Math.max(0, next));
+  try {
+    localStorage.setItem(MUSIC_VOLUME_KEY, String(volume));
+  } catch {
+    /* private mode */
+  }
+  if (track) track.volume = volume;
+  return volume;
 }

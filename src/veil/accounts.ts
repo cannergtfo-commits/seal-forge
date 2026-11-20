@@ -6,6 +6,7 @@ import { getSql } from "@/lib/db";
 import { CARDS } from "./cards";
 import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
+import { applyRoomResult, type RoomResult } from "./integrity-store";
 import { GIFT_LEVEL, LOSS_XP, WIN_XP, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
@@ -323,20 +324,22 @@ async function nftPortrait(
   }
 }
 
-export async function applyXp(results: { address: string; win: boolean }[]): Promise<{ address: string; win: boolean }[]> {
+/**
+ * Apply scored match results. Each (room, wallet) pair counts once: the result row
+ * and the XP change are written in one statement, so a retry or a replayed score
+ * after a restart is a no-op. Failed writes are returned so the caller can retry.
+ */
+export async function applyXp(results: RoomResult[]): Promise<RoomResult[]> {
   if (!results.length) return [];
   const sql = await getSql();
-  const failed: { address: string; win: boolean }[] = [];
+  const failed: RoomResult[] = [];
   let changed = false;
   for (const result of results) {
     const address = result.address.toLowerCase();
-    const delta = result.win ? WIN_XP : -LOSS_XP;
     try {
-      const updated = result.win
-        ? await sql`update veil_profiles set xp = xp + ${delta}, wins = wins + 1 where address = ${address} returning address`
-        : await sql`update veil_profiles set xp = greatest(0, xp + ${delta}), losses = losses + 1 where address = ${address} returning address`;
-      if (updated.length) changed = true;
-      else console.warn(`[xp] no signed-in profile for ${address}, match result skipped`);
+      const outcome = await applyRoomResult(sql, { ...result, address }, { win: WIN_XP, loss: LOSS_XP });
+      if (outcome === "applied") changed = true;
+      else if (outcome === "no-profile") console.warn(`[xp] no signed-in profile for ${address}, match result skipped`);
     } catch (error) {
       console.error(`[xp] failed to write ${result.win ? "win" : "loss"} for ${address}`, error);
       failed.push(result);
