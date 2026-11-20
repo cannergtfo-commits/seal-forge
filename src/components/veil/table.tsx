@@ -402,6 +402,7 @@ export function Table({
   const [pairLines, setPairLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [titheAsk, setTitheAsk] = useState<TitheAsk | null>(null);
+  useEffect(() => setTitheAsk(null), [match.turnCount, match.phase]);
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
   const [music, setMusic] = useState(musicWanted);
@@ -637,7 +638,9 @@ export function Table({
 
   /** Every human play goes through here so Tithe cards can ask Pay / Skip first. */
   function playOut(uid: string, target: Target | null) {
-    const def = cardOf(yours.hand.find((item) => item.uid === uid)?.defId ?? "");
+    const handCard = yours.hand.find((item) => item.uid === uid);
+    if (!handCard) return;
+    const def = cardOf(handCard.defId);
     const tithe = def.tithe;
     if (tithe) {
       // Dry-run with Skip so an illegal play errors now, not after the prompt.
@@ -1230,7 +1233,7 @@ export function Table({
         <div className="veil-dock arena-dock">
           <div className="arena-dock-main flex flex-col gap-1">
             {fault && <p className="arena-dock-error text-sm text-danger" role="alert">{fault}</p>}
-            {/* Hidden (not cleared) when the card leaves hand or the turn passes, so ranked polls don't drop it. */}
+            {/* Keep the prompt through ranked polls, but never for a card that's left hand. */}
             {titheAsk && yourTurn && yours.hand.some((item) => item.uid === titheAsk.uid) && (
               <TithePrompt
                 ask={titheAsk}
