@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import { getSql } from "@/lib/db";
 import { stepRival } from "./ai";
 import { liveBot, type Bot } from "./bots";
 import type { Faction } from "./cards";
@@ -13,6 +15,7 @@ import {
   type Side,
   type Target,
 } from "./logic";
+import { pruneRoomSnapshots, recentRoomSnapshots, saveRoomSnapshot, type RoomResult } from "./integrity-store";
 
 export type Act =
   | { t: "play"; uid: string; target: Target | null }
@@ -39,6 +42,7 @@ type Room = {
   seats: [SeatInfo, SeatInfo];
   prize: { matchId: `0x${string}`; player: `0x${string}` } | null;
   scored: boolean;
+  conceded: boolean;
   deadline: number;
   botAt: number;
   clockKey: string;
@@ -65,16 +69,20 @@ type Lobby = {
   at: number;
 };
 
-const pendingScores: { address: string; win: boolean }[] = [];
+export type ScoreResult = RoomResult;
 
-function scoreRoom(room: Room): { address: string; win: boolean }[] {
+const pendingScores: ScoreResult[] = [];
+
+function scoreRoom(room: Room): ScoreResult[] {
   if (room.match.winner === null || room.scored) return [];
   room.scored = true;
-  const out: { address: string; win: boolean }[] = [];
+  markDirty(room);
+  const out: ScoreResult[] = [];
+  const vsBot = Boolean(room.seats[0].bot || room.seats[1].bot);
   for (const side of [0, 1] as const) {
     const seat = room.seats[side];
     if (seat.bot || !/^0x[0-9a-fA-F]{40}$/.test(seat.address)) continue;
-    out.push({ address: seat.address, win: room.match.winner === side });
+    out.push({ roomId: room.id, address: seat.address, win: room.match.winner === side, turns: room.match.turnCount, conceded: room.conceded, vsBot });
   }
   return out;
 }
@@ -82,10 +90,12 @@ function scoreRoom(room: Room): { address: string; win: boolean }[] {
 function concedeRoom(room: Room, loser: Side): void {
   if (room.match.winner !== null) return;
   room.match.winner = loser === 0 ? 1 : 0;
+  room.conceded = true;
   room.match.phase = "over";
   room.match.seq += 1;
   const line = loser === 0 ? "You concede." : "The rival concedes.";
   room.match.log = [line, ...room.match.log].slice(0, 14);
+  markDirty(room);
   pendingScores.push(...scoreRoom(room));
 }
 
@@ -109,12 +119,12 @@ function nextEpoch(ticket: Ticket): number {
   return ticket.epoch;
 }
 
-export function drainScores(): { address: string; win: boolean }[] {
+export function drainScores(): ScoreResult[] {
   return pendingScores.splice(0);
 }
 
 /** Re-queue scores if the database write failed, so a later request can retry. */
-export function deferScores(results: { address: string; win: boolean }[]): void {
+export function deferScores(results: ScoreResult[]): void {
   if (results.length) pendingScores.push(...results);
 }
 
@@ -150,6 +160,124 @@ export function refundDailyWin(address: string): void {
   const prior = wins.get(id);
   if (!prior || prior.n <= 0) return;
   wins.set(id, { day: prior.day, n: prior.n - 1 });
+}
+
+
+/* ---------- persistence: room snapshots (Techno P0 #1) ---------- */
+
+type Snapshot = {
+  v: 1;
+  id: string;
+  match: Match;
+  seats: [SeatInfo, SeatInfo];
+  prize: Room["prize"];
+  scored: boolean;
+  conceded: boolean;
+  epochs: [number, number];
+};
+
+const SNAPSHOT_REHYDRATE_MS = 30 * 60 * 1000;
+const SNAPSHOT_KEEP_FINISHED_MS = 48 * 60 * 60 * 1000;
+const SNAPSHOT_KEEP_LIVE_MS = 6 * 60 * 60 * 1000;
+const dirty = new Map<string, Room>();
+let loaded: Promise<void> | null = null;
+let lastPrune = 0;
+
+function markDirty(room: Room): void {
+  dirty.set(room.id, room);
+}
+
+function snapshotOf(room: Room): Snapshot {
+  const epochOf = (seat: SeatInfo) => (seat.bot ? 0 : tickets.get(seat.id)?.epoch ?? 0);
+  return {
+    v: 1,
+    id: room.id,
+    match: room.match,
+    seats: room.seats,
+    prize: room.prize,
+    scored: room.scored,
+    conceded: room.conceded,
+    epochs: [epochOf(room.seats[0]), epochOf(room.seats[1])],
+  };
+}
+
+function roomFrom(snap: Snapshot): Room {
+  const room: Room = {
+    id: snap.id,
+    match: snap.match,
+    seats: snap.seats,
+    prize: snap.prize ?? null,
+    scored: Boolean(snap.scored),
+    conceded: Boolean(snap.conceded),
+    deadline: Date.now() + clockMs(snap.match),
+    botAt: Date.now() + 900,
+    clockKey: clockKey(snap.match),
+  };
+  return room;
+}
+
+/** Load recent rooms back after a restart. Players keep their seat ids, so their next poll finds the table. */
+export function roomsReady(): Promise<void> {
+  loaded ??= (async () => {
+    try {
+      const sql = await getSql();
+      const snaps = await recentRoomSnapshots<Snapshot>(sql, SNAPSHOT_REHYDRATE_MS);
+      for (const snap of snaps) {
+        if (snap?.v !== 1 || !snap.id || rooms.has(snap.id)) continue;
+        const room = roomFrom(snap);
+        rooms.set(room.id, room);
+        room.seats.forEach((seat, index) => {
+          if (seat.bot || tickets.has(seat.id)) return;
+          tickets.set(seat.id, {
+            id: seat.id,
+            name: seat.name,
+            faction: seat.faction,
+            address: seat.address,
+            at: Date.now(),
+            roomId: room.id,
+            deck: seat.deck,
+            eligible: seat.eligible,
+            lobby: null,
+            stage: seat.stage,
+            seen: Date.now(),
+            epoch: snap.epochs?.[index] ?? 0,
+          });
+        });
+        if (room.match.winner !== null && !room.scored) pendingScores.push(...scoreRoom(room));
+      }
+      if (snaps.length) console.log(`[rooms] restored ${snaps.length} table(s) from the last run`);
+    } catch (error) {
+      console.error("[rooms] could not restore tables; starting empty", error);
+    }
+  })();
+  return loaded;
+}
+
+/** Write every room that changed since the last flush. Called at the end of each queue request. */
+export async function flushRooms(): Promise<void> {
+  if (!dirty.size && Date.now() - lastPrune < 10 * 60 * 1000) return;
+  const batch = [...dirty.values()];
+  dirty.clear();
+  let sql;
+  try {
+    sql = await getSql();
+  } catch (error) {
+    for (const room of batch) if (!dirty.has(room.id)) dirty.set(room.id, room);
+    console.error("[rooms] snapshot skipped, database not ready", error);
+    return;
+  }
+  for (const room of batch) {
+    try {
+      await saveRoomSnapshot(sql, room.id, snapshotOf(room), room.match.winner !== null);
+    } catch (error) {
+      if (!dirty.has(room.id)) dirty.set(room.id, room);
+      console.error(`[rooms] snapshot failed for ${room.id}`, error);
+    }
+  }
+  if (Date.now() - lastPrune > 10 * 60 * 1000) {
+    lastPrune = Date.now();
+    await pruneRoomSnapshots(sql, SNAPSHOT_KEEP_FINISHED_MS, SNAPSHOT_KEEP_LIVE_MS).catch(() => undefined);
+  }
 }
 
 function publicMatch(room: Room, seat: Side) {
@@ -238,6 +366,12 @@ function expire(room: Room): boolean {
 
 /** One shared clock. Bots take a single action per poll so the table can show it. */
 function advance(room: Room, stepBot: boolean): void {
+  const before = room.match;
+  advanceClock(room, stepBot);
+  if (room.match !== before) markDirty(room);
+}
+
+function advanceClock(room: Room, stepBot: boolean): void {
   if (room.match.winner !== null) return;
   touchClock(room);
   for (let guard = 0; guard < 8 && room.match.winner === null; guard++) {
@@ -276,18 +410,22 @@ function finishBots(room: Room): void {
 
 function openRoom(a: SeatInfo, b: SeatInfo): Room {
   const seed = Math.floor(Math.random() * 0xffffffff) || 1;
+  let id = `m${randomBytes(8).toString("hex")}`;
+  while (rooms.has(id)) id = `m${randomBytes(8).toString("hex")}`;
   const room: Room = {
-    id: `m${seed.toString(16)}`,
+    id,
     match: startMatch(a.faction, b.faction, seed, [a.deck, b.deck]),
     seats: [a, b],
     prize: null,
     scored: false,
+    conceded: false,
     deadline: Date.now() + MAIN_CLOCK_MS,
     botAt: Date.now() + 900,
     clockKey: "",
   };
   touchClock(room);
   rooms.set(room.id, room);
+  markDirty(room);
   return room;
 }
 
@@ -437,6 +575,7 @@ export function act(id: string, action: Act): { error?: string; view: ReturnType
   else result = endTurn(room.match);
   if (result.error) return { error: result.error, view: publicMatch(room, seat), claim: null };
   room.match = result.state;
+  markDirty(room);
   finishBots(room);
   return { view: publicMatch(room, seat), claim: claimFor(room, seat) };
 }
@@ -503,7 +642,7 @@ export function rewardGate(id: string): "none" | "needs-card" | "ready" {
   return "ready";
 }
 
-export function scoreboard(id: string): { address: string; win: boolean }[] {
+export function scoreboard(id: string): ScoreResult[] {
   const ticket = tickets.get(id);
   const room = ticket?.roomId ? rooms.get(ticket.roomId) : undefined;
   if (!ticket || !room) return [];
