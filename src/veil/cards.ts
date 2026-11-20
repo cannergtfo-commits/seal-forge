@@ -1,14 +1,15 @@
+import type { CardSet, ChainRarity, Edition, Format } from "./sets";
+
+export type { CardSet, Edition, Format } from "./sets";
 export type Faction = "elf" | "human" | "goblin" | "robot" | "demon" | "veil";
 export type Rarity = "common" | "uncommon" | "rare" | "basic" | "legendary";
-export type CardSet = "founding" | "blazar" | "kage" | "ashen";
-export type Edition = "core" | "blazar" | "kage" | "ashen";
-export type Tag = "swift" | "bulwark" | "drain" | "crush" | "haste";
+export type Tag = "bulwark" | "drain" | "crush" | "haste";
 
 export type PlayEffect =
   | { t: "healSelf"; n: number }
   | { t: "loseHp"; n: number }
   | { t: "draw"; n: number; lose: number }
-  | { t: "hit"; n: number }
+  | { t: "hit"; n: number; selfLose?: number }
   | { t: "healUnit"; n: number }
   | { t: "buff"; a: number; h: number }
   | { t: "rally" }
@@ -24,6 +25,10 @@ export type TrapKind = "pikes" | "snare" | "glade" | "firewall" | "soul" | "cros
 
 export type CardDef = {
   id: string;
+  /** Frozen NFT token id inside `edition`. A literal, never derived from array order. */
+  tokenId: number;
+  /** Must equal `rarityOf[tokenId]` on the edition contract. Pack odds read it. */
+  chainRarity: ChainRarity;
   name: string;
   faction: Faction;
   kind: "unit" | "spell" | "trap";
@@ -33,15 +38,27 @@ export type CardDef = {
   rarity: Rarity;
   set: CardSet;
   edition: Edition;
-  tokenId: number;
+  /** 1 = Founding, 2 = Blazar, 3 = Kage, 4 = Ashen. 5-6 are reserved. */
+  setNo: number;
+  /** Balance revision. Starts at 1, bumped on every stat or text change. */
+  version: number;
+  formats: Format[];
+  /** The NFT metadata name, when the card has been renamed in game. */
+  printedName?: string;
+  /** Rules text, generated from the data by `cardText()`. Never hand-written. */
   text: string;
+  flavor?: string;
   art: string;
   tags: Tag[];
   play?: PlayEffect;
   trap?: TrapKind;
   deathHeal?: number;
   aura?: "goblinAtk" | "goblinSwift";
+  noAttack?: boolean;
 };
+
+/** What a card file declares. Everything else is filled in by `finish()`. */
+export type CardData = Omit<CardDef, "art" | "edition" | "text" | "setNo" | "formats" | "version" | "printedName"> & { version?: number };
 
 export const FACTIONS: { id: Faction; name: string; seal: string; line: string }[] = [
   { id: "elf", name: "Aureth", seal: "Emerald", line: "Archers, mending, and a treant that demands a blocker." },
@@ -54,87 +71,113 @@ export const FACTIONS: { id: Faction; name: string; seal: string; line: string }
 
 export const SEALS = FACTIONS.filter((faction) => faction.id !== "veil");
 
-import { BLAZAR_RAW, UNBOUND_RAW, type RawCard } from "./blazar";
+import { BLAZAR_RAW, UNBOUND_RAW } from "./blazar";
 import { KAGE_RAW } from "./kage";
 import { ASHEN_RAW } from "./ashen";
+import { cardText } from "./card-text";
+import { printedOf } from "./printed";
+import { EDITION_TOKENS, formatsOf, setInfo } from "./sets";
 
 const A = "/assets/veil";
 
-function c(partial: Omit<CardDef, "art" | "set" | "edition" | "tokenId"> & { art?: string }): CardDef {
-  return { ...partial, set: "founding", edition: "core", tokenId: 0, art: `${A}/cards/${partial.id}.jpg` };
+function finish(raw: CardData, edition: Edition): CardDef {
+  const card: CardDef = {
+    ...raw,
+    edition,
+    setNo: setInfo(raw.set).setNo,
+    version: raw.version ?? 1,
+    formats: formatsOf(raw.set),
+    art: `${A}/cards/${raw.id}.jpg`,
+    text: "",
+  };
+  card.text = cardText(card);
+  const printed = printedOf(card);
+  if (printed && printed.name !== card.name) card.printedName = printed.name;
+  return card;
+}
+
+/** Core cards keep their old placeholder `art` keys in the source; the card face uses `/cards/<id>.jpg`. */
+function c(partial: Omit<CardData, "set"> & { art?: string }): CardDef {
+  const { art: _placeholder, ...rest } = partial;
+  return finish({ ...rest, set: "founding" }, "core");
 }
 
 const CORE: CardDef[] = [
-  c({ id: "moonpetal", name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: [], deathHeal: 1, text: "When this dies, you heal 1." }),
-  c({ id: "thorn-dryad", name: "Thorn Dryad", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 3, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 1 }, text: "Play: heal 1." }),
-  c({ id: "starlit", name: "Starlit Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "common", art: `${A}/elf.jpg`, tags: [], play: { t: "hit", n: 1 }, text: "Play: deal 1 to a unit or a player." }),
-  c({ id: "briar", name: "Briar Snare", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "freeze" }, text: "Freeze a unit. It cannot attack on its next turn." }),
-  c({ id: "dawnbow", name: "Dawnbow Sentinel", faction: "elf", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "uncommon", art: `${A}/elf.jpg`, tags: ["swift"], text: "Swift. Can attack the turn it enters." }),
-  c({ id: "mend", name: "Verdant Mend", faction: "elf", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 4 }, text: "Heal 4." }),
-  c({ id: "glade", name: "Hidden Glade", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], trap: "glade", text: "Trap. When they attack: heal 2 and deal 1 to an attacker." }),
-  c({ id: "lysara", name: "Lysara, Grove Warden", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/elf.jpg`, tags: [], play: { t: "healSelf", n: 2 }, text: "Play: heal 2. Blonde, fair, and fully in command of the grove." }),
-  c({ id: "treant", name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 5, hp: 7, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark"], text: "Bulwark. If they block anything, they must block this." }),
+  c({ id: "moonpetal", tokenId: 1, chainRarity: 1, name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: [], deathHeal: 1 }),
+  c({ id: "thorn-dryad", tokenId: 2, chainRarity: 1, name: "Thorn Dryad", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 3, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 1 } }),
+  c({ id: "starlit", tokenId: 3, chainRarity: 1, name: "Starlit Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "common", art: `${A}/elf.jpg`, tags: [], play: { t: "hit", n: 1 } }),
+  c({ id: "briar", tokenId: 4, chainRarity: 1, name: "Briar Snare", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "freeze" } }),
+  c({ id: "dawnbow", tokenId: 5, chainRarity: 2, name: "Dawnbow Sentinel", faction: "elf", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "uncommon", art: `${A}/elf.jpg`, tags: ["haste"] }),
+  c({ id: "mend", tokenId: 6, chainRarity: 2, name: "Verdant Mend", faction: "elf", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 4 } }),
+  c({ id: "glade", tokenId: 7, chainRarity: 2, name: "Hidden Glade", faction: "elf", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/treant.jpg`, tags: [], trap: "glade" }),
+  c({ id: "lysara", tokenId: 8, chainRarity: 3, name: "Lysara, Grove Warden", faction: "elf", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/elf.jpg`, tags: [], play: { t: "healSelf", n: 2 }, flavor: "Blonde, fair, and fully in command of the grove." }),
+  c({ id: "treant", tokenId: 9, chainRarity: 3, name: "Ancient Treant", faction: "elf", kind: "unit", cost: 6, atk: 5, hp: 7, rarity: "rare", art: `${A}/treant.jpg`, tags: ["bulwark"] }),
 
-  c({ id: "scout", name: "Scout Rider", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/knight.jpg`, tags: [], text: "First steel on the road." }),
-  c({ id: "shield-line", name: "Shield Line", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/knight.jpg`, tags: ["bulwark"], text: "Bulwark. If they block anything, they must block this." }),
-  c({ id: "medic", name: "Field Medic", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "healUnit", n: 2 }, text: "Play: heal an ally unit 2." }),
-  c({ id: "shot", name: "Precise Shot", faction: "human", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 }, text: "Deal 2 to a unit or a player." }),
-  c({ id: "oath-knight", name: "Knight of the Oath", faction: "human", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], text: "A fair fight on purpose." }),
-  c({ id: "rally", name: "Rally Banner", faction: "human", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/captain.jpg`, tags: [], play: { t: "rally" }, text: "Your units get +1 attack this turn." }),
-  c({ id: "pikes", name: "Ambush Pikes", faction: "human", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], trap: "pikes", text: "Trap. When they attack: deal 3 to an attacker." }),
-  c({ id: "aldren", name: "Captain Aldren", faction: "human", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "buff", a: 1, h: 1 }, text: "Play: an ally unit gets +1/+1." }),
-  c({ id: "marshal", name: "Siege Marshal", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 }, text: "Play: deal 2 to a unit or a player." }),
+  c({ id: "scout", tokenId: 10, chainRarity: 1, name: "Scout Rider", faction: "human", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/knight.jpg`, tags: [], flavor: "First steel on the road." }),
+  c({ id: "shield-line", tokenId: 11, chainRarity: 1, name: "Shield Line", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/knight.jpg`, tags: ["bulwark"] }),
+  c({ id: "medic", tokenId: 12, chainRarity: 1, name: "Field Medic", faction: "human", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "healUnit", n: 2 } }),
+  c({ id: "shot", tokenId: 13, chainRarity: 1, name: "Precise Shot", faction: "human", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 } }),
+  c({ id: "oath-knight", tokenId: 14, chainRarity: 2, name: "Knight of the Oath", faction: "human", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], flavor: "A fair fight on purpose." }),
+  c({ id: "rally", tokenId: 15, chainRarity: 2, name: "Rally Banner", faction: "human", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/captain.jpg`, tags: [], play: { t: "rally" } }),
+  c({ id: "pikes", tokenId: 16, chainRarity: 2, name: "Ambush Pikes", faction: "human", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/knight.jpg`, tags: [], trap: "pikes" }),
+  c({ id: "aldren", tokenId: 17, chainRarity: 3, name: "Captain Aldren", faction: "human", kind: "unit", cost: 4, atk: 3, hp: 4, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "buff", a: 1, h: 1 } }),
+  c({ id: "marshal", tokenId: 18, chainRarity: 3, name: "Siege Marshal", faction: "human", kind: "unit", cost: 6, atk: 5, hp: 5, rarity: "rare", art: `${A}/captain.jpg`, tags: [], play: { t: "hit", n: 2 } }),
 
-  c({ id: "scrap", name: "Scrap Runner", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], text: "Fast, thin, and already swinging." }),
-  c({ id: "twins", name: "Twin Knives", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "twin" }, text: "Play: if you control another Rixen, this gets +1/+1." }),
-  c({ id: "raider", name: "Cave Raider", faction: "goblin", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/goblin.jpg`, tags: ["swift"], text: "Swift." }),
-  c({ id: "charge", name: "Reckless Charge", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "charge" }, text: "An ally unit gets +2 attack this turn and takes 1." }),
-  c({ id: "boom", name: "Boomlobber", faction: "goblin", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], play: { t: "boom" }, text: "Play: deal 1 to the opponent." }),
-  c({ id: "drummer", name: "War Drummer", faction: "goblin", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "uncommon", art: `${A}/king.jpg`, tags: [], aura: "goblinSwift", text: "Your Rixen can attack the turn they enter." }),
-  c({ id: "pit", name: "Pit Snare", faction: "goblin", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], trap: "snare", text: "Trap. When they attack: destroy an attacker with attack 2 or less." }),
-  c({ id: "skarn", name: "King Skarn", faction: "goblin", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "rare", art: `${A}/king.jpg`, tags: [], aura: "goblinAtk", text: "Your other Rixen have +1 attack." }),
-  c({ id: "grenade", name: "Horde Grenade", faction: "goblin", kind: "spell", cost: 4, atk: 0, hp: 0, rarity: "rare", art: `${A}/king.jpg`, tags: [], play: { t: "hit", n: 4 }, text: "Deal 4 to a unit or a player." }),
+  c({ id: "scrap", tokenId: 19, chainRarity: 1, name: "Scrap Runner", faction: "goblin", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], flavor: "Fast, thin, and already swinging." }),
+  c({ id: "twins", tokenId: 20, chainRarity: 1, name: "Twin Knives", faction: "goblin", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "twin" } }),
+  c({ id: "raider", tokenId: 21, chainRarity: 1, name: "Cave Raider", faction: "goblin", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/goblin.jpg`, tags: ["haste"] }),
+  c({ id: "charge", tokenId: 22, chainRarity: 1, name: "Reckless Charge", faction: "goblin", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/goblin.jpg`, tags: [], play: { t: "charge" } }),
+  c({ id: "boom", tokenId: 23, chainRarity: 2, name: "Boomlobber", faction: "goblin", kind: "unit", cost: 3, atk: 3, hp: 2, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], play: { t: "boom" } }),
+  c({ id: "drummer", tokenId: 24, chainRarity: 2, name: "War Drummer", faction: "goblin", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "uncommon", art: `${A}/king.jpg`, tags: [], aura: "goblinSwift" }),
+  c({ id: "pit", tokenId: 25, chainRarity: 2, name: "Pit Snare", faction: "goblin", kind: "trap", cost: 1, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/goblin.jpg`, tags: [], trap: "snare" }),
+  c({ id: "skarn", tokenId: 26, chainRarity: 3, name: "King Skarn", faction: "goblin", kind: "unit", cost: 5, atk: 4, hp: 4, rarity: "rare", art: `${A}/king.jpg`, tags: [], aura: "goblinAtk" }),
+  c({ id: "grenade", tokenId: 27, chainRarity: 3, name: "Horde Grenade", faction: "goblin", kind: "spell", cost: 4, atk: 0, hp: 0, rarity: "rare", art: `${A}/king.jpg`, tags: [], play: { t: "hit", n: 4 } }),
 
-  c({ id: "clock", name: "Clockwork Scout", faction: "robot", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], text: "A lens and a thin wing." }),
-  c({ id: "sentry", name: "Sentry Drone", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/robot.jpg`, tags: ["bulwark"], text: "Bulwark." }),
-  c({ id: "wisp-bot", name: "Repair Wisp", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], play: { t: "healUnit", n: 3 }, text: "Play: heal an ally unit 3." }),
-  c({ id: "overclock", name: "Overclock", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/robot.jpg`, tags: [], play: { t: "overclock" }, text: "A Quorin ally gets +2/+1 and can attack this turn." }),
-  c({ id: "welder", name: "Arc Welder", faction: "robot", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "uncommon", art: `${A}/robot.jpg`, tags: [], play: { t: "healSelf", n: 2 }, text: "Play: heal 2." }),
-  c({ id: "core", name: "Shield Core", faction: "robot", kind: "unit", cost: 3, atk: 0, hp: 6, rarity: "uncommon", art: `${A}/robot.jpg`, tags: ["bulwark"], text: "Bulwark. Cannot attack." }),
-  c({ id: "firewall", name: "Firewall", faction: "robot", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/drone.jpg`, tags: [], trap: "firewall", text: "Trap. When they attack: prevent the next 4 damage to you." }),
-  c({ id: "lance", name: "Null Lance", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", art: `${A}/robot.jpg`, tags: [], text: "A clean hole through a plan." }),
-  c({ id: "apex", name: "Prime Unit APEX", faction: "robot", kind: "unit", cost: 6, atk: 4, hp: 7, rarity: "rare", art: `${A}/robot.jpg`, tags: [], play: { t: "apex" }, text: "Play: your other Quorin get +0/+1." }),
+  c({ id: "clock", tokenId: 28, chainRarity: 1, name: "Clockwork Scout", faction: "robot", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], flavor: "A lens and a thin wing." }),
+  c({ id: "sentry", tokenId: 29, chainRarity: 1, name: "Sentry Drone", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "common", art: `${A}/robot.jpg`, tags: ["bulwark"] }),
+  c({ id: "wisp-bot", tokenId: 30, chainRarity: 1, name: "Repair Wisp", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], play: { t: "healUnit", n: 3 } }),
+  c({ id: "overclock", tokenId: 31, chainRarity: 1, name: "Overclock", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/robot.jpg`, tags: [], play: { t: "overclock" } }),
+  c({ id: "welder", tokenId: 32, chainRarity: 2, name: "Arc Welder", faction: "robot", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "uncommon", art: `${A}/robot.jpg`, tags: [], play: { t: "healSelf", n: 2 } }),
+  c({ id: "core", tokenId: 33, chainRarity: 2, name: "Shield Core", faction: "robot", kind: "unit", cost: 3, atk: 0, hp: 6, rarity: "uncommon", art: `${A}/robot.jpg`, tags: ["bulwark"], noAttack: true }),
+  c({ id: "firewall", tokenId: 34, chainRarity: 2, name: "Firewall", faction: "robot", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/drone.jpg`, tags: [], trap: "firewall" }),
+  c({ id: "lance", tokenId: 35, chainRarity: 3, name: "Null Lance", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", art: `${A}/robot.jpg`, tags: [], flavor: "A clean hole through a plan." }),
+  c({ id: "apex", tokenId: 36, chainRarity: 3, name: "Prime Unit APEX", faction: "robot", kind: "unit", cost: 6, atk: 4, hp: 7, rarity: "rare", art: `${A}/robot.jpg`, tags: [], play: { t: "apex" } }),
 
-  c({ id: "familiar", name: "Imp Familiar", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/imp.jpg`, tags: [], play: { t: "loseHp", n: 1 }, text: "Play: lose 1 life." }),
-  c({ id: "ash-imp", name: "Ash Imp", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/imp.jpg`, tags: [], text: "Ember eyes. No bargain yet." }),
-  c({ id: "spark", name: "Hell Spark", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "hit", n: 3 }, text: "Deal 3 to a unit or a player. Then lose 1 life." }),
-  c({ id: "pact", name: "Blood Pact", faction: "demon", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 2, lose: 2 }, text: "Draw 2. Lose 2 life. You cannot drop below 1 this way." }),
-  c({ id: "blood-knight", name: "Blood Knight", faction: "demon", kind: "unit", cost: 3, atk: 4, hp: 2, rarity: "uncommon", art: `${A}/demon.jpg`, tags: [], text: "Hits hard. Does not stay." }),
-  c({ id: "hexbrand", name: "Hexbrand", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/demon.jpg`, tags: ["drain"], text: "Drain. Damage this deals to a player heals you." }),
-  c({ id: "soul", name: "Soul Snare", faction: "demon", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/imp.jpg`, tags: [], trap: "soul", text: "Trap. When any unit dies: heal 3 and this banishes." }),
-  c({ id: "vex", name: "Duchess Vex", faction: "demon", kind: "unit", cost: 5, atk: 5, hp: 4, rarity: "rare", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 1, lose: 2 }, text: "Play: lose 2 life and draw 1. You cannot drop below 1 this way." }),
-  c({ id: "tyrant", name: "Pit Tyrant", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "rare", art: `${A}/demon.jpg`, tags: ["crush"], text: "Crush. Extra damage past a blocker hits the player." }),
+  c({ id: "familiar", tokenId: 37, chainRarity: 1, name: "Imp Familiar", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/imp.jpg`, tags: [], play: { t: "loseHp", n: 1 } }),
+  c({ id: "ash-imp", tokenId: 38, chainRarity: 1, name: "Ash Imp", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/imp.jpg`, tags: [], flavor: "Ember eyes. No bargain yet." }),
+  c({ id: "spark", tokenId: 39, chainRarity: 1, name: "Hell Spark", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "hit", n: 3, selfLose: 1 } }),
+  c({ id: "pact", tokenId: 40, chainRarity: 1, name: "Blood Pact", faction: "demon", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 2, lose: 2 } }),
+  c({ id: "blood-knight", tokenId: 41, chainRarity: 2, name: "Blood Knight", faction: "demon", kind: "unit", cost: 3, atk: 4, hp: 2, rarity: "uncommon", art: `${A}/demon.jpg`, tags: [], flavor: "Hits hard. Does not stay." }),
+  c({ id: "hexbrand", tokenId: 42, chainRarity: 2, name: "Hexbrand", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "uncommon", art: `${A}/demon.jpg`, tags: ["drain"] }),
+  c({ id: "soul", tokenId: 43, chainRarity: 2, name: "Soul Snare", faction: "demon", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/imp.jpg`, tags: [], trap: "soul" }),
+  c({ id: "vex", tokenId: 44, chainRarity: 3, name: "Duchess Vex", faction: "demon", kind: "unit", cost: 5, atk: 5, hp: 4, rarity: "rare", art: `${A}/demon.jpg`, tags: [], play: { t: "draw", n: 1, lose: 2 } }),
+  c({ id: "tyrant", tokenId: 45, chainRarity: 3, name: "Pit Tyrant", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "rare", art: `${A}/demon.jpg`, tags: ["crush"] }),
 ];
 
-CORE.forEach((card, index) => {
-  card.tokenId = index + 1;
-});
-
-function paint(raw: RawCard, tokenId: number, edition: "blazar" | "kage" | "ashen"): CardDef {
-  return { ...raw, edition, tokenId, art: `${A}/cards/${raw.id}.jpg` };
-}
-
 export const BLAZAR_COUNT = BLAZAR_RAW.length;
-const BLAZAR = BLAZAR_RAW.map((raw, index) => paint(raw, index + 1, "blazar"));
-const UNBOUND = UNBOUND_RAW.map((raw, index) => paint(raw, BLAZAR_COUNT + index + 1, "blazar"));
+const BLAZAR = BLAZAR_RAW.map((raw) => finish(raw, "blazar"));
+const UNBOUND = UNBOUND_RAW.map((raw) => finish(raw, "blazar"));
 export const KAGE_COUNT = KAGE_RAW.length;
-const KAGE = KAGE_RAW.map((raw, index) => paint(raw, index + 1, "kage"));
+const KAGE = KAGE_RAW.map((raw) => finish(raw, "kage"));
 export const ASHEN_COUNT = ASHEN_RAW.length;
-const ASHEN = ASHEN_RAW.map((raw, index) => paint(raw, index + 1, "ashen"));
+const ASHEN = ASHEN_RAW.map((raw) => finish(raw, "ashen"));
 
 export const CARDS: CardDef[] = [...CORE, ...UNBOUND, ...BLAZAR, ...KAGE, ...ASHEN];
 
 export const CARD_MAP = new Map(CARDS.map((card) => [card.id, card]));
+
+/** Fails loudly if two cards claim one NFT, or a card points past what was minted. */
+function assertTokenIds(): void {
+  const seen = new Set<string>();
+  for (const card of CARDS) {
+    const key = `${card.edition}:${card.tokenId}`;
+    if (seen.has(key)) throw new Error(`duplicate token ${key}`);
+    seen.add(key);
+    if (!Number.isInteger(card.tokenId) || card.tokenId < 1 || card.tokenId > EDITION_TOKENS[card.edition]) throw new Error(`token out of range ${key}`);
+  }
+  if (CARD_MAP.size !== CARDS.length) throw new Error("duplicate card id");
+}
+assertTokenIds();
 
 export function cardOf(id: string): CardDef {
   const card = CARD_MAP.get(id);
@@ -146,7 +189,6 @@ export function schoolOf(card: CardDef): string {
   if (card.kind === "unit") {
     if (card.tags.includes("bulwark")) return "Wall";
     if (card.tags.includes("haste")) return "Haste";
-    if (card.tags.includes("swift")) return "Swift";
     if (card.tags.includes("drain")) return "Drain";
     if (card.tags.includes("crush")) return "Crush";
     return "Unit";

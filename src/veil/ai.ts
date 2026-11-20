@@ -45,7 +45,7 @@ function targetFor(m: Match, handUid: string): Target | null {
   if (effect === "buff" || effect === "charge" || effect === "grantHaste") {
     const allies = [...aiUnits(m)];
     if (effect === "grantHaste") {
-      const waiting = allies.find((unit) => unit.sick && !cardOf(unit.defId).tags.includes("haste") && !cardOf(unit.defId).tags.includes("swift"));
+      const waiting = allies.find((unit) => unit.sick && !cardOf(unit.defId).tags.includes("haste"));
       if (waiting) return { kind: "unit", uid: waiting.uid };
     }
     const ally = allies.sort((a, b) => power(m, b) - power(m, a))[0];
@@ -158,10 +158,10 @@ function choosePlay(m: Match, style: BotStyle): { uid: string; target: Target | 
       if (option.card.play?.t === "healSelf" && seat.hp > 16) score -= 8;
       if (option.card.kind === "unit" && seat.units.length < foes.length) score += 3;
       if (option.card.kind === "trap" && foes.length > 0 && seat.traps.length === 0) score += 3;
-      if (option.card.tags.includes("haste") || option.card.tags.includes("swift")) score += 2;
+      if (option.card.tags.includes("haste")) score += 2;
       if (style === "aggro") {
         if (option.card.kind === "unit" && option.card.cost <= 2) score += 4;
-        if (option.card.play?.t === "hit" || option.card.tags.includes("swift") || option.card.tags.includes("haste")) score += 3;
+        if (option.card.play?.t === "hit" || option.card.tags.includes("haste")) score += 3;
       } else {
         if (option.card.tags.includes("bulwark") || option.card.kind === "trap") score += 4;
         if (option.card.play?.t === "healSelf" || option.card.play?.t === "healUnit") score += 3;
