@@ -1,5 +1,6 @@
 import { cardOf, needsTarget, trapNeedsTarget } from "./cards";
 import type { BotStyle } from "./bots";
+import { hardBlock, hardMain, hardTrap } from "./ai-hard";
 import {
   assignDefenders,
   attackTraps,
@@ -12,38 +13,47 @@ import {
   power,
   skipTrap,
   springTrap,
+  other,
   type Match,
+  type Side,
   type Target,
   type Unit,
 } from "./logic";
 
-function enemyUnits(m: Match): Unit[] {
-  return m.players[0].units;
+/*
+ * Every decision takes `me`, the seat the bot plays. Nothing is tied to seat 1.
+ * Easy and Normal (guard/aggro) are the original heuristics, unchanged in behaviour.
+ * Hard lives in ai-hard.ts.
+ */
+
+function enemyUnits(m: Match, me: Side): Unit[] {
+  return m.players[other(me)].units;
 }
 
-function aiUnits(m: Match): Unit[] {
-  return m.players[1].units;
+function aiUnits(m: Match, me: Side): Unit[] {
+  return m.players[me].units;
 }
 
-function targetFor(m: Match, handUid: string): Target | null {
-  const hand = m.players[1].hand.find((card) => card.uid === handUid);
+function targetFor(m: Match, handUid: string, me: Side): Target | null {
+  const foe = other(me);
+  const hand = m.players[me].hand.find((card) => card.uid === handUid);
   if (!hand) return null;
   const card = cardOf(hand.defId);
   const effect = card.play?.t;
   if (!needsTarget(card)) return null;
   if (effect === "hit") {
-    const prey = [...enemyUnits(m)].sort((a, b) => a.hp - b.hp).find((unit) => unit.hp <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
+    const prey = [...enemyUnits(m, me)].sort((a, b) => a.hp - b.hp).find((unit) => unit.hp <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
     if (prey) return { kind: "unit", uid: prey.uid };
-    if (m.players[0].hp <= 8) return { kind: "face", side: 0 };
-    const big = [...enemyUnits(m)].sort((a, b) => power(m, b) - power(m, a))[0];
-    return big ? { kind: "unit", uid: big.uid } : { kind: "face", side: 0 };
+    if (m.players[foe].hp <= 8) return { kind: "face", side: foe };
+    const big = [...enemyUnits(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
+    return big ? { kind: "unit", uid: big.uid } : { kind: "face", side: foe };
   }
   if (effect === "healUnit") {
-    const hurt = [...aiUnits(m)].filter((unit) => unit.hp < unit.maxHp).sort((a, b) => a.hp - b.hp)[0];
-    return hurt ? { kind: "unit", uid: hurt.uid } : aiUnits(m)[0] ? { kind: "unit", uid: aiUnits(m)[0]!.uid } : null;
+    const hurt = [...aiUnits(m, me)].filter((unit) => unit.hp < unit.maxHp).sort((a, b) => a.hp - b.hp)[0];
+    return hurt ? { kind: "unit", uid: hurt.uid } : aiUnits(m, me)[0] ? { kind: "unit", uid: aiUnits(m, me)[0]!.uid } : null;
   }
   if (effect === "buff" || effect === "charge" || effect === "grantHaste") {
-    const allies = [...aiUnits(m)];
+    const allies = [...aiUnits(m, me)];
     if (effect === "grantHaste") {
       const waiting = allies.find((unit) => unit.sick && !cardOf(unit.defId).tags.includes("haste"));
       if (waiting) return { kind: "unit", uid: waiting.uid };
@@ -52,33 +62,33 @@ function targetFor(m: Match, handUid: string): Target | null {
     return ally ? { kind: "unit", uid: ally.uid } : null;
   }
   if (effect === "overclock") {
-    const bot = aiUnits(m).find((unit) => cardOf(unit.defId).faction === "robot");
+    const bot = aiUnits(m, me).find((unit) => cardOf(unit.defId).faction === "robot");
     return bot ? { kind: "unit", uid: bot.uid } : null;
   }
   if (effect === "freeze") {
-    const threat = [...enemyUnits(m)].sort((a, b) => power(m, b) - power(m, a))[0];
+    const threat = [...enemyUnits(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
     return threat ? { kind: "unit", uid: threat.uid } : null;
   }
   return null;
 }
 
-function easyTarget(m: Match, handUid: string): Target | null {
-  const hand = m.players[1].hand.find((card) => card.uid === handUid);
+function easyTarget(m: Match, handUid: string, me: Side): Target | null {
+  const hand = m.players[me].hand.find((card) => card.uid === handUid);
   if (!hand) return null;
   const card = cardOf(hand.defId);
   if (!needsTarget(card)) return null;
   const effect = card.play?.t;
-  if (effect === "hit") return { kind: "face", side: 0 };
+  if (effect === "hit") return { kind: "face", side: other(me) };
   if (effect === "freeze") {
-    const any = enemyUnits(m)[0];
+    const any = enemyUnits(m, me)[0];
     return any ? { kind: "unit", uid: any.uid } : null;
   }
-  const ally = aiUnits(m)[0];
+  const ally = aiUnits(m, me)[0];
   return ally ? { kind: "unit", uid: ally.uid } : null;
 }
 
-function chooseEasy(m: Match): { uid: string; target: Target | null } | null {
-  const seat = m.players[1];
+function chooseEasy(m: Match, me: Side): { uid: string; target: Target | null } | null {
+  const seat = m.players[me];
   const latest = m.log[0] ?? "";
   if (seat.mana < seat.manaMax || latest.startsWith("Played ") || latest.startsWith("Cast ") || latest.startsWith("Set ")) return null;
   const options = seat.hand
@@ -89,38 +99,38 @@ function chooseEasy(m: Match): { uid: string; target: Target | null } | null {
     .sort((a, b) => a.card.cost - b.card.cost || a.card.atk - b.card.atk);
   const pick = options.find((option) => option.card.kind === "unit") ?? options[0];
   if (!pick) return null;
-  const target = needsTarget(pick.card) ? easyTarget(m, pick.hand.uid) : null;
+  const target = needsTarget(pick.card) ? easyTarget(m, pick.hand.uid, me) : null;
   if (needsTarget(pick.card) && !target) return null;
   return { uid: pick.hand.uid, target };
 }
 
-function stepEasyMain(m: Match): Match {
-  const play = chooseEasy(m);
+function stepEasyMain(m: Match, me: Side): Match {
+  const play = chooseEasy(m, me);
   if (play) {
     const result = playCard(m, play.uid, play.target);
     if (!result.error) return result.state;
   }
-  const ready = m.players[1].units.filter((unit) => canAttack(m, unit)).sort((a, b) => power(m, a) - power(m, b));
+  const ready = m.players[me].units.filter((unit) => canAttack(m, unit)).sort((a, b) => power(m, a) - power(m, b));
   const one = ready[0];
   if (!one || m.attacked) return endTurn(m).state;
   const declared = declareAttack(m, [one.uid]);
   return declared.error ? endTurn(m).state : declared.state;
 }
 
-function sharpAttackers(m: Match, style: BotStyle): string[] {
-  const ready = m.players[1].units.filter((unit) => canAttack(m, unit));
+export function sharpAttackers(m: Match, style: BotStyle, me: Side): string[] {
+  const ready = m.players[me].units.filter((unit) => canAttack(m, unit));
   if (!ready.length) return [];
-  const foes = enemyUnits(m);
+  const foes = enemyUnits(m, me);
   if (!foes.length) return ready.map((unit) => unit.uid);
   const byPower = [...ready].sort((a, b) => power(m, b) - power(m, a));
   const through = byPower.slice(foes.length).reduce((sum, unit) => sum + power(m, unit), 0);
-  if (through >= m.players[0].hp) return ready.map((unit) => unit.uid);
+  if (through >= m.players[other(me)].hp) return ready.map((unit) => unit.uid);
   const kept = ready.filter((unit) => {
     const atk = power(m, unit);
     const survives = foes.every((foe) => power(m, foe) < unit.hp);
     const favorable = foes.some((foe) => atk >= foe.hp && power(m, foe) < unit.hp);
     if (survives || favorable || cardOf(unit.defId).tags.includes("bulwark")) return true;
-    return style === "aggro" && m.players[1].hp >= m.players[0].hp && atk >= 3;
+    return style === "aggro" && m.players[me].hp >= m.players[other(me)].hp && atk >= 3;
   });
   if (kept.length || style === "guard") return kept.map((unit) => unit.uid);
   const best = byPower[0];
@@ -128,9 +138,9 @@ function sharpAttackers(m: Match, style: BotStyle): string[] {
   return [];
 }
 
-function choosePlay(m: Match, style: BotStyle): { uid: string; target: Target | null } | null {
-  if (style === "easy") return chooseEasy(m);
-  const seat = m.players[1];
+function choosePlay(m: Match, style: BotStyle, me: Side): { uid: string; target: Target | null } | null {
+  if (style === "easy") return chooseEasy(m, me);
+  const seat = m.players[me];
   const options = seat.hand
     .map((hand) => ({ hand, card: cardOf(hand.defId) }))
     .filter(({ card }) => card.cost <= seat.mana)
@@ -138,7 +148,7 @@ function choosePlay(m: Match, style: BotStyle): { uid: string; target: Target | 
     .filter(({ card }) => (card.kind === "trap" ? seat.traps.length < 3 : true));
   const ranked = options
     .map((option) => {
-      const target = needsTarget(option.card) ? targetFor(m, option.hand.uid) : null;
+      const target = needsTarget(option.card) ? targetFor(m, option.hand.uid, me) : null;
       if (needsTarget(option.card) && !target) return null;
       let score = option.card.cost * 2;
       if (option.card.kind === "unit") score += option.card.atk + option.card.hp;
@@ -147,12 +157,12 @@ function choosePlay(m: Match, style: BotStyle): { uid: string; target: Target | 
       if (option.card.kind === "trap" && seat.traps.length === 0) score += 3;
       if (option.card.rarity === "legendary") score += 4;
       else if (option.card.rarity === "rare") score += 2;
-      const foes = enemyUnits(m);
+      const foes = enemyUnits(m, me);
       const threat = foes.reduce((best, unit) => Math.max(best, power(m, unit)), 0);
       if (option.card.play?.t === "hit") {
         const amount = option.card.play.n;
         if (foes.some((unit) => unit.hp <= amount)) score += 6 + Math.min(threat, 6);
-        else if (m.players[0].hp > 10) score -= 2;
+        else if (m.players[other(me)].hp > 10) score -= 2;
       }
       if (option.card.cost === seat.mana) score += 2;
       if (option.card.play?.t === "healSelf" && seat.hp > 16) score -= 8;
@@ -174,29 +184,31 @@ function choosePlay(m: Match, style: BotStyle): { uid: string; target: Target | 
   return best ? { uid: best.uid, target: best.target } : null;
 }
 
-function stepAiMain(m: Match, style: BotStyle): Match {
-  if (style === "easy") return stepEasyMain(m);
-  const play = choosePlay(m, style);
+function stepAiMain(m: Match, style: BotStyle, me: Side): Match {
+  if (style === "easy") return stepEasyMain(m, me);
+  if (style === "hard") return hardMain(m, me);
+  const play = choosePlay(m, style, me);
   if (play) {
     const result = playCard(m, play.uid, play.target);
     if (!result.error) return result.state;
   }
-  const ids = sharpAttackers(m, style);
+  const ids = sharpAttackers(m, style, me);
   if (ids.length === 0 || m.attacked) return endTurn(m).state;
   const declared = declareAttack(m, ids);
   return declared.error ? endTurn(m).state : declared.state;
 }
 
-function aiMain(m: Match, style: BotStyle): Match {
+function aiMain(m: Match, style: BotStyle, me: Side): Match {
   let next = m;
   for (let i = 0; i < 8; i++) {
-    if (next.winner || next.turn !== 1 || next.phase !== "main") return next;
-    next = stepAiMain(next, style);
+    if (next.winner || next.turn !== me || next.phase !== "main") return next;
+    next = stepAiMain(next, style, me);
   }
   return next;
 }
 
-function aiTrap(m: Match, style: BotStyle): Match {
+function aiTrap(m: Match, style: BotStyle, me: Side): Match {
+  if (style === "hard") return hardTrap(m, me);
   const traps = attackTraps(m).filter((trap) => cardOf(trap.defId).trap !== "soul");
   const attackers = m.attackers.map((id) => findUnit(m, id)).filter((unit): unit is Unit => Boolean(unit));
   if (!traps.length || !attackers.length) return skipTrap(m).state;
@@ -236,16 +248,17 @@ function aiTrap(m: Match, style: BotStyle): Match {
   return sprung.error ? skipTrap(m).state : sprung.state;
 }
 
-function aiBlock(m: Match, style: BotStyle): Match {
-  const defenderHp = m.players[1].hp;
+/** The original Normal block plan, as a map. Also used by Hard to predict a rival's blocks. */
+export function normalBlocks(m: Match, style: BotStyle, me: Side): Record<string, string | null> {
+  const defenderHp = m.players[me].hp;
   const attackers = m.attackers.map((id) => findUnit(m, id)).filter((unit): unit is Unit => Boolean(unit));
-  const blockers = m.players[1].units.filter((unit) => canBlock(unit));
+  const blockers = m.players[me].units.filter((unit) => canBlock(unit));
   const used = new Set<string>();
   const incoming = attackers.reduce((sum, unit) => sum + power(m, unit), 0);
   const lethal = incoming >= defenderHp;
   const open = Object.fromEntries(attackers.map((unit) => [unit.uid, null]));
   if (style === "easy") {
-    if (!lethal) return assignDefenders(m, open).state;
+    if (!lethal) return open;
     const attacker = [...attackers].sort((a, b) => {
       const aw = cardOf(a.defId).tags.includes("bulwark") ? 1 : 0;
       const bw = cardOf(b.defId).tags.includes("bulwark") ? 1 : 0;
@@ -253,10 +266,8 @@ function aiBlock(m: Match, style: BotStyle): Match {
       return power(m, b) - power(m, a);
     })[0];
     const blocker = [...blockers].sort((a, b) => a.hp - b.hp)[0];
-    if (!attacker || !blocker) return assignDefenders(m, open).state;
-    const blocks = { ...open, [attacker.uid]: blocker.uid };
-    const result = assignDefenders(m, blocks);
-    return result.error ? assignDefenders(m, open).state : result.state;
+    if (!attacker || !blocker) return open;
+    return { ...open, [attacker.uid]: blocker.uid };
   }
   const blocks: Record<string, string | null> = {};
   const ordered = [...attackers].sort((a, b) => {
@@ -290,37 +301,50 @@ function aiBlock(m: Match, style: BotStyle): Match {
       blocks[attacker.uid] = null;
     }
   }
-  const result = assignDefenders(m, blocks);
+  return blocks;
+}
+
+function aiBlock(m: Match, style: BotStyle, me: Side): Match {
+  if (style === "hard") return hardBlock(m, me);
+  const open = Object.fromEntries(m.attackers.map((id) => [id, null]));
+  const result = assignDefenders(m, normalBlocks(m, style, me));
   return result.error ? assignDefenders(m, open).state : result.state;
 }
 
-/** One rival action, so the table can show it. Null when the player must decide. */
-export function stepRival(state: Match, style: BotStyle = "guard"): Match | null {
+/** The seat whose decision the match is waiting on. */
+export function actorOf(m: Match): Side {
+  if (m.phase === "trap" || m.phase === "defend") return other(m.turn);
+  return m.turn;
+}
+
+/**
+ * One bot action for seat `me` (seat 1 unless told otherwise), so the table can show it.
+ * Null when the other seat must decide.
+ */
+export function stepRival(state: Match, style: BotStyle = "guard", me: Side = 1): Match | null {
   if (state.winner !== null) return null;
-  if (state.turn === 0 && state.phase === "main") return null;
-  if (state.turn === 1 && (state.phase === "trap" || state.phase === "defend")) return null;
-  if (state.turn === 1 && state.phase === "main") return stepAiMain(state, style);
-  if (state.turn === 0 && state.phase === "trap") return aiTrap(state, style);
-  if (state.turn === 0 && state.phase === "defend") return aiBlock(state, style);
+  if (actorOf(state) !== me) return null;
+  if (state.phase === "main") return stepAiMain(state, style, me);
+  if (state.phase === "trap") return aiTrap(state, style, me);
+  if (state.phase === "defend") return aiBlock(state, style, me);
   return null;
 }
 
-/** Advance rival decisions until it is your main phase, or you must block. */
-export function settle(state: Match, style: BotStyle = "guard"): Match {
+/** Advance the bot's decisions until the other seat must act. */
+export function settle(state: Match, style: BotStyle = "guard", me: Side = 1): Match {
   let m = state;
   for (let i = 0; i < 8 && m.winner === null; i++) {
-    if (m.turn === 0 && m.phase === "main") break;
-    if (m.turn === 1 && (m.phase === "trap" || m.phase === "defend")) break;
-    if (m.turn === 1 && m.phase === "main") {
-      m = aiMain(m, style);
+    if (actorOf(m) !== me) break;
+    if (m.phase === "main") {
+      m = aiMain(m, style, me);
       continue;
     }
-    if (m.turn === 0 && m.phase === "trap") {
-      m = aiTrap(m, style);
+    if (m.phase === "trap") {
+      m = aiTrap(m, style, me);
       continue;
     }
-    if (m.turn === 0 && m.phase === "defend") {
-      m = aiBlock(m, style);
+    if (m.phase === "defend") {
+      m = aiBlock(m, style, me);
       continue;
     }
     break;
