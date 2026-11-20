@@ -5,8 +5,12 @@ import {
   assignDefenders,
   declareAttack,
   endTurn,
+  canAttack,
+  canTarget,
   playCard,
   power,
+  skipTrap,
+  springTrap,
   startMatch,
   titheSafe,
   type Match,
@@ -228,7 +232,7 @@ describe("Bloom", () => {
   it("counts its own Play heal", () => {
     let m = board(0);
     m = cast(m, "bz-lysara-blazar", null);
-    assert.equal(m.players[0].units[0]!.atk, 5);
+    assert.equal(m.players[0].units[0]!.atk, cardOf("bz-lysara-blazar").atk + 1);
   });
 
   it("lets the Bloom heal spells draw", () => {
@@ -346,5 +350,144 @@ describe("Tithe", () => {
     poor.players[0].hand = [{ uid: "v", defId: "kg-veil-kage" }];
     const kept = stepRival(poor, "hard", 0)!;
     assert.equal(kept.players[0].hp, 6);
+  });
+});
+
+describe("Veilstep", () => {
+  it("can't be targeted by the rival's spells until it has attacked", () => {
+    const m = board(0);
+    const pilgrim = unit(m, "un-pilgrim", 1);
+    m.players[1].units = [pilgrim];
+    m.players[0].hand = [{ uid: "s", defId: "shot" }];
+    const tried = playCard(m, "s", { kind: "unit", uid: pilgrim.uid });
+    assert.match(tried.error ?? "", /Veilstep/);
+    assert.equal(canTarget(m, 1, pilgrim), true, "its owner can still target it");
+  });
+
+  it("can't be hit by traps on its first attack, and is revealed after", () => {
+    let m = board(0);
+    const pilgrim = unit(m, "un-pilgrim", 0);
+    m.players[0].units = [pilgrim];
+    m.players[1].traps = [{ uid: "t", defId: "un-cross", owner: 1 }];
+    m = declareAttack(m, [pilgrim.uid]).state;
+    assert.equal(m.phase, "trap");
+    assert.match(springTrap(m, "t", pilgrim.uid).error ?? "", /Veilstep/);
+    m = skipTrapState(m);
+    m = assignDefenders(m, {}).state;
+    assert.equal(m.players[1].hp, 18);
+    const after = m.players[0].units[0]!;
+    assert.equal(after.revealed, true);
+    assert.equal(canTarget(m, 1, after), true);
+  });
+
+  it("is respected by the AI's targeting", () => {
+    const m = board(0);
+    m.players[1].units = [unit(m, "kg-pilgrim-kage", 1)];
+    m.players[0].hand = [{ uid: "s", defId: "shot" }];
+    const next = stepRival(m, "hard", 0);
+    assert.equal(next?.players[1].units.length, 1);
+    const normal = stepRival(m, "guard", 0);
+    assert.equal(normal?.players[1].units.length, 1);
+  });
+});
+
+describe("Unseal", () => {
+  it("strips keywords, abilities and buffs; damage stays", () => {
+    let m = board(0);
+    const tyrant = unit(m, "tyrant", 1, { atk: 8, hp: 5, maxHp: 8, granted: ["drain"] });
+    m.players[1].units = [tyrant];
+    m = cast(m, "as-silver-toll", { kind: "unit", uid: tyrant.uid });
+    const t = m.players[1].units[0]!;
+    assert.equal(t.silenced, true);
+    assert.equal(t.atk, cardOf("tyrant").atk);
+    assert.equal(t.maxHp, cardOf("tyrant").hp);
+    assert.equal(t.hp, 5);
+    assert.deepEqual(t.granted, []);
+  });
+
+  it("turns off Requiem, Plating, auras and Can't attack", () => {
+    let m = board(0);
+    const choir = unit(m, "un-choir", 1, { hp: 1 });
+    const star = unit(m, "bz-quiet-star", 1);
+    m.players[1].units = [choir, star];
+    m.players[1].deck = ["scrap"];
+    m = cast(m, "as-silver-toll", { kind: "unit", uid: choir.uid });
+    m = cast(m, "shot", { kind: "unit", uid: choir.uid });
+    assert.equal(m.players[1].hand.length, 0, "no Requiem draw");
+    m = cast(m, "as-silver-toll", { kind: "unit", uid: star.uid });
+    m = cast(m, "shot", { kind: "unit", uid: star.uid });
+    assert.equal(m.players[1].units[0]!.hp, 2, "no Plating");
+
+    let n = board(0);
+    const core = unit(n, "core", 0, { sick: false });
+    n.players[0].units = [core];
+    n = cast(n, "as-silver-toll", { kind: "unit", uid: core.uid });
+    assert.equal(canAttack(n, n.players[0].units[0]!), false, "0 attack still can't swing");
+  });
+
+  it("freezes an enemy with Petal Cut, and The Nameless may enter with no target", () => {
+    let m = board(0);
+    const lance = unit(m, "lance", 1);
+    m.players[1].units = [lance];
+    m = cast(m, "kg-petal-cut", { kind: "unit", uid: lance.uid });
+    assert.equal(m.players[1].units[0]!.frozen, true);
+    const empty = cast(board(0), "un-nameless", null);
+    assert.equal(empty.players[0].units.length, 1);
+  });
+
+  it("is aimed by Normal at the unit with the most to lose", () => {
+    const m = board(0);
+    m.players[0].mana = 2;
+    m.players[1].units = [unit(m, "scrap", 1), unit(m, "tyrant", 1)];
+    m.players[0].hand = [{ uid: "u", defId: "as-silver-toll" }];
+    const next = stepRival(m, "guard", 0)!;
+    const tyrant = next.players[1].units.find((u) => u.defId === "tyrant")!;
+    assert.equal(tyrant.silenced, true);
+  });
+});
+
+function skipTrapState(m: Match): Match {
+  return skipTrap(m).state;
+}
+
+describe("Rebalance effects", () => {
+  it("sweep hits every enemy unit", () => {
+    let m = board(0);
+    m.players[1].units = [unit(m, "scrap", 1), unit(m, "clock", 1)];
+    m = cast(m, "bz-admiral-voss", null);
+    assert.equal(m.players[1].units.length, 1);
+    assert.equal(m.players[1].units[0]!.hp, 1);
+  });
+
+  it("grant gives an ally a keyword", () => {
+    let m = board(0);
+    const scout = unit(m, "scout", 0);
+    m.players[0].units = [scout];
+    m = cast(m, "kg-kestrel-kage", { kind: "unit", uid: scout.uid });
+    assert.deepEqual(m.players[0].units[0]!.granted, ["bulwark"]);
+  });
+
+  it("trap numbers come from the card", () => {
+    let m = board(0);
+    const lance = unit(m, "oath-knight", 0, { sick: false });
+    m.players[0].units = [lance];
+    m.players[1].traps = [{ uid: "t", defId: "pikes", owner: 1 }];
+    m = declareAttack(m, [lance.uid]).state;
+    m = springTrap(m, "t", lance.uid).state;
+    assert.equal(m.players[0].units[0]!.hp, 1, "Pikes now deal 2");
+
+    let n = board(0);
+    const knight = unit(n, "oath-knight", 0, { sick: false });
+    n.players[0].units = [knight];
+    n.players[1].traps = [{ uid: "p", defId: "pit", owner: 1 }];
+    n = declareAttack(n, [knight.uid]).state;
+    n = springTrap(n, "p", knight.uid).state;
+    assert.equal(n.players[0].units.length, 0, "Pit Snare now catches attack 3");
+  });
+
+  it("renamed cards keep their printed NFT name", () => {
+    assert.equal(cardOf("pact").name, "Ichor Covenant");
+    assert.equal(cardOf("pact").printedName, "Blood Pact");
+    assert.equal(cardOf("familiar").printedName, "Imp Familiar");
   });
 });

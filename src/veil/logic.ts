@@ -32,6 +32,10 @@ export type Unit = {
   granted?: Tag[];
   /** True while this unit has its Formation +1 health applied. */
   formed?: boolean;
+  /** Unsealed: printed keywords, abilities and auras are off for good. */
+  silenced?: boolean;
+  /** Set once the unit has attacked (ends Veilstep). */
+  revealed?: boolean;
 };
 
 export type Trap = { uid: string; defId: string; owner: Side };
@@ -111,12 +115,40 @@ export function findUnit(m: Match, id: string): Unit | null {
 }
 
 function hasAura(m: Match, owner: Side, aura: "goblinAtk" | "goblinSwift"): boolean {
-  return m.players[owner].units.some((unit) => cardOf(unit.defId).aura === aura);
+  return m.players[owner].units.some((unit) => !unit.silenced && cardOf(unit.defId).aura === aura);
 }
 
 /** True when the unit has the keyword, printed or granted. */
 export function hasTag(unit: Unit, tag: Tag): boolean {
-  return cardOf(unit.defId).tags.includes(tag) || Boolean(unit.granted?.includes(tag));
+  return (!unit.silenced && cardOf(unit.defId).tags.includes(tag)) || Boolean(unit.granted?.includes(tag));
+}
+
+/** True when this unit still can't attack (printed "Can't attack", unless Unsealed). */
+export function noAttack(unit: Unit): boolean {
+  return Boolean(cardOf(unit.defId).noAttack) && !unit.silenced;
+}
+
+/** Veilstep: the rival's cards and traps can't target this until it has attacked. */
+export function canTarget(m: Match, by: Side, unit: Unit): boolean {
+  return unit.owner === by || !(hasTag(unit, "veilstep") && !unit.revealed);
+}
+
+/**
+ * Unseal: the unit loses printed keywords, abilities, auras, granted keywords and
+ * every buff. Stats go back to printed; damage it has taken stays (health is capped
+ * at the printed value, so this never kills).
+ */
+export function unsealUnit(unit: Unit): void {
+  const card = cardOf(unit.defId);
+  unit.silenced = true;
+  unit.granted = [];
+  unit.formed = false;
+  unit.plating = 0;
+  unit.plateLeft = 0;
+  unit.swing = 0;
+  unit.atk = card.atk;
+  unit.maxHp = card.hp;
+  unit.hp = Math.min(unit.hp, card.hp);
 }
 
 /** Formation is on while its owner controls 3 or more units. */
@@ -160,7 +192,7 @@ export function canAttack(m: Match, unit: Unit): boolean {
   if (!unit.ready || unit.frozen) return false;
   if (power(m, unit) <= 0) return false;
   const card = cardOf(unit.defId);
-  if (card.noAttack) return false;
+  if (noAttack(unit)) return false;
   if (unit.sick && !hasTag(unit, "haste") && !(card.faction === "goblin" && hasAura(m, unit.owner, "goblinSwift"))) return false;
   return true;
 }
@@ -295,7 +327,7 @@ function buryUnit(m: Match, unit: Unit): void {
   const seat = m.players[unit.owner];
   seat.units = seat.units.filter((item) => item.uid !== unit.uid);
   seat.grave.push(unit.defId);
-  runRequiem(m, unit, cardOf(unit.defId));
+  if (!unit.silenced) runRequiem(m, unit, cardOf(unit.defId));
 }
 
 function reap(m: Match): void {
@@ -484,6 +516,13 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     return null;
   }
   if (effect.t === "hit") return hit(m, effect.n, target);
+  if (effect.t === "sweep") {
+    for (const foe of m.players[other(owner)].units) damageUnit(foe, effect.n);
+    note(m, `${source.name} deals ${effect.n} to every enemy unit.`);
+    reap(m);
+    return null;
+  }
+  if (effect.t === "unseal" && !target && source.kind === "unit") return null;
   if (!target || target.kind !== "unit") return "Choose a unit.";
   const unit = findUnit(m, target.uid);
   if (!unit) return "That unit is gone.";
@@ -500,6 +539,21 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     unit.hp += effect.h;
     unit.maxHp += effect.h;
     note(m, `${cardOf(unit.defId).name} gets +${effect.a}/+${effect.h}.`);
+    return null;
+  }
+  if (effect.t === "grant") {
+    if (unit.owner !== owner) return "Choose an ally.";
+    unit.granted = [...(unit.granted ?? []), effect.tag];
+    note(m, `${cardOf(unit.defId).name} gains ${effect.tag.charAt(0).toUpperCase() + effect.tag.slice(1)}.`);
+    return null;
+  }
+  if (effect.t === "unseal") {
+    unsealUnit(unit);
+    note(m, `${cardOf(unit.defId).name} is Unsealed.`);
+    if (effect.freezeEnemy && unit.owner !== owner) {
+      unit.frozen = true;
+      note(m, `${cardOf(unit.defId).name} is frozen.`);
+    }
     return null;
   }
   if (effect.t === "freeze") {
@@ -542,7 +596,7 @@ export type PlayOptions = { tithe?: boolean };
  */
 export function titheSafe(m: Match, side: Side, n: number): boolean {
   const threat = m.players[other(side)].units
-    .filter((unit) => !unit.frozen && !cardOf(unit.defId).noAttack)
+    .filter((unit) => !unit.frozen && !noAttack(unit))
     .reduce((sum, unit) => sum + power(m, unit), 0);
   return m.players[side].hp - n > threat + 4;
 }
@@ -562,7 +616,14 @@ export function playCard(
   if (seat.mana < card.cost) return { state, error: "Not enough mana." };
   if (card.kind === "unit" && seat.units.length >= BOARD) return { state, error: "The board is full (6)." };
   if (card.kind === "trap" && seat.traps.length >= TRAPS) return { state, error: "Trap row is full (3)." };
-  if (needsTarget(card) && !target) return { state, error: "Choose a target." };
+  const optionalTarget =
+    card.kind === "unit" && card.play?.t === "unseal" && m.players.every((side) => side.units.length === 0);
+  if (needsTarget(card) && !target && !optionalTarget) return { state, error: "Choose a target." };
+  if (target?.kind === "unit") {
+    const aimed = findUnit(m, target.uid);
+    if (!aimed) return { state, error: "That unit is gone." };
+    if (!canTarget(m, m.turn, aimed)) return { state, error: `${cardOf(aimed.defId).name} has Veilstep.` };
+  }
   if (card.play?.t === "hit" && target && !legalHit(m, target)) return { state, error: "Illegal target." };
 
   seat.mana -= card.cost;
@@ -680,13 +741,16 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
   if (card.trap === "soul") return { state, error: `${card.name} springs on its own.` };
   if (trapNeedsTarget(card.trap) && !targetUid) return { state, error: "Choose an attacker." };
   const attacker = targetUid ? m.attackers.map((id) => findUnit(m, id)).find((unit) => unit?.uid === targetUid) : null;
+  if (attacker && !canTarget(m, defender, attacker)) return { state, error: `${cardOf(attacker.defId).name} has Veilstep.` };
   if (card.trap === "pikes") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 3);
-    note(m, `${card.name} deals 3 to ${cardOf(attacker.defId).name}.`);
+    const n = card.trapN ?? 3;
+    damageUnit(attacker, n);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "snare") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    if (power(m, attacker) > 2) return { state, error: `${card.name} only catches attack 2 or less.` };
+    const cap = card.trapN ?? 2;
+    if (power(m, attacker) > cap) return { state, error: `${card.name} only catches attack ${cap} or less.` };
     attacker.hp = 0;
     note(m, `${card.name} destroys ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "glade") {
@@ -699,19 +763,22 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
     note(m, `${card.name} raises a ward of 4.`);
   } else if (card.trap === "cross") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 2);
-    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name}.`);
+    const n = card.trapN ?? 2;
+    damageUnit(attacker, n);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "horizon") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    damageUnit(attacker, 2);
+    const n = card.trapN ?? 2;
+    damageUnit(attacker, n);
     attacker.frozen = true;
-    note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name} and freezes it.`);
+    note(m, `${card.name} deals ${n} to ${cardOf(attacker.defId).name} and freezes it.`);
   }
   m.players[defender].traps = m.players[defender].traps.filter((item) => item.uid !== trap.uid);
   m.players[defender].grave.push(card.id);
   reap(m);
   m.attackers = m.attackers.filter((id) => findUnit(m, id));
   m.phase = m.attackers.length ? "defend" : "main";
+  if (m.phase === "main") reveal(m);
   if (m.phase === "main") note(m, "The attack breaks.");
   return { state: m };
 }
@@ -764,9 +831,18 @@ export function assignDefenders(state: Match, blocks: Record<string, string | nu
     if (m.winner) break;
   }
   reap(m);
+  reveal(m);
   m.attackers = [];
   m.phase = "main";
   return { state: m };
+}
+
+/** Attackers lose Veilstep once their attack is over. */
+function reveal(m: Match): void {
+  for (const id of m.attackers) {
+    const unit = findUnit(m, id);
+    if (unit) unit.revealed = true;
+  }
 }
 
 export function attackTraps(m: Match): Trap[] {

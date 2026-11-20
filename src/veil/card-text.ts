@@ -33,7 +33,7 @@ export function rulesText(card: CardDef): string {
   if (card.noAttack) parts.push("Can't attack.");
   if (card.aura === "goblinAtk") parts.push("Your other Rixen have +1 attack.");
   if (card.aura === "goblinSwift") parts.push("Your Rixen can attack the turn they're played.");
-  if (card.kind === "trap" && card.trap) parts.push(trapText(card.trap));
+  if (card.kind === "trap" && card.trap) parts.push(trapText(card.trap, card.trapN));
   if (card.play)
     parts.push(
       card.kind === "unit" ? `Play: ${lower(effectText(card.play))}` : effectText(card.play),
@@ -45,6 +45,9 @@ export function rulesText(card: CardDef): string {
 }
 
 function lower(text: string): string {
+  // Keyword verbs keep their capital ("Play: Unseal a unit.").
+  if (Object.values(KEYWORDS).some((kw) => kw.kind === "effect" && text.startsWith(`${kw.label} `)))
+    return text;
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
@@ -88,6 +91,12 @@ export function effectText(effect: PlayEffect): string {
       return "Deal 1 to the rival.";
     case "grantHaste":
       return "An ally unit gains Haste this turn.";
+    case "sweep":
+      return `Deal ${effect.n} to every enemy unit.`;
+    case "grant":
+      return `An ally unit gains ${KEYWORDS[effect.tag].label}.`;
+    case "unseal":
+      return effect.freezeEnemy ? "Unseal a unit. If it's an enemy, freeze it." : "Unseal a unit.";
   }
 }
 
@@ -135,20 +144,20 @@ export function requiemText(effect: RequiemEffect): string {
   }
 }
 
-export function trapText(kind: TrapKind): string {
+export function trapText(kind: TrapKind, n?: number): string {
   switch (kind) {
     case "pikes":
-      return "Trap. When they attack: deal 3 to an attacker.";
+      return `Trap. When they attack: deal ${n ?? 3} to an attacker.`;
     case "snare":
-      return "Trap. When they attack: destroy an attacker with 2 or less attack.";
+      return `Trap. When they attack: destroy an attacker with ${n ?? 2} or less attack.`;
     case "glade":
       return "Trap. When they attack: heal 2 and deal 1 to an attacker.";
     case "firewall":
       return "Trap. When they attack: prevent the next 4 damage to you.";
     case "cross":
-      return "Trap. When they attack: deal 2 to an attacker.";
+      return `Trap. When they attack: deal ${n ?? 2} to an attacker.`;
     case "horizon":
-      return "Trap. When they attack: deal 2 to an attacker and freeze it.";
+      return `Trap. When they attack: deal ${n ?? 2} to an attacker and freeze it.`;
     case "soul":
       return "Trap. Springs by itself when any unit dies: heal 3.";
   }
@@ -164,7 +173,13 @@ export function keywordsOf(card: CardDef): Keyword[] {
   if (card.plating) ids.push("plating");
   if (card.noAttack) ids.push("noAttack");
   if (card.kind === "trap") ids.push("trap");
-  if (card.play?.t === "freeze" || card.trap === "horizon") ids.push("freeze");
+  if (card.play?.t === "unseal") ids.push("unseal");
+  if (
+    card.play?.t === "freeze" ||
+    card.trap === "horizon" ||
+    (card.play?.t === "unseal" && card.play.freezeEnemy)
+  )
+    ids.push("freeze");
   if (card.kind === "unit" && card.play) ids.push("play");
   if (card.surge) ids.push("surge");
   if (card.tithe) ids.push("tithe");

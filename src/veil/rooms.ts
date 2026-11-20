@@ -408,7 +408,7 @@ function advanceClock(room: Room, stepBot: boolean): void {
         for (let i = 0; i < 12 && room.match.winner === null; i++) {
           const seatBot = room.seats[sideToAct(room.match)].bot;
           if (!seatBot) break;
-          const next = stepRival(room.match, seatBot.style);
+          const next = stepRival(room.match, seatBot.style, sideToAct(room.match));
           if (!next) break;
           room.match = next;
         }
@@ -416,7 +416,7 @@ function advanceClock(room: Room, stepBot: boolean): void {
         return;
       }
       if (!stepBot || Date.now() < room.botAt) return;
-      const next = stepRival(room.match, bot.style);
+      const next = stepRival(room.match, bot.style, actor);
       if (!next) return;
       room.match = next;
       touchClock(room);

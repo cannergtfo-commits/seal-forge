@@ -1,5 +1,6 @@
 // Balance sims. Usage:
 //   npm run sim -- [--games 20000] [--starter 200] [--style hard] [--threads 8] [--min 300] [--gate] [--csv out.csv]
+//                  [--unbound-share 0.5] [--max-unbound 20]
 // Gate (Techno #6): every seal 45-55% and every card's played win rate 40-60% (cards played in >= --min games).
 // Each game seeds its own RNG, so results are the same however the games are split across workers.
 import { writeFileSync } from "node:fs";
@@ -20,6 +21,9 @@ const STYLES = opt("style", "hard").split(",") as BotStyle[];
 const MIN = Number(opt("min", "300"));
 const GATE = args.includes("--gate");
 const THREADS = Math.max(1, Number(opt("threads", String(Math.min(8, availableParallelism())))));
+/** Chance each Unbound card joins a random pool, and an optional cap on Unbound cards per deck (deck-rule test). */
+const UNBOUND_SHARE = Number(opt("unbound-share", "0.5"));
+const MAX_UNBOUND = Number(opt("max-unbound", "20"));
 const F: Faction[] = ["elf", "human", "goblin", "robot", "demon"];
 
 type Tally = Record<string, [number, number]>;
@@ -28,6 +32,7 @@ type Chunk = {
   played: Tally;
   included: Tally;
   matrix: Tally;
+  unbound: Tally;
   stalls: number;
   firstWins: number;
   decided: number;
@@ -39,6 +44,7 @@ const empty = (): Chunk => ({
   played: {},
   included: {},
   matrix: {},
+  unbound: {},
   stalls: 0,
   firstWins: 0,
   decided: 0,
@@ -59,12 +65,17 @@ function rng(seed: number): () => number {
 /** A random-pool deck: cards from the seal's pool plus about half the Unbound pool. */
 function deck(f: Faction, rand: () => number): string[] {
   const pool = CARDS.filter(
-    (card) => card.faction === f || (card.faction === "veil" && rand() < 0.5),
+    (card) => card.faction === f || (card.faction === "veil" && rand() < UNBOUND_SHARE),
   );
   const out: string[] = [];
+  let unbound = 0;
   while (out.length < 20) {
     const card = pool[Math.floor(rand() * pool.length)]!;
-    if (out.filter((id) => id === card.id).length < 2) out.push(card.id);
+    if (card.faction === "veil" && unbound >= MAX_UNBOUND) continue;
+    if (out.filter((id) => id === card.id).length < 2) {
+      out.push(card.id);
+      if (card.faction === "veil") unbound++;
+    }
   }
   return out;
 }
@@ -105,13 +116,15 @@ function playJob(job: number, out: Chunk): void {
   ] as const) {
     const won = res.winner === side ? 1 : 0;
     bump(out.seal, f, won);
+    const ub = list.filter((id) => UNBOUND_IDS.has(id)).length;
+    bump(out.unbound, ub <= 4 ? "0-4" : ub <= 8 ? "5-8" : ub <= 12 ? "9-12" : "13+", won);
     for (const id of new Set(list)) bump(out.included, id, won);
     for (const id of res.played[side]) bump(out.played, id, won);
   }
 }
 
 function merge(into: Chunk, part: Chunk): void {
-  for (const key of ["seal", "played", "included", "matrix"] as const) {
+  for (const key of ["seal", "played", "included", "matrix", "unbound"] as const) {
     for (const [id, [w, n]] of Object.entries(part[key])) {
       into[key][id] ??= [0, 0];
       into[key][id][0] += w;
@@ -123,6 +136,8 @@ function merge(into: Chunk, part: Chunk): void {
   into.decided += part.decided;
   into.turns += part.turns;
 }
+
+const UNBOUND_IDS = new Set(CARDS.filter((card) => card.faction === "veil").map((card) => card.id));
 
 const JOBS = STARTER * 25 + GAMES;
 
@@ -175,6 +190,11 @@ function report(total: Chunk): void {
     sealRate[f] = n ? w / n : 0;
     console.log(`  ${f.padEnd(7)} ${pct(w, n)}%`);
     if (sealRate[f]! < 0.45 || sealRate[f]! > 0.55) failures.push(`seal ${f} ${pct(w, n)}%`);
+  }
+  console.log("  win rate by Unbound cards in deck:");
+  for (const bucket of ["0-4", "5-8", "9-12", "13+"]) {
+    const [w, n] = total.unbound[bucket] ?? [0, 0];
+    if (n) console.log(`    ${bucket.padEnd(5)} ${pct(w, n)}% (n=${n})`);
   }
   const rows = CARDS.map((card) => {
     const [pw, pn] = total.played[card.id] ?? [0, 0];

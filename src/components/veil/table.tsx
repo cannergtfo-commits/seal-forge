@@ -6,6 +6,7 @@ import { stepRival } from "@/veil/ai";
 import { musicWanted, playArenaTrack, toggleArenaMusic } from "@/veil/arena-music";
 import { useMatchSfx } from "@/veil/sfx";
 import { SoundMenu } from "@/components/veil/sound-menu";
+import { TithePrompt, UnitMarks, type TitheAsk } from "@/components/veil/mechanic-ui";
 import type { Bot } from "@/veil/bots";
 import { FACTIONS, cardOf, needsTarget, trapNeedsTarget, type Faction } from "@/veil/cards";
 import {
@@ -13,6 +14,7 @@ import {
   attackTraps,
   canAttack,
   canBlock,
+  canTarget,
   declareAttack,
   endTurn,
   findUnit,
@@ -20,6 +22,7 @@ import {
   power,
   skipTrap,
   springTrap,
+  titheSafe,
   type Match,
   type Target,
   type Unit,
@@ -379,6 +382,7 @@ export function Table({
   link,
   winnerExtra,
   stage = 0,
+  untimed = false,
 }: {
   match: Match;
   setMatch: (match: Match) => void;
@@ -390,6 +394,8 @@ export function Table({
   link?: TableLink;
   winnerExtra?: ReactNode;
   stage?: number;
+  /** Local only: the clocks never auto-pass (guided duel). */
+  untimed?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [attackers, setAttackers] = useState<string[]>([]);
@@ -398,6 +404,8 @@ export function Table({
   const [blockFocus, setBlockFocus] = useState<string | null>(null);
   const [pairLines, setPairLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [titheAsk, setTitheAsk] = useState<TitheAsk | null>(null);
+  useEffect(() => setTitheAsk(null), [match.turnCount, match.phase]);
   const [blurb, setBlurb] = useState<string | null>(null);
   const [graveSide, setGraveSide] = useState<0 | 1 | null>(null);
   const [music, setMusic] = useState(musicWanted);
@@ -566,6 +574,7 @@ export function Table({
     setHoverTarget(null);
     setAttackers([]);
     setTrapUid(null);
+    setTitheAsk(null);
     setMatch(result.state);
   }
 
@@ -585,6 +594,7 @@ export function Table({
       setHoverTarget(null);
       setAttackers([]);
       setTrapUid(null);
+      setTitheAsk(null);
       link.send(absolutize(action));
       return;
     }
@@ -621,10 +631,38 @@ export function Table({
   function legalUnit(unit: Unit): boolean {
     const effect = chosen?.play?.t;
     if (!targeting || !effect) return false;
-    if (effect === "hit" || effect === "freeze") return true;
-    if (effect === "healUnit" || effect === "buff" || effect === "charge" || effect === "grantHaste") return unit.owner === 0;
+    // Veilstep: the rival's units can't be targeted until they attack (logic.canTarget).
+    if (!canTarget(match, 0, unit)) return false;
+    if (effect === "hit" || effect === "freeze" || effect === "unseal") return true;
+    if (effect === "healUnit" || effect === "buff" || effect === "charge" || effect === "grantHaste" || effect === "grant") return unit.owner === 0;
     if (effect === "overclock") return unit.owner === 0 && cardOf(unit.defId).faction === "robot";
     return false;
+  }
+
+  /** Every human play goes through here so Tithe cards can ask Pay / Skip first. */
+  function playOut(uid: string, target: Target | null) {
+    const handCard = yours.hand.find((item) => item.uid === uid);
+    if (!handCard) return;
+    const def = cardOf(handCard.defId);
+    const tithe = def.tithe;
+    if (tithe) {
+      // Dry-run with Skip so an illegal play errors now, not after the prompt.
+      const dry = playCard(match, uid, target, { tithe: false });
+      if (dry.error) {
+        setError(dry.error);
+        return;
+      }
+      setError(null);
+      setTitheAsk({ uid, defId: def.id, target });
+      return;
+    }
+    commit({ t: "play", uid, target }, playCard(match, uid, target));
+  }
+
+  function settleTithe(pay: boolean) {
+    const ask = titheAsk;
+    if (!ask) return;
+    commit({ t: "play", uid: ask.uid, target: ask.target, tithe: pay }, playCard(match, ask.uid, ask.target, { tithe: pay }));
   }
 
   function onHand(uid: string) {
@@ -644,11 +682,14 @@ export function Table({
     }
     setError(null);
     setAttackers([]);
-    if (needsTarget(def)) {
+    setTitheAsk(null);
+    // A unit whose Unseal has nothing to hit is played without a target.
+    const noUnseal = def.kind === "unit" && def.play?.t === "unseal" && match.players.every((side) => side.units.length === 0);
+    if (needsTarget(def) && !noUnseal) {
       setSelected(uid);
       return;
     }
-    commit({ t: "play", uid, target: null }, playCard(match, uid, null));
+    playOut(uid, null);
   }
 
   function onUnit(unit: Unit) {
@@ -670,7 +711,7 @@ export function Table({
         setError("Not a legal target.");
         return;
       }
-      commit({ t: "play", uid: selected, target: { kind: "unit", uid: unit.uid } }, playCard(match, selected, { kind: "unit", uid: unit.uid }));
+      playOut(selected, { kind: "unit", uid: unit.uid });
       return;
     }
     if (match.winner || match.turn !== 0 || match.phase !== "main" || unit.owner !== 0) return;
@@ -851,7 +892,7 @@ export function Table({
     const wire = linkRef.current;
     const current = live.current.match;
     const style = live.current.bot.style;
-    if (current.winner !== null) return;
+    if (current.winner !== null || (untimed && !wire)) return;
     if (wire) {
       if (current.phase === "defend" && current.turn === 1) {
         const chosen = blocksRef.current;
@@ -963,7 +1004,7 @@ export function Table({
                     type="button"
                     className="arena-life-target"
                     aria-label={"Target rival"}
-                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 1 } }, playCard(match, selected, { kind: "face", side: 1 }))}
+                    onClick={() => selected && playOut(selected, { kind: "face", side: 1 })}
                   >
                     <LifeTotal hp={theirs.hp} ward={theirs.ward} deck={theirs.deck.length} faction={rival} pops={lifePops.filter((p) => p.side === 1)} soaked={wardSoak[1] > 0} />
                   </button>
@@ -978,7 +1019,7 @@ export function Table({
               </button>
             </div>
             {targetingHit && (
-              <button type="button" className="veil-btn" onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 1 } }, playCard(match, selected, { kind: "face", side: 1 }))}>
+              <button type="button" className="veil-btn" onClick={() => selected && playOut(selected, { kind: "face", side: 1 })}>
                 Target rival
               </button>
             )}
@@ -1024,7 +1065,8 @@ export function Table({
                     onMouseLeave={() => setHoverTarget((prev) => (prev === unit.uid ? null : prev))}
                     onFocus={() => targeting && legalUnit(unit) && setHoverTarget(unit.uid)}
                   >
-                    <CardFace defId={unit.defId} match={match} unit={unit} size="board" dim={targeting && !legalUnit(unit)} onClick={() => onUnit(unit)} />
+                    <CardFace defId={unit.defId} match={match} unit={unit} size="board" dim={(targeting && !legalUnit(unit)) || Boolean(trapping && trap && trapCard && trapNeedsTarget(trapCard.trap) && !trapLegalOn(trap.uid, unit.uid))} onClick={() => onUnit(unit)} />
+                    <UnitMarks unit={unit} />
                     {defending && match.attackers.includes(unit.uid) && (
                       <p className="arena-block-chip">{blocks[unit.uid] ? "Blocked" : cardOf(unit.defId).tags.includes("bulwark") ? "Bulwark · unblocked" : "Unblocked"}</p>
                     )}
@@ -1060,7 +1102,7 @@ export function Table({
                     type="button"
                     className="arena-life-target"
                     aria-label={"Target yourself"}
-                    onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 0 } }, playCard(match, selected, { kind: "face", side: 0 }))}
+                    onClick={() => selected && playOut(selected, { kind: "face", side: 0 })}
                   >
                     <LifeTotal hp={yours.hp} ward={yours.ward} deck={yours.deck.length} faction={you} pops={lifePops.filter((p) => p.side === 0)} soaked={wardSoak[0] > 0} />
                   </button>
@@ -1075,7 +1117,7 @@ export function Table({
               </button>
             </div>
             {targetingHit && (
-              <button type="button" className="veil-btn" onClick={() => selected && commit({ t: "play", uid: selected, target: { kind: "face", side: 0 } }, playCard(match, selected, { kind: "face", side: 0 }))}>
+              <button type="button" className="veil-btn" onClick={() => selected && playOut(selected, { kind: "face", side: 0 })}>
                 Target yourself
               </button>
             )}
@@ -1113,6 +1155,7 @@ export function Table({
                       dim={targeting && !legalUnit(unit)}
                       onClick={() => onUnit(unit)}
                     />
+                    <UnitMarks unit={unit} />
                     {match.turn === 0 && reacting && match.attackers.includes(unit.uid) ? (
                       <p className="arena-status arena-pending-chip">Hits face unless blocked</p>
                     ) : attackers.includes(unit.uid) ? (
@@ -1193,6 +1236,20 @@ export function Table({
         <div className="veil-dock arena-dock">
           <div className="arena-dock-main flex flex-col gap-1">
             {fault && <p className="arena-dock-error text-sm text-danger" role="alert">{fault}</p>}
+            {/* Keep the prompt through ranked polls, but never for a card that's left hand. */}
+            {titheAsk && yourTurn && yours.hand.some((item) => item.uid === titheAsk.uid) && (
+              <TithePrompt
+                ask={titheAsk}
+                hp={yours.hp}
+                safe={titheSafe(match, 0, cardOf(titheAsk.defId).tithe?.n ?? 0)}
+                onPay={() => settleTithe(true)}
+                onSkip={() => settleTithe(false)}
+                onCancel={() => {
+                  setTitheAsk(null);
+                  setSelected(null);
+                }}
+              />
+            )}
             {hint && <p className="truncate text-sm text-ash">{hint}</p>}
             {blockWarn && <p className="arena-block-warn text-sm text-danger" role="alert">{blockWarn}</p>}
             {match.phase === "defend" && match.turn === 1 && match.winner === null && (

@@ -52,7 +52,7 @@ function keep(address: string, profile: Profile, seal: string | null | undefined
   writeProgress(saved);
 }
 
-export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => void }) {
+export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; onDeck: () => void; onTutorial?: () => void }) {
   const { ready, key, address } = usePlayer();
   const [session, setSession] = useState<AccountSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -240,7 +240,14 @@ export function Profile({ onBack, onDeck }: { onBack: () => void; onDeck: () => 
             <h1 className="text-lg font-medium leading-tight">{profile?.name ?? (isApk() ? "Make a wallet" : "Connect a wallet")}</h1>
           </div>
         </div>
-        {profile && <p className="font-mono text-sm text-brass">Level {rankFor(profile.xp).level} · {profile.xp} XP</p>}
+        <div className="flex flex-wrap items-center gap-3">
+          {profile && <p className="font-mono text-sm text-brass">Level {rankFor(profile.xp).level} · {profile.xp} XP</p>}
+          {onTutorial && (
+            <button type="button" className="veil-btn" onClick={onTutorial}>
+              Replay guided duel
+            </button>
+          )}
+        </div>
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
         {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game. Signing in never sends a key to the server." : "Connect a wallet extension, or generate one in the game. Signing in never sends a key to the server."}</p>}
