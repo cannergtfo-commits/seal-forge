@@ -2,7 +2,7 @@ import type { RawCard } from "./blazar";
 
 /** Set 2. Kage Veil. The same dark fantasy, cut into a ninja war. Ten basic, four rare, one legendary per seal. */
 export const KAGE_RAW: RawCard[] = [
-  { id: "kg-leaf-fox", tokenId: 1, chainRarity: 1, name: "Leaf Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], deathHeal: 1 },
+  { id: "kg-leaf-fox", tokenId: 1, chainRarity: 1, name: "Leaf Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], requiem: { t: "heal", n: 1 } },
   { id: "kg-silk-step", tokenId: 2, chainRarity: 1, name: "Silk Step", faction: "elf", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: [], flavor: "A bare foot on wet bamboo." },
   { id: "kg-night-bow", tokenId: 3, chainRarity: 1, name: "Night Bow", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: ["haste"] },
   { id: "kg-reed-cloak", tokenId: 4, chainRarity: 1, name: "Reed Cloak", faction: "elf", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "kage", tags: [], flavor: "The grove hides the blade." },
@@ -52,7 +52,7 @@ export const KAGE_RAW: RawCard[] = [
 
   { id: "kg-ion-scout", tokenId: 46, chainRarity: 1, name: "Ion Scout", faction: "robot", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "kage", tags: [], flavor: "A lens under a hood of plates." },
   { id: "kg-clock-step", tokenId: 47, chainRarity: 1, name: "Clock Step", faction: "robot", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "kage", tags: [], flavor: "The footfall is measured." },
-  { id: "kg-plate-hood", tokenId: 48, chainRarity: 1, name: "Plate Hood", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "basic", set: "kage", tags: ["bulwark"] },
+  { id: "kg-plate-hood", tokenId: 48, chainRarity: 1, name: "Plate Hood", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "kage", tags: [], requiem: { t: "healAlly", n: 2 }, version: 2 },
   { id: "kg-weld-wisp", tokenId: 49, chainRarity: 1, name: "Weld Wisp", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 2, rarity: "basic", set: "kage", tags: [], play: { t: "healUnit", n: 2 } },
   { id: "kg-repair-line", tokenId: 50, chainRarity: 1, name: "Repair Line", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "kage", tags: [], flavor: "A stitch of cold light." },
   { id: "kg-overclock-spark", tokenId: 51, chainRarity: 1, name: "Overclock Spark", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "overclock" } },
@@ -64,12 +64,12 @@ export const KAGE_RAW: RawCard[] = [
   { id: "kg-apex-shadow", tokenId: 57, chainRarity: 2, name: "Apex Shadow", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", set: "kage", tags: [], flavor: "The array leans in." },
   { id: "kg-hex-lance", tokenId: 58, chainRarity: 2, name: "Hex Lance", faction: "robot", kind: "spell", cost: 3, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], play: { t: "hit", n: 3 } },
   { id: "kg-still-array", tokenId: 59, chainRarity: 2, name: "Still Array", faction: "robot", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], trap: "horizon" },
-  { id: "kg-apex-kage", tokenId: 60, chainRarity: 3, name: "APEX of the Quiet Hour", faction: "robot", kind: "unit", cost: 7, atk: 4, hp: 7, rarity: "legendary", set: "kage", tags: [], play: { t: "apex" } },
+  { id: "kg-apex-kage", tokenId: 60, chainRarity: 3, name: "APEX of the Quiet Hour", faction: "robot", kind: "unit", cost: 7, atk: 4, hp: 7, rarity: "legendary", set: "kage", tags: [], play: { t: "apex", h: 1, plating: 1 }, version: 2 },
 
   { id: "kg-cinder-imp", tokenId: 61, chainRarity: 1, name: "Cinder Imp", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: [], play: { t: "loseHp", n: 1 } },
   { id: "kg-ash-step", tokenId: 62, chainRarity: 1, name: "Ash Step", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "kage", tags: [], flavor: "Ember eyes under a black hood." },
   { id: "kg-ember-cloak", tokenId: 63, chainRarity: 1, name: "Ember Cloak", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: [], flavor: "The cloth smolders and does not burn." },
-  { id: "kg-ash-knight", tokenId: 64, chainRarity: 1, name: "Ash Knight", faction: "demon", kind: "unit", cost: 2, atk: 3, hp: 1, rarity: "basic", set: "kage", tags: [], flavor: "Hits, then the dark takes the rest." },
+  { id: "kg-ash-knight", tokenId: 64, chainRarity: 1, name: "Ash Knight", faction: "demon", kind: "unit", cost: 2, atk: 3, hp: 1, rarity: "basic", set: "kage", tags: [], requiem: { t: "ping", n: 1 }, version: 2, flavor: "Hits, then the dark takes the rest." },
   { id: "kg-pact-spark", tokenId: 65, chainRarity: 1, name: "Pact Spark", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "hit", n: 2 } },
   { id: "kg-hell-seal", tokenId: 66, chainRarity: 1, name: "Hell Seal", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "hit", n: 3 } },
   { id: "kg-pact-ink", tokenId: 67, chainRarity: 1, name: "Pact Ink", faction: "demon", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "draw", n: 2, lose: 2 } },
@@ -82,8 +82,8 @@ export const KAGE_RAW: RawCard[] = [
   { id: "kg-soul-seal", tokenId: 74, chainRarity: 2, name: "Soul Seal", faction: "demon", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "rare", set: "kage", tags: [], trap: "soul" },
   { id: "kg-tyrant-kage", tokenId: 75, chainRarity: 3, name: "Tyrant of the Black Hour", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "legendary", set: "kage", tags: ["crush"] },
 
-  { id: "kg-pale-step", tokenId: 76, chainRarity: 1, name: "Pale Step", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], deathHeal: 1, flavor: "No seal claims it." },
-  { id: "kg-quiet-hand", tokenId: 77, chainRarity: 1, name: "Quiet Hand", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "kage", tags: [], flavor: "A faceless cloth. No crest." },
+  { id: "kg-pale-step", tokenId: 76, chainRarity: 1, name: "Pale Step", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], requiem: { t: "heal", n: 1 }, flavor: "No seal claims it." },
+  { id: "kg-quiet-hand", tokenId: 77, chainRarity: 1, name: "Quiet Hand", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "kage", tags: [], plating: 1, version: 2, flavor: "A faceless cloth. No crest." },
   { id: "kg-silver-blade", tokenId: 78, chainRarity: 1, name: "Silver Blade", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "kage", tags: ["haste"] },
   { id: "kg-no-crest", tokenId: 79, chainRarity: 1, name: "No Crest", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "basic", set: "kage", tags: [], flavor: "Steel with the mark filed off." },
   { id: "kg-slip-seal", tokenId: 80, chainRarity: 1, name: "Slip Seal", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "kage", tags: [], play: { t: "grantHaste" } },

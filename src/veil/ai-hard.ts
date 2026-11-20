@@ -33,6 +33,7 @@ import {
   power,
   skipTrap,
   springTrap,
+  toughness,
   type Match,
   type Side,
   type Target,
@@ -53,15 +54,34 @@ function keywordValue(card: CardDef): number {
   for (const tag of card.tags) value += KEYWORDS[tag].aiValue;
   if (card.noAttack) value += KEYWORDS.noAttack.aiValue;
   if (card.aura) value += 2;
-  if (card.deathHeal) value += card.deathHeal * 0.4;
+  if (card.plating) value += card.plating * KEYWORDS.plating.aiValue;
+  value += requiemValue(card);
   return value;
+}
+
+/** What a unit's Requiem is worth when it dies, in stat points. */
+export function requiemValue(card: CardDef): number {
+  const effect = card.requiem;
+  if (!effect) return 0;
+  if (effect.t === "heal") return effect.n * 0.4;
+  if (effect.t === "draw") return effect.n * 1.6;
+  if (effect.t === "ping") return effect.n * 0.6;
+  if (effect.t === "lose") return -effect.n * 0.5;
+  if (effect.t === "healAlly") return effect.n * 0.4;
+  return 1.6;
 }
 
 /** Lasting board value of a unit. Ignores this-turn swing. */
 export function unitValue(m: Match, unit: Unit): number {
   const card = cardOf(unit.defId);
   const atk = card.noAttack ? 0 : Math.max(0, power(m, unit) - unit.swing);
-  let value = 0.6 + atk * 1.05 + Math.max(0, unit.hp) * 0.8 + keywordValue(card);
+  const granted = Math.max(0, (unit.plating ?? 0) - (card.plating ?? 0));
+  let value =
+    0.6 +
+    atk * 1.05 +
+    Math.max(0, unit.hp) * 0.8 +
+    keywordValue(card) +
+    granted * KEYWORDS.plating.aiValue;
   if (unit.frozen) value -= atk * 0.4;
   return value;
 }
@@ -151,7 +171,7 @@ export function guaranteedDamage(m: Match, me: Side): number {
     .sort((a, b) => b.power - a.power);
   const blockers = m.players[foe].units
     .filter((unit) => canBlock(unit))
-    .map((unit) => unit.hp)
+    .map((unit) => toughness(unit))
     .sort((a, b) => b - a);
   let damage = 0;
   const unblocked: number[] = [];

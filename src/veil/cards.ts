@@ -17,9 +17,18 @@ export type PlayEffect =
   | { t: "freeze" }
   | { t: "overclock" }
   | { t: "twin" }
-  | { t: "apex" }
+  | { t: "apex"; h?: number; plating?: number }
   | { t: "boom" }
   | { t: "grantHaste" };
+
+/** "Requiem: X" — what happens when the unit dies. */
+export type RequiemEffect =
+  | { t: "heal"; n: number }
+  | { t: "draw"; n: number }
+  | { t: "ping"; n: number }
+  | { t: "lose"; n: number }
+  | { t: "healAlly"; n: number }
+  | { t: "recall"; faction: Faction };
 
 export type TrapKind = "pikes" | "snare" | "glade" | "firewall" | "soul" | "cross" | "horizon";
 
@@ -52,7 +61,9 @@ export type CardDef = {
   tags: Tag[];
   play?: PlayEffect;
   trap?: TrapKind;
-  deathHeal?: number;
+  /** Plating N: prevents the first N damage to this unit each turn. */
+  plating?: number;
+  requiem?: RequiemEffect;
   aura?: "goblinAtk" | "goblinSwift";
   noAttack?: boolean;
 };
@@ -103,7 +114,7 @@ function c(partial: Omit<CardData, "set"> & { art?: string }): CardDef {
 }
 
 const CORE: CardDef[] = [
-  c({ id: "moonpetal", tokenId: 1, chainRarity: 1, name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: [], deathHeal: 1 }),
+  c({ id: "moonpetal", tokenId: 1, chainRarity: 1, name: "Moonpetal Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "common", art: `${A}/treant.jpg`, tags: [], requiem: { t: "heal", n: 1 } }),
   c({ id: "thorn-dryad", tokenId: 2, chainRarity: 1, name: "Thorn Dryad", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 3, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "healSelf", n: 1 } }),
   c({ id: "starlit", tokenId: 3, chainRarity: 1, name: "Starlit Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "common", art: `${A}/elf.jpg`, tags: [], play: { t: "hit", n: 1 } }),
   c({ id: "briar", tokenId: 4, chainRarity: 1, name: "Briar Snare", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/treant.jpg`, tags: [], play: { t: "freeze" } }),
@@ -138,10 +149,10 @@ const CORE: CardDef[] = [
   c({ id: "wisp-bot", tokenId: 30, chainRarity: 1, name: "Repair Wisp", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 2, rarity: "common", art: `${A}/drone.jpg`, tags: [], play: { t: "healUnit", n: 3 } }),
   c({ id: "overclock", tokenId: 31, chainRarity: 1, name: "Overclock", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "common", art: `${A}/robot.jpg`, tags: [], play: { t: "overclock" } }),
   c({ id: "welder", tokenId: 32, chainRarity: 2, name: "Arc Welder", faction: "robot", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "uncommon", art: `${A}/robot.jpg`, tags: [], play: { t: "healSelf", n: 2 } }),
-  c({ id: "core", tokenId: 33, chainRarity: 2, name: "Shield Core", faction: "robot", kind: "unit", cost: 3, atk: 0, hp: 6, rarity: "uncommon", art: `${A}/robot.jpg`, tags: ["bulwark"], noAttack: true }),
+  c({ id: "core", tokenId: 33, chainRarity: 2, name: "Shield Core", faction: "robot", kind: "unit", cost: 3, atk: 0, hp: 6, rarity: "uncommon", art: `${A}/robot.jpg`, tags: [], noAttack: true, plating: 1, version: 2 }),
   c({ id: "firewall", tokenId: 34, chainRarity: 2, name: "Firewall", faction: "robot", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", art: `${A}/drone.jpg`, tags: [], trap: "firewall" }),
-  c({ id: "lance", tokenId: 35, chainRarity: 3, name: "Null Lance", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", art: `${A}/robot.jpg`, tags: [], flavor: "A clean hole through a plan." }),
-  c({ id: "apex", tokenId: 36, chainRarity: 3, name: "Prime Unit APEX", faction: "robot", kind: "unit", cost: 6, atk: 4, hp: 7, rarity: "rare", art: `${A}/robot.jpg`, tags: [], play: { t: "apex" } }),
+  c({ id: "lance", tokenId: 35, chainRarity: 3, name: "Null Lance", faction: "robot", kind: "unit", cost: 4, atk: 4, hp: 3, rarity: "rare", art: `${A}/robot.jpg`, tags: [], plating: 1, version: 2, flavor: "A clean hole through a plan." }),
+  c({ id: "apex", tokenId: 36, chainRarity: 3, name: "Prime Unit APEX", faction: "robot", kind: "unit", cost: 6, atk: 3, hp: 7, rarity: "rare", art: `${A}/robot.jpg`, tags: [], play: { t: "apex", h: 0, plating: 1 }, version: 2 }),
 
   c({ id: "familiar", tokenId: 37, chainRarity: 1, name: "Imp Familiar", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "common", art: `${A}/imp.jpg`, tags: [], play: { t: "loseHp", n: 1 } }),
   c({ id: "ash-imp", tokenId: 38, chainRarity: 1, name: "Ash Imp", faction: "demon", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", art: `${A}/imp.jpg`, tags: [], flavor: "Ember eyes. No bargain yet." }),
@@ -187,7 +198,7 @@ export function cardOf(id: string): CardDef {
 
 export function schoolOf(card: CardDef): string {
   if (card.kind === "unit") {
-    if (card.tags.includes("bulwark")) return "Wall";
+    if (card.tags.includes("bulwark") || card.noAttack || card.plating) return "Wall";
     if (card.tags.includes("haste")) return "Haste";
     if (card.tags.includes("drain")) return "Drain";
     if (card.tags.includes("crush")) return "Crush";
