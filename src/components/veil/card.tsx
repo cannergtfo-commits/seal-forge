@@ -1,3 +1,4 @@
+import { installUiSfx } from "@/veil/sfx";
 import type { CSSProperties } from "react";
 import { cardOf, schoolOf, type Faction } from "@/veil/cards";
 import { power, type Match, type Unit } from "@/veil/logic";
@@ -99,3 +100,6 @@ export function CardBack({
     </div>
   );
 }
+
+// Card art renders on every screen, so this is where app-wide UI click sounds arm.
+if (typeof window !== "undefined") installUiSfx();

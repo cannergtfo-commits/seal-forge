@@ -2050,6 +2050,82 @@ a.veil-btn {
   display: none;
 }
 
+/* ── Sound menu (S4: effects + music volume) ─────────────────────── */
+.arena-hud-sound {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sound-menu {
+  position: relative;
+}
+
+.sound-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sound-menu-icon {
+  flex: none;
+}
+
+.sound-sheet {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  gap: 0.55rem;
+  width: 15rem;
+  border: 1px solid color-mix(in srgb, var(--color-brass) 70%, transparent);
+  border-radius: 0.55rem;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgb(227 160 74 / 10%), transparent 60%),
+    linear-gradient(180deg, #1a1712, #0d0c0a);
+  padding: 0.7rem 0.8rem;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  pointer-events: auto;
+}
+
+.sound-row {
+  display: grid;
+  grid-template-columns: 5.4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-bone);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sound-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--color-brass);
+}
+
+.sound-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-brass);
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .sound-menu-label {
+    display: none;
+  }
+}
+
 .connect-short {
   display: none;
 }
