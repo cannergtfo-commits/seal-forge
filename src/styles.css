@@ -2932,6 +2932,370 @@ a.veil-btn {
   }
 }
 
+/* ── Juice (S4): pack ritual, damage pops, death dissolve, hand, End Turn ── */
+.pack-open {
+  position: relative;
+}
+
+.pack-stage {
+  position: relative;
+  display: flex;
+  min-height: 26rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+}
+
+.pack-aura {
+  position: absolute;
+  inset: 8% 15%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(227 160 74 / 30%), rgb(120 60 200 / 12%) 55%, transparent 75%);
+  filter: blur(8px);
+}
+
+.pack-seal {
+  position: relative;
+  border: 0;
+  background: none;
+  padding: 0;
+  border-radius: 0.8rem;
+  filter: drop-shadow(0 18px 30px rgb(0 0 0 / 60%)) drop-shadow(0 0 14px rgb(227 160 74 / 35%));
+}
+
+.pack-seal:disabled {
+  cursor: default;
+}
+
+.pack-cracks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 0.7rem;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(72deg, transparent 47%, rgb(255 230 170 / 95%) 49%, transparent 51%),
+    linear-gradient(-58deg, transparent 46%, rgb(255 210 140 / 90%) 48.5%, transparent 51%),
+    linear-gradient(8deg, transparent 48%, rgb(255 240 200 / 85%) 49.5%, transparent 51%),
+    radial-gradient(circle at 50% 46%, rgb(255 236 190 / 75%), transparent 28%);
+  mix-blend-mode: screen;
+}
+
+.pack-shake .pack-cracks,
+.pack-burst .pack-cracks {
+  opacity: 1;
+}
+
+.pack-back {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  border-radius: 0.7rem;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1.2), filter 180ms ease;
+}
+
+.pack-slot {
+  --tease: rgb(200 196 186 / 0%);
+}
+
+/* Honest tease: a face-down card glows in its real rarity colour. Same timing for all. */
+.pack-slot[data-tier="rare"] { --tease: rgb(63 138 224 / 75%); }
+.pack-slot[data-tier="legendary"] { --tease: rgb(240 175 60 / 85%); }
+
+.pack-slot[data-open="false"] .pack-back {
+  filter: drop-shadow(0 0 10px var(--tease)) drop-shadow(0 8px 14px rgb(0 0 0 / 50%));
+}
+
+.pack-back:hover,
+.pack-back:focus-visible {
+  transform: translateY(-6px) scale(1.03);
+}
+
+.pack-recap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+
+.pack-recap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgb(227 160 74 / 30%);
+  border-radius: 999px;
+  background: rgb(12 12 14 / 80%);
+  padding: 0.15rem 0.6rem 0.15rem 0.4rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pack-recap-gem {
+  width: 0.6rem;
+  height: 0.6rem;
+  transform: rotate(45deg);
+  border-radius: 0.1rem;
+  background: #b8b4aa;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.pack-recap-chip[data-tier="rare"] .pack-recap-gem { background: #3f8ae0; box-shadow: 0 0 0 1px #000, 0 0 6px #3f8ae0; }
+.pack-recap-chip[data-tier="legendary"] .pack-recap-gem { background: #e8a93a; box-shadow: 0 0 0 1px #000, 0 0 8px #e8a93a; }
+
+.pack-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 55%, rgb(120 180 255 / 35%), transparent 60%);
+  animation: pack-flash 0.7s ease-out both;
+}
+
+.pack-flash[data-tier="legendary"] {
+  background:
+    radial-gradient(circle at 50% 55%, rgb(255 236 180 / 60%), rgb(240 170 60 / 25%) 35%, transparent 70%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pack-idle {
+    animation: pack-idle 2.6s ease-in-out infinite;
+  }
+
+  .pack-idle:hover {
+    filter: drop-shadow(0 18px 30px rgb(0 0 0 / 60%)) drop-shadow(0 0 24px rgb(227 160 74 / 65%));
+  }
+
+  .pack-shake {
+    animation: pack-charge 1.15s cubic-bezier(0.5, 0, 0.9, 0.6) both;
+  }
+
+  .pack-shake .pack-cracks {
+    animation: pack-cracks 1.15s ease-in both;
+  }
+
+  .pack-burst {
+    animation: pack-burst 0.52s ease-out both;
+  }
+
+  [data-phase="charge"] .pack-aura,
+  [data-phase="burst"] .pack-aura {
+    animation: pack-aura 1.6s ease-in both;
+  }
+
+  .pack-deal {
+    animation: pack-deal 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.1) both;
+    animation-delay: calc(var(--deal-i, 0) * 140ms);
+  }
+
+  .pack-flip {
+    perspective: 900px;
+  }
+
+  .pack-flip > .veil-card {
+    animation: pack-turn 0.55s cubic-bezier(0.2, 0.8, 0.2, 1.05) both;
+    backface-visibility: hidden;
+  }
+
+  .pack-slot[data-tier="legendary"] .pack-flip > .veil-card {
+    animation-name: pack-turn, pack-legend-glow;
+    animation-duration: 0.55s, 1.4s;
+  }
+}
+
+@keyframes pack-idle {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-8px) rotate(0.6deg); }
+}
+
+@keyframes pack-charge {
+  0% { transform: none; filter: drop-shadow(0 18px 30px rgb(0 0 0 / 60%)) brightness(1); }
+  20% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  40% { transform: translate(2px, -1px) rotate(0.8deg) scale(1.01); }
+  60% { transform: translate(-3px, 2px) rotate(-1.2deg) scale(1.02); }
+  80% { transform: translate(4px, -2px) rotate(1.6deg) scale(1.04); filter: drop-shadow(0 0 30px rgb(255 210 140 / 80%)) brightness(1.25); }
+  100% { transform: translate(-4px, 1px) rotate(-1.8deg) scale(1.06); filter: drop-shadow(0 0 40px rgb(255 220 160 / 95%)) brightness(1.45); }
+}
+
+@keyframes pack-cracks {
+  0% { opacity: 0; clip-path: circle(0% at 50% 46%); }
+  100% { opacity: 1; clip-path: circle(75% at 50% 46%); }
+}
+
+@keyframes pack-burst {
+  0% { transform: scale(1.06); filter: brightness(1.6) drop-shadow(0 0 40px rgb(255 230 180 / 100%)); opacity: 1; }
+  100% { transform: scale(1.5); filter: brightness(3) blur(6px); opacity: 0; }
+}
+
+@keyframes pack-aura {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.5); opacity: 1; }
+}
+
+@keyframes pack-deal {
+  0% { opacity: 0; transform: translateY(-40px) scale(0.85) rotate(-6deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes pack-turn {
+  0% { transform: rotateY(180deg) scale(0.92); filter: brightness(0.3); }
+  60% { transform: rotateY(-10deg) scale(1.06); filter: brightness(1.35); }
+  100% { transform: none; filter: none; }
+}
+
+@keyframes pack-legend-glow {
+  0% { box-shadow: 0 0 0 0 rgb(255 210 120 / 0%); }
+  40% { box-shadow: 0 0 0 3px rgb(255 220 140 / 90%), 0 0 40px 10px rgb(240 170 60 / 70%); }
+  100% { box-shadow: 0 0 0 0 rgb(255 210 120 / 0%); }
+}
+
+@keyframes pack-flash {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Damage pops: heavier numerals with an impact star. */
+.arena-token .arena-dmg-pop {
+  top: 30%;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff3ee;
+  -webkit-text-stroke: 1px #5a0b0b;
+  text-shadow:
+    0 0 10px rgb(255 60 40 / 85%),
+    0 2px 0 #3a0505,
+    0 0 2px #000;
+  animation: arena-dmg-pop-heavy 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.arena-token .arena-dmg-pop::before {
+  content: "";
+  position: absolute;
+  inset: -0.55rem -0.8rem;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgb(255 120 70 / 70%), rgb(200 30 20 / 35%) 55%, transparent 75%);
+  clip-path: polygon(50% 0, 61% 32%, 96% 22%, 70% 50%, 98% 78%, 61% 66%, 50% 100%, 39% 66%, 2% 78%, 30% 50%, 4% 22%, 39% 32%);
+}
+
+@keyframes arena-dmg-pop-heavy {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.4); }
+  16% { opacity: 1; transform: translate(-50%, -4px) scale(1.35); }
+  32% { transform: translate(-50%, -6px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -34px) scale(0.95); }
+}
+
+/* Death: the card burns away from the bottom up, embers rising. */
+.arena-fallen .veil-card {
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, transparent 40%, #000 60%, #000 100%);
+  mask-image: linear-gradient(to top, transparent 0%, transparent 40%, #000 60%, #000 100%);
+  -webkit-mask-size: 100% 250%;
+  mask-size: 100% 250%;
+  -webkit-mask-position: 0 0%;
+  mask-position: 0 0%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .arena-fallen {
+    animation: arena-dissolve 0.65s ease-in both;
+  }
+
+  .arena-fallen .veil-card {
+    animation: arena-burn 0.65s ease-in both;
+  }
+}
+
+@keyframes arena-dissolve {
+  0% { opacity: 1; transform: none; filter: none; }
+  20% { filter: brightness(1.8) saturate(0.4) drop-shadow(0 0 10px rgb(255 140 60 / 90%)); }
+  100% { opacity: 0.2; transform: translateY(-8px) scale(0.96); filter: grayscale(1) brightness(0.6) drop-shadow(0 -6px 12px rgb(255 120 40 / 60%)); }
+}
+
+@keyframes arena-burn {
+  0% { -webkit-mask-position: 0 0%; mask-position: 0 0%; }
+  100% { -webkit-mask-position: 0 100%; mask-position: 0 100%; }
+}
+
+/* Smoother hand: springier lift, and neighbours lean away from the lifted card. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .arena-hand .veil-card {
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.85, 0.25, 1.15),
+      filter 180ms ease,
+      box-shadow 180ms ease,
+      margin 220ms ease;
+  }
+
+  .arena-hand .veil-card:hover + .veil-card {
+    transform:
+      translateX(0.7rem)
+      translateY(calc(abs(var(--fan-off)) * 0.22rem))
+      rotate(calc(var(--fan-off) * 3.4deg));
+  }
+
+  .arena-hand .veil-card:has(+ .veil-card:hover) {
+    transform:
+      translateX(-0.7rem)
+      translateY(calc(abs(var(--fan-off)) * 0.22rem))
+      rotate(calc(var(--fan-off) * 3.4deg));
+  }
+
+  .arena-hand .veil-card:hover {
+    transform:
+      translateY(-1.35rem)
+      scale(1.12)
+      rotate(0deg);
+  }
+}
+
+/* End Turn: brass call when nothing is left to do, red pulse when the clock runs low. */
+.arena-end-turn-ready .arena-btn {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 55%),
+    0 0 0 2px color-mix(in srgb, var(--color-brass) 85%, white),
+    0 0 22px color-mix(in srgb, var(--color-brass) 60%, transparent);
+}
+
+.arena:has(.arena-clock-urgent) .arena-end-turn .arena-btn {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 55%),
+    0 0 0 2px #f07a5e,
+    0 0 22px rgb(240 90 60 / 70%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .arena-end-turn-ready .arena-btn {
+    animation: arena-end-ready 1.6s ease-in-out infinite;
+  }
+
+  .arena:has(.arena-clock-urgent) .arena-end-turn .arena-btn {
+    animation: arena-end-urgent 0.6s ease-in-out infinite;
+  }
+}
+
+@keyframes arena-end-ready {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+@keyframes arena-end-urgent {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-token .arena-dmg-pop {
+    animation: none;
+    transform: translate(-50%, -12px);
+  }
+}
+
 /* ── Board-click blocks (defend window) ───────────────────────────── */
 .arena-block-pick { cursor: pointer; }
 .arena-block-focus { z-index: 4; }

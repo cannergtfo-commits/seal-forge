@@ -760,6 +760,8 @@ export function Table({
   const firstAttack =
     !youAttacked && yourTurn && attackers.length === 0 && !targeting && yours.units.some((unit) => canAttack(match, unit));
   const tone = coachTone(match);
+  // S4: End Turn glows once nothing affordable or ready is left this turn.
+  const noPlays = yourTurn && !targeting && !yours.hand.some((item) => cardOf(item.defId).cost <= yours.mana) && !yours.units.some((unit) => canAttack(match, unit));
 
   useEffect(() => {
     if (!targeting) {
@@ -1286,7 +1288,7 @@ export function Table({
                 )}
               </EdgeRow>
               {yourTurn && (
-                <div className="arena-end-turn">
+                <div className={cx("arena-end-turn", noPlays && "arena-end-turn-ready")}>
                   <ArenaBtn icon="/assets/veil/arena/icon-end.jpg" onClick={() => commit({ t: "end" }, endTurn(match))}>
                     End turn
                   </ArenaBtn>
