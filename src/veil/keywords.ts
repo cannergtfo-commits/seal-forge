@@ -15,7 +15,16 @@
  * short glyph hint the UI may use or ignore.
  */
 export type KeywordId =
-  "haste" | "bulwark" | "drain" | "crush" | "noAttack" | "play" | "lastBreath" | "freeze" | "trap";
+  | "haste"
+  | "bulwark"
+  | "drain"
+  | "crush"
+  | "plating"
+  | "noAttack"
+  | "play"
+  | "requiem"
+  | "freeze"
+  | "trap";
 
 export type KeywordKind = "tag" | "static" | "trigger" | "effect";
 
@@ -62,6 +71,14 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "⚒",
     aiValue: 1.5,
   },
+  plating: {
+    id: "plating",
+    label: "Plating",
+    kind: "static",
+    reminder: "Plating N: prevents the first N damage to this unit each turn.",
+    icon: "▣",
+    aiValue: 1.2,
+  },
   noAttack: {
     id: "noAttack",
     label: "Can't attack",
@@ -78,11 +95,11 @@ export const KEYWORDS: Record<KeywordId, Keyword> = {
     icon: "▶",
     aiValue: 0,
   },
-  lastBreath: {
-    id: "lastBreath",
-    label: "When this dies",
+  requiem: {
+    id: "requiem",
+    label: "Requiem",
     kind: "trigger",
-    reminder: "Happens when this unit dies.",
+    reminder: "Requiem: when this unit dies, do the effect.",
     icon: "✝",
     aiValue: 0,
   },

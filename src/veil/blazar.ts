@@ -4,7 +4,7 @@ export type RawCard = CardData;
 
 /** Set 1. Dark space fantasy. Four basic, one rare, one legendary per seal. */
 export const BLAZAR_RAW: RawCard[] = [
-  { id: "bz-comet-fox", tokenId: 1, chainRarity: 1, name: "Comet Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], deathHeal: 1 },
+  { id: "bz-comet-fox", tokenId: 1, chainRarity: 1, name: "Comet Fox", faction: "elf", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "basic", set: "blazar", tags: [], requiem: { t: "heal", n: 2 }, version: 2 },
   { id: "bz-void-archer", tokenId: 2, chainRarity: 1, name: "Void Archer", faction: "elf", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
   { id: "bz-moon-well", tokenId: 3, chainRarity: 1, name: "Moon Well", faction: "elf", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "healSelf", n: 2 } },
   { id: "bz-orbit-dryad", tokenId: 4, chainRarity: 1, name: "Orbit Dryad", faction: "elf", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "blazar", tags: [], flavor: "A ring of pale wood around a dead star." },
@@ -26,11 +26,11 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-skarn-rift", tokenId: 18, chainRarity: 3, name: "Skarn the Rift", faction: "goblin", kind: "unit", cost: 6, atk: 4, hp: 4, rarity: "legendary", set: "blazar", tags: ["haste"], aura: "goblinAtk" },
 
   { id: "bz-ion-wisp", tokenId: 19, chainRarity: 1, name: "Ion Wisp", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 2, rarity: "basic", set: "blazar", tags: [], play: { t: "healUnit", n: 2 } },
-  { id: "bz-hull-drone", tokenId: 20, chainRarity: 1, name: "Hull Drone", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 4, rarity: "basic", set: "blazar", tags: ["bulwark"] },
+  { id: "bz-hull-drone", tokenId: 20, chainRarity: 1, name: "Hull Drone", faction: "robot", kind: "unit", cost: 2, atk: 1, hp: 3, rarity: "basic", set: "blazar", tags: [], plating: 1, version: 2 },
   { id: "bz-cold-weld", tokenId: 21, chainRarity: 1, name: "Cold Weld", faction: "robot", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "healSelf", n: 2 } },
   { id: "bz-sentry-prism", tokenId: 22, chainRarity: 1, name: "Sentry Prism", faction: "robot", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "blazar", tags: [], flavor: "A lens that does not blink." },
   { id: "bz-null-array", tokenId: 23, chainRarity: 2, name: "Null Array", faction: "robot", kind: "unit", cost: 4, atk: 2, hp: 6, rarity: "rare", set: "blazar", tags: ["bulwark"] },
-  { id: "bz-apex-blazar", tokenId: 24, chainRarity: 3, name: "APEX Blazar", faction: "robot", kind: "unit", cost: 7, atk: 4, hp: 7, rarity: "legendary", set: "blazar", tags: [], play: { t: "apex" } },
+  { id: "bz-apex-blazar", tokenId: 24, chainRarity: 3, name: "APEX Blazar", faction: "robot", kind: "unit", cost: 7, atk: 4, hp: 7, rarity: "legendary", set: "blazar", tags: [], play: { t: "apex", h: 1, plating: 1 }, version: 2 },
 
   { id: "bz-cinder-imp", tokenId: 25, chainRarity: 1, name: "Cinder Imp", faction: "demon", kind: "unit", cost: 1, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: [], play: { t: "loseHp", n: 1 } },
   { id: "bz-pact-ember", tokenId: 26, chainRarity: 1, name: "Pact Ember", faction: "demon", kind: "spell", cost: 2, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "hit", n: 2 } },
@@ -39,12 +39,12 @@ export const BLAZAR_RAW: RawCard[] = [
   { id: "bz-hex-moth", tokenId: 29, chainRarity: 2, name: "Hex Moth", faction: "demon", kind: "unit", cost: 3, atk: 3, hp: 3, rarity: "rare", set: "blazar", tags: ["drain"] },
   { id: "bz-tyrant-blazar", tokenId: 30, chainRarity: 3, name: "Tyrant of the Blazar", faction: "demon", kind: "unit", cost: 7, atk: 6, hp: 6, rarity: "legendary", set: "blazar", tags: ["crush"] },
 
-  { id: "bz-drift-wisp", tokenId: 31, chainRarity: 1, name: "Drift Wisp", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], deathHeal: 1, flavor: "No seal claims it." },
+  { id: "bz-drift-wisp", tokenId: 31, chainRarity: 1, name: "Drift Wisp", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 1, rarity: "basic", set: "blazar", tags: [], requiem: { t: "heal", n: 1 }, flavor: "No seal claims it." },
   { id: "bz-eclipse-blade", tokenId: 32, chainRarity: 1, name: "Eclipse Blade", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "basic", set: "blazar", tags: ["haste"] },
   { id: "bz-slip", tokenId: 33, chainRarity: 1, name: "Blazar Slip", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "basic", set: "blazar", tags: [], play: { t: "grantHaste" } },
-  { id: "bz-quiet-star", tokenId: 34, chainRarity: 1, name: "Quiet Star", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 4, rarity: "basic", set: "blazar", tags: [], flavor: "It does not take a side." },
+  { id: "bz-quiet-star", tokenId: 34, chainRarity: 1, name: "Quiet Star", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "basic", set: "blazar", tags: [], plating: 1, version: 2, flavor: "It does not take a side." },
   { id: "bz-horizon", tokenId: 35, chainRarity: 2, name: "Event Horizon", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "rare", set: "blazar", tags: [], trap: "horizon" },
-  { id: "bz-the-veil", tokenId: 36, chainRarity: 3, name: "The Veil Itself", faction: "veil", kind: "unit", cost: 7, atk: 5, hp: 6, rarity: "legendary", set: "blazar", tags: ["haste"], play: { t: "healSelf", n: 2 }, flavor: "The sixth seal, wearing a dead star." },
+  { id: "bz-the-veil", tokenId: 36, chainRarity: 3, name: "The Veil Itself", faction: "veil", kind: "unit", cost: 7, atk: 5, hp: 5, rarity: "legendary", set: "blazar", tags: [], requiem: { t: "recall", faction: "veil" }, version: 2, flavor: "The sixth seal, wearing a dead star." },
 ];
 
 /** Founding cards for the sixth seal. Dark fantasy, not the space set. Starter decks use these. */
@@ -52,7 +52,7 @@ export const UNBOUND_RAW: RawCard[] = [
   { id: "un-lantern", tokenId: 37, chainRarity: 1, name: "Pale Lantern", faction: "veil", kind: "unit", cost: 1, atk: 1, hp: 2, rarity: "common", set: "founding", tags: [], flavor: "A light that belongs to no grove." },
   { id: "un-squire", tokenId: 38, chainRarity: 1, name: "Oathless Squire", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 2, rarity: "common", set: "founding", tags: [], flavor: "Steel with the crest filed off." },
   { id: "un-toll", tokenId: 39, chainRarity: 1, name: "Silver Toll", faction: "veil", kind: "spell", cost: 1, atk: 0, hp: 0, rarity: "common", set: "founding", tags: [], play: { t: "hit", n: 2 } },
-  { id: "un-choir", tokenId: 40, chainRarity: 1, name: "Ash Choir", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "common", set: "founding", tags: [], flavor: "They sing for whoever paid." },
+  { id: "un-choir", tokenId: 40, chainRarity: 1, name: "Ash Choir", faction: "veil", kind: "unit", cost: 3, atk: 2, hp: 3, rarity: "common", set: "founding", tags: [], requiem: { t: "draw", n: 1 }, version: 2, flavor: "They sing for whoever paid." },
   { id: "un-ward", tokenId: 41, chainRarity: 1, name: "Way Ward", faction: "veil", kind: "unit", cost: 3, atk: 1, hp: 4, rarity: "common", set: "founding", tags: ["bulwark"] },
   { id: "un-pilgrim", tokenId: 42, chainRarity: 1, name: "Road Pilgrim", faction: "veil", kind: "unit", cost: 2, atk: 2, hp: 1, rarity: "uncommon", set: "founding", tags: ["haste"] },
   { id: "un-cross", tokenId: 43, chainRarity: 1, name: "Crossroad Trap", faction: "veil", kind: "trap", cost: 2, atk: 0, hp: 0, rarity: "uncommon", set: "founding", tags: [], trap: "cross" },

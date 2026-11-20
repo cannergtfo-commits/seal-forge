@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { CARDS, cardOf } from "./cards.ts";
-import { cardText, keywordsOf } from "./card-text.ts";
+import { cardText, goldenLine, keywordsOf } from "./card-text.ts";
 import { KEYWORDS } from "./keywords.ts";
 import { PRINTED, printedDiff } from "./printed.ts";
 import { EDITION_TOKENS, RESERVED_SETS, SETS, formatsOf } from "./sets.ts";
@@ -96,11 +96,7 @@ describe("card text", () => {
 
   it("matches the reviewed golden file", () => {
     const golden = readFileSync(new URL("./__snapshots__/card-text.txt", import.meta.url), "utf8");
-    const now =
-      CARDS.map(
-        (card) =>
-          `${card.id}\t${card.cost}\t${card.kind === "unit" ? `${card.atk}/${card.hp}` : "-"}\t${card.text}`,
-      ).join("\n") + "\n";
+    const now = CARDS.map(goldenLine).join("\n") + "\n";
     assert.equal(
       now,
       golden,
@@ -112,17 +108,20 @@ describe("card text", () => {
     for (const card of CARDS) for (const word of keywordsOf(card)) assert.ok(KEYWORDS[word.id]);
   });
 
-  it("notes where the NFT metadata differs", () => {
-    const shield = cardOf("core");
+  it("notes where the NFT metadata differs, and bumps the version on every rebalance", () => {
+    const shield = cardOf("moonpetal");
     assert.deepEqual(
       printedDiff(shield).map((item) => item.field),
       ["text"],
     );
-    for (const card of CARDS)
-      assert.ok(
-        !printedDiff(card).some((item) => item.field !== "text"),
-        `${card.id} stats changed`,
-      );
+    for (const card of CARDS) {
+      const stats = printedDiff(card).filter((item) => item.field !== "text");
+      if (stats.length)
+        assert.ok(
+          card.version >= 2,
+          `${card.id} changed ${stats.map((item) => item.field).join("/")} but is still version 1`,
+        );
+    }
   });
 });
 

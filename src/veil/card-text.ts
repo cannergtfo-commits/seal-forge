@@ -1,10 +1,10 @@
-import type { CardDef, PlayEffect, TrapKind } from "./cards";
+import type { CardDef, PlayEffect, RequiemEffect, TrapKind } from "./cards";
 import { KEYWORDS, TAG_ORDER, type Keyword, type KeywordId } from "./keywords";
 
 /**
  * One template for every card:
  *
- *   `Keyword, Keyword. <static rule>. Play: <effect>. When this dies: <effect>. — <flavor>`
+ *   `Keyword, Keyword. <static rule>. Play: <effect>. Requiem: <effect>. — <flavor>`
  *
  * Spells print their effect without "Play:". Traps start with "Trap. When they attack: …".
  * The text is generated from the data, so a rule change always updates the card face.
@@ -18,7 +18,10 @@ export function cardText(card: CardDef): string {
 /** Rules only, without flavor. */
 export function rulesText(card: CardDef): string {
   const parts: string[] = [];
-  const tags = TAG_ORDER.filter((tag) => card.tags.includes(tag)).map((tag) => KEYWORDS[tag].label);
+  const tags: string[] = TAG_ORDER.filter((tag) => card.tags.includes(tag)).map(
+    (tag) => KEYWORDS[tag].label,
+  );
+  if (card.plating) tags.push(`${KEYWORDS.plating.label} ${card.plating}`);
   if (tags.length) parts.push(`${tags.join(", ")}.`);
   if (card.noAttack) parts.push("Can't attack.");
   if (card.aura === "goblinAtk") parts.push("Your other Rixen have +1 attack.");
@@ -28,7 +31,7 @@ export function rulesText(card: CardDef): string {
     parts.push(
       card.kind === "unit" ? `Play: ${lower(effectText(card.play))}` : effectText(card.play),
     );
-  if (card.deathHeal) parts.push(`When this dies: heal ${card.deathHeal}.`);
+  if (card.requiem) parts.push(`Requiem: ${lower(requiemText(card.requiem))}`);
   return parts.join(" ");
 }
 
@@ -62,12 +65,34 @@ export function effectText(effect: PlayEffect): string {
       return "A Quorin ally gets +2/+1 and can attack this turn.";
     case "twin":
       return "If you control another Rixen, this gets +1/+1.";
-    case "apex":
-      return "Your other Quorin get +0/+1.";
+    case "apex": {
+      const h = effect.h ?? (effect.plating ? 0 : 1);
+      const gains = [h ? `+0/+${h}` : "", effect.plating ? `Plating ${effect.plating}` : ""]
+        .filter(Boolean)
+        .join(" and ");
+      return `Your other Quorin get ${gains}.`;
+    }
     case "boom":
       return "Deal 1 to the rival.";
     case "grantHaste":
       return "An ally unit gains Haste this turn.";
+  }
+}
+
+export function requiemText(effect: RequiemEffect): string {
+  switch (effect.t) {
+    case "heal":
+      return `Heal ${effect.n}.`;
+    case "draw":
+      return `Draw ${effect.n}.`;
+    case "ping":
+      return `Deal ${effect.n} to the rival.`;
+    case "lose":
+      return `You lose ${effect.n} life.`;
+    case "healAlly":
+      return `Heal your most damaged unit ${effect.n}.`;
+    case "recall":
+      return `Return another random ${effect.faction === "veil" ? "Unbound" : "seal"} card from your grave to your hand.`;
   }
 }
 
@@ -97,10 +122,16 @@ export function trapText(kind: TrapKind): string {
 export function keywordsOf(card: CardDef): Keyword[] {
   const ids: KeywordId[] = [];
   for (const tag of TAG_ORDER) if (card.tags.includes(tag)) ids.push(tag);
+  if (card.plating) ids.push("plating");
   if (card.noAttack) ids.push("noAttack");
   if (card.kind === "trap") ids.push("trap");
   if (card.play?.t === "freeze" || card.trap === "horizon") ids.push("freeze");
   if (card.kind === "unit" && card.play) ids.push("play");
-  if (card.deathHeal) ids.push("lastBreath");
+  if (card.requiem) ids.push("requiem");
   return ids.map((id) => KEYWORDS[id]);
+}
+
+/** One reviewable line per card for `__snapshots__/card-text.txt`. */
+export function goldenLine(card: CardDef): string {
+  return `${card.id}\tv${card.version}\t${card.cost}\t${card.kind === "unit" ? `${card.atk}/${card.hp}` : "-"}\t${card.text}`;
 }

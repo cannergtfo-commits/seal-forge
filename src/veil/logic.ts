@@ -23,6 +23,10 @@ export type Unit = {
   ready: boolean;
   frozen: boolean;
   swing: number;
+  /** Plating on this unit (printed plus granted). Optional so older saved matches still load. */
+  plating?: number;
+  /** Plating left to absorb damage this turn. Refills at the start of every turn. */
+  plateLeft?: number;
 };
 
 export type Trap = { uid: string; defId: string; owner: Side };
@@ -177,24 +181,76 @@ function loseLife(m: Match, side: Side, n: number, floorAt: number): void {
   if (seat.hp <= 0) crown(m);
 }
 
+/** Deals damage to a unit through its Plating. Returns the damage that got through. */
+export function damageUnit(unit: Unit, amount: number): number {
+  if (amount <= 0) return 0;
+  const absorbed = Math.min(unit.plateLeft ?? 0, amount);
+  if (absorbed) unit.plateLeft = (unit.plateLeft ?? 0) - absorbed;
+  const dealt = amount - absorbed;
+  unit.hp -= dealt;
+  return dealt;
+}
+
+/** Health plus the Plating it has left this turn: what it takes to kill it with damage. */
+export function toughness(unit: Unit): number {
+  return unit.hp + (unit.plateLeft ?? 0);
+}
+
+function runRequiem(m: Match, unit: Unit, card: CardDef): void {
+  const effect = card.requiem;
+  if (!effect) return;
+  const owner = unit.owner;
+  const seat = m.players[owner];
+  if (effect.t === "heal") {
+    seat.hp = Math.min(30, seat.hp + effect.n);
+    note(m, `Requiem: ${card.name} mends ${effect.n}.`);
+  } else if (effect.t === "draw") {
+    draw(m, owner, effect.n);
+    note(m, `Requiem: ${card.name} draws ${effect.n}.`);
+  } else if (effect.t === "ping") {
+    hurt(m, other(owner), effect.n, null);
+    note(m, `Requiem: ${card.name} deals ${effect.n} to the rival.`);
+  } else if (effect.t === "lose") {
+    loseLife(m, owner, effect.n, 0);
+    note(m, `Requiem: ${card.name} costs ${effect.n} life.`);
+  } else if (effect.t === "healAlly") {
+    const hurtAlly = [...seat.units].filter((item) => item.hp < item.maxHp).sort((a, b) => a.hp - b.hp)[0];
+    if (hurtAlly) {
+      hurtAlly.hp = Math.min(hurtAlly.maxHp, hurtAlly.hp + effect.n);
+      note(m, `Requiem: ${cardOf(hurtAlly.defId).name} heals ${effect.n}.`);
+    }
+  } else if (effect.t === "recall") {
+    const pool = seat.grave
+      .map((id, index) => ({ id, index }))
+      .filter((item) => item.id !== card.id && cardOf(item.id).faction === effect.faction);
+    if (pool.length && seat.hand.length < HAND) {
+      const pick = pool[Math.floor(rand(m) * pool.length)]!;
+      seat.grave.splice(pick.index, 1);
+      seat.hand.push({ uid: uid(m), defId: pick.id });
+      note(m, `Requiem: ${card.name} returns ${cardOf(pick.id).name}.`);
+    }
+  }
+}
+
 function buryUnit(m: Match, unit: Unit): void {
   const seat = m.players[unit.owner];
   seat.units = seat.units.filter((item) => item.uid !== unit.uid);
   seat.grave.push(unit.defId);
-  const card = cardOf(unit.defId);
-  if (card.deathHeal) {
-    seat.hp = Math.min(30, seat.hp + card.deathHeal);
-    note(m, `${card.name} mends ${card.deathHeal}.`);
-  }
+  runRequiem(m, unit, cardOf(unit.defId));
 }
 
 function reap(m: Match): void {
   const dead: Unit[] = [];
-  for (const seat of m.players) {
-    for (const unit of seat.units) if (unit.hp <= 0) dead.push(unit);
+  for (let wave = 0; wave < 6; wave++) {
+    const fresh: Unit[] = [];
+    for (const seat of m.players) {
+      for (const unit of seat.units) if (unit.hp <= 0) fresh.push(unit);
+    }
+    if (fresh.length === 0) break;
+    for (const unit of fresh) buryUnit(m, unit);
+    dead.push(...fresh);
   }
   if (dead.length === 0) return;
-  for (const unit of dead) buryUnit(m, unit);
   for (const seat of m.players) {
     const snare = seat.traps.find((trap) => cardOf(trap.defId).trap === "soul");
     if (snare && dead.length) {
@@ -222,6 +278,7 @@ function beginTurn(m: Match): void {
     unit.frozen = false;
   }
   for (const unit of m.players[other(m.turn)].units) unit.swing = 0;
+  for (const side of m.players) for (const unit of side.units) unit.plateLeft = unit.plating ?? 0;
   note(m, `${m.turn === 0 ? "Your" : "Rival"} turn ${m.turnCount}. Mana ${seat.manaMax}.`);
   draw(m, m.turn, 1);
 }
@@ -268,6 +325,8 @@ function makeUnit(m: Match, card: CardDef, owner: Side): Unit {
     ready: true,
     frozen: false,
     swing: 0,
+    plating: card.plating ?? 0,
+    plateLeft: card.plating ?? 0,
   };
 }
 
@@ -298,8 +357,8 @@ function hit(m: Match, n: number, target: Target | null): string | null {
   }
   const unit = findUnit(m, target.uid);
   if (!unit) return "That unit is gone.";
-  unit.hp -= n;
-  note(m, `${cardOf(unit.defId).name} takes ${n}.`);
+  const dealt = damageUnit(unit, n);
+  note(m, `${cardOf(unit.defId).name} takes ${dealt}${dealt < n ? ` (Plating stops ${n - dealt})` : ""}.`);
   reap(m);
   return null;
 }
@@ -332,11 +391,16 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
     return null;
   }
   if (effect.t === "apex") {
+    const h = effect.h ?? (effect.plating ? 0 : 1);
     for (const unit of m.players[owner].units) {
       if (unit === self) continue;
       if (cardOf(unit.defId).faction !== "robot") continue;
-      unit.hp += 1;
-      unit.maxHp += 1;
+      unit.hp += h;
+      unit.maxHp += h;
+      if (effect.plating) {
+        unit.plating = (unit.plating ?? 0) + effect.plating;
+        unit.plateLeft = (unit.plateLeft ?? 0) + effect.plating;
+      }
     }
     note(m, `${source.name} reinforces the line.`);
     return null;
@@ -377,7 +441,7 @@ function runEffect(m: Match, effect: PlayEffect, owner: Side, self: Unit | null,
   if (effect.t === "charge") {
     if (unit.owner !== owner) return "Charge an ally.";
     unit.swing += 2;
-    unit.hp -= 1;
+    damageUnit(unit, 1);
     note(m, `${cardOf(unit.defId).name} charges.`);
     reap(m);
     return null;
@@ -481,7 +545,7 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
   const attacker = targetUid ? m.attackers.map((id) => findUnit(m, id)).find((unit) => unit?.uid === targetUid) : null;
   if (card.trap === "pikes") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    attacker.hp -= 3;
+    damageUnit(attacker, 3);
     note(m, `${card.name} deals 3 to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "snare") {
     if (!attacker) return { state, error: "Choose an attacker." };
@@ -491,18 +555,18 @@ export function springTrap(state: Match, trapUid: string, targetUid: string | nu
   } else if (card.trap === "glade") {
     if (!attacker) return { state, error: "Choose an attacker." };
     m.players[defender].hp = Math.min(30, m.players[defender].hp + 2);
-    attacker.hp -= 1;
+    damageUnit(attacker, 1);
     note(m, `${card.name} heals 2 and deals 1.`);
   } else if (card.trap === "firewall") {
     m.players[defender].ward += 4;
     note(m, `${card.name} raises a ward of 4.`);
   } else if (card.trap === "cross") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    attacker.hp -= 2;
+    damageUnit(attacker, 2);
     note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name}.`);
   } else if (card.trap === "horizon") {
     if (!attacker) return { state, error: "Choose an attacker." };
-    attacker.hp -= 2;
+    damageUnit(attacker, 2);
     attacker.frozen = true;
     note(m, `${card.name} deals 2 to ${cardOf(attacker.defId).name} and freezes it.`);
   }
@@ -550,11 +614,11 @@ export function assignDefenders(state: Match, blocks: Record<string, string | nu
     if (!blocker) continue;
     const back = power(m, blocker);
     const before = blocker.hp;
-    blocker.hp -= strike;
-    attacker.hp -= back;
+    const landed = damageUnit(blocker, strike);
+    damageUnit(attacker, back);
     note(m, `${cardOf(attacker.defId).name} trades with ${cardOf(blocker.defId).name}.`);
     if (cardOf(attacker.defId).tags.includes("crush") && blocker.hp <= 0) {
-      const extra = strike - before;
+      const extra = landed - before;
       if (extra > 0) {
         hurt(m, defender, extra, cardOf(attacker.defId).tags.includes("drain") ? attacker.owner : null);
         note(m, `Crush spills ${extra}.`);

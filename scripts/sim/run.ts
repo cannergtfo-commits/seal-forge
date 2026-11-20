@@ -1,7 +1,10 @@
 // Balance sims. Usage:
-//   node --import ./scripts/ts-resolve.mjs scripts/sim/run.ts [--games 20000] [--starter 200] [--style guard,aggro] [--gate] [--csv out.csv]
+//   npm run sim -- [--games 20000] [--starter 200] [--style hard] [--threads 8] [--min 300] [--gate] [--csv out.csv]
 // Gate (Techno #6): every seal 45-55% and every card's played win rate 40-60% (cards played in >= --min games).
+// Each game seeds its own RNG, so results are the same however the games are split across workers.
 import { writeFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
+import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { CARDS, type Faction } from "../../src/veil/cards.ts";
 import type { BotStyle } from "../../src/veil/bots.ts";
 import { duel } from "./sim.ts";
@@ -12,51 +15,49 @@ function opt(name: string, fallback: string): string {
   return at >= 0 && args[at + 1] ? args[at + 1]! : fallback;
 }
 const GAMES = Number(opt("games", "20000"));
-const STARTER = Number(opt("starter", "200"));
-const STYLES = opt("style", "guard,aggro").split(",") as BotStyle[];
+const STARTER = Number(opt("starter", "0"));
+const STYLES = opt("style", "hard").split(",") as BotStyle[];
 const MIN = Number(opt("min", "300"));
 const GATE = args.includes("--gate");
+const THREADS = Math.max(1, Number(opt("threads", String(Math.min(8, availableParallelism())))));
 const F: Faction[] = ["elf", "human", "goblin", "robot", "demon"];
 
-let rng = 12345;
-const rand = () => (rng = (Math.imul(rng, 1103515245) + 12345) >>> 0) / 4294967296;
-const pct = (w: number, n: number) => (n ? ((w / n) * 100).toFixed(1) : "-");
+type Tally = Record<string, [number, number]>;
+type Chunk = {
+  seal: Tally;
+  played: Tally;
+  included: Tally;
+  matrix: Tally;
+  stalls: number;
+  firstWins: number;
+  decided: number;
+  turns: number;
+};
 
-// 1) Starter decks, every pairing, both seats.
-if (STARTER > 0) {
-  const style = STYLES[0]!;
-  let first = 0;
-  let games = 0;
-  let turns = 0;
-  console.log(
-    `STARTER ${style} vs ${style}, ${STARTER} games per cell (row = seat 0, plays first)`,
-  );
-  console.log("        " + F.map((f) => f.padStart(7)).join(""));
-  for (const a of F) {
-    const row: string[] = [];
-    for (const b of F) {
-      let w = 0;
-      for (let i = 0; i < STARTER; i++) {
-        const res = duel(
-          [null, null],
-          [a, b],
-          [style, style],
-          1 + i * 7919 + F.indexOf(a) * 31 + F.indexOf(b),
-        );
-        if (res.winner === 0) w++;
-        games++;
-        turns += res.turns;
-      }
-      first += w;
-      row.push(pct(w, STARTER).padStart(7));
-    }
-    console.log(a.padEnd(8) + row.join(""));
-  }
-  console.log(`first-player win ${pct(first, games)}%, avg turns ${(turns / games).toFixed(1)}`);
+const empty = (): Chunk => ({
+  seal: {},
+  played: {},
+  included: {},
+  matrix: {},
+  stalls: 0,
+  firstWins: 0,
+  decided: 0,
+  turns: 0,
+});
+
+function bump(tally: Tally, key: string, won: number): void {
+  tally[key] ??= [0, 0];
+  tally[key][0] += won;
+  tally[key][1]++;
 }
 
-// 2) Random-pool decks: the seal's pool plus about half the Unbound pool.
-function deck(f: Faction): string[] {
+function rng(seed: number): () => number {
+  let s = (Math.imul(seed + 1, 2654435761) + 12345) >>> 0;
+  return () => (s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296;
+}
+
+/** A random-pool deck: cards from the seal's pool plus about half the Unbound pool. */
+function deck(f: Faction, rand: () => number): string[] {
   const pool = CARDS.filter(
     (card) => card.faction === f || (card.faction === "veil" && rand() < 0.5),
   );
@@ -68,99 +69,167 @@ function deck(f: Faction): string[] {
   return out;
 }
 
-const seal: Record<string, [number, number]> = {};
-const played: Record<string, [number, number]> = {};
-const included: Record<string, [number, number]> = {};
-let stalls = 0;
-let firstWins = 0;
-let decided = 0;
-for (let g = 0; g < GAMES; g++) {
+/** Jobs 0..STARTER*25-1 are starter-deck matrix games; the rest are random-pool games. */
+function playJob(job: number, out: Chunk): void {
+  const starterJobs = STARTER * 25;
+  if (job < starterJobs) {
+    const cell = Math.floor(job / STARTER);
+    const a = F[Math.floor(cell / 5)]!;
+    const b = F[cell % 5]!;
+    const style = STYLES[0]!;
+    const res = duel([null, null], [a, b], [style, style], 1 + (job % STARTER) * 7919 + cell * 31);
+    bump(out.matrix, `${a}>${b}`, res.winner === 0 ? 1 : 0);
+    return;
+  }
+  const g = job - starterJobs;
+  const rand = rng(g);
   const a = F[Math.floor(rand() * 5)]!;
   const b = F[Math.floor(rand() * 5)]!;
-  const da = deck(a);
-  const db = deck(b);
+  const da = deck(a, rand);
+  const db = deck(b, rand);
   const styles: [BotStyle, BotStyle] = [
     STYLES[g % STYLES.length]!,
     STYLES[Math.floor(g / STYLES.length) % STYLES.length]!,
   ];
   const res = duel([da, db], [a, b], styles, g + 99);
+  out.turns += res.turns;
   if (res.winner === null) {
-    stalls++;
-    continue;
+    out.stalls++;
+    return;
   }
-  decided++;
-  if (res.winner === 0) firstWins++;
+  out.decided++;
+  if (res.winner === 0) out.firstWins++;
   for (const [side, list, f] of [
     [0, da, a],
     [1, db, b],
   ] as const) {
     const won = res.winner === side ? 1 : 0;
-    seal[f] ??= [0, 0];
-    seal[f][0] += won;
-    seal[f][1]++;
-    for (const id of new Set(list)) {
-      included[id] ??= [0, 0];
-      included[id][0] += won;
-      included[id][1]++;
-    }
-    for (const id of res.played[side]) {
-      played[id] ??= [0, 0];
-      played[id][0] += won;
-      played[id][1]++;
-    }
+    bump(out.seal, f, won);
+    for (const id of new Set(list)) bump(out.included, id, won);
+    for (const id of res.played[side]) bump(out.played, id, won);
   }
 }
 
-console.log(
-  `\nRANDOM-POOL ${GAMES} games, styles ${STYLES.join("/")}, first-player win ${pct(firstWins, decided)}%, stalls ${stalls}`,
-);
-const failures: string[] = [];
-for (const f of F) {
-  const [w, n] = seal[f] ?? [0, 0];
-  const rate = n ? w / n : 0;
-  console.log(`  ${f.padEnd(7)} ${pct(w, n)}%`);
-  if (rate < 0.45 || rate > 0.55) failures.push(`seal ${f} ${pct(w, n)}%`);
+function merge(into: Chunk, part: Chunk): void {
+  for (const key of ["seal", "played", "included", "matrix"] as const) {
+    for (const [id, [w, n]] of Object.entries(part[key])) {
+      into[key][id] ??= [0, 0];
+      into[key][id][0] += w;
+      into[key][id][1] += n;
+    }
+  }
+  into.stalls += part.stalls;
+  into.firstWins += part.firstWins;
+  into.decided += part.decided;
+  into.turns += part.turns;
 }
-const rows = CARDS.map((card) => {
-  const [pw, pn] = played[card.id] ?? [0, 0];
-  const [iw, inn] = included[card.id] ?? [0, 0];
-  return {
-    id: card.id,
-    faction: card.faction,
-    cost: card.cost,
-    played: pn ? pw / pn : NaN,
-    pn,
-    included: inn ? iw / inn : NaN,
-    inn,
-  };
-}).sort((x, y) => y.played - x.played);
-for (const row of rows)
-  if (row.pn >= MIN && (row.played < 0.4 || row.played > 0.6))
-    failures.push(`card ${row.id} ${(row.played * 100).toFixed(1)}%`);
-console.log("\nTop 12 cards by played win rate:");
-for (const row of rows.filter((r) => r.pn >= MIN).slice(0, 12))
-  console.log(
-    `  ${row.id.padEnd(22)} ${row.faction.padEnd(6)} ${(row.played * 100).toFixed(1)}% (${row.pn})`,
+
+const JOBS = STARTER * 25 + GAMES;
+
+if (!isMainThread) {
+  const { shard, shards } = workerData as { shard: number; shards: number };
+  const out = empty();
+  for (let job = shard; job < JOBS; job += shards) playJob(job, out);
+  parentPort!.postMessage(out);
+} else {
+  const total = empty();
+  const parts = await Promise.all(
+    Array.from(
+      { length: THREADS },
+      (_, shard) =>
+        new Promise<Chunk>((resolve, reject) => {
+          const worker = new Worker(new URL(import.meta.url), {
+            workerData: { shard, shards: THREADS },
+            argv: args,
+          });
+          worker.once("message", resolve);
+          worker.once("error", reject);
+        }),
+    ),
   );
-console.log("Bottom 12:");
-for (const row of rows.filter((r) => r.pn >= MIN).slice(-12))
+  for (const part of parts) merge(total, part);
+  report(total);
+}
+
+function report(total: Chunk): void {
+  const pct = (w: number, n: number) => (n ? ((w / n) * 100).toFixed(1) : "-");
+  const failures: string[] = [];
+  if (STARTER > 0) {
+    console.log(
+      `STARTER ${STYLES[0]} vs ${STYLES[0]}, ${STARTER} games per cell (row = seat 0, plays first)`,
+    );
+    console.log("        " + F.map((f) => f.padStart(7)).join(""));
+    for (const a of F)
+      console.log(
+        a.padEnd(8) +
+          F.map((b) => pct(...(total.matrix[`${a}>${b}`] ?? [0, 0])).padStart(7)).join(""),
+      );
+  }
+  if (!GAMES) return;
   console.log(
-    `  ${row.id.padEnd(22)} ${row.faction.padEnd(6)} ${(row.played * 100).toFixed(1)}% (${row.pn})`,
+    `\nRANDOM-POOL ${GAMES} games, styles ${STYLES.join("/")}, first-player win ${pct(total.firstWins, total.decided)}%, avg turns ${(total.turns / GAMES).toFixed(1)}, stalls ${total.stalls}`,
   );
-const csv = opt("csv", "");
-if (csv) {
-  writeFileSync(
-    csv,
-    [
-      "id,faction,cost,played_wr,played_n,included_wr,included_n",
-      ...rows.map((r) =>
-        [r.id, r.faction, r.cost, r.played.toFixed(3), r.pn, r.included.toFixed(3), r.inn].join(
-          ",",
+  const sealRate: Record<string, number> = {};
+  for (const f of F) {
+    const [w, n] = total.seal[f] ?? [0, 0];
+    sealRate[f] = n ? w / n : 0;
+    console.log(`  ${f.padEnd(7)} ${pct(w, n)}%`);
+    if (sealRate[f]! < 0.45 || sealRate[f]! > 0.55) failures.push(`seal ${f} ${pct(w, n)}%`);
+  }
+  const rows = CARDS.map((card) => {
+    const [pw, pn] = total.played[card.id] ?? [0, 0];
+    const [iw, inn] = total.included[card.id] ?? [0, 0];
+    const playedRate = pn ? pw / pn : NaN;
+    // Unbound cards are judged against the seals they were played in, so compare to 50%.
+    const base = card.faction === "veil" ? 0.5 : (sealRate[card.faction] ?? 0.5);
+    return {
+      id: card.id,
+      faction: card.faction,
+      cost: card.cost,
+      played: playedRate,
+      pn,
+      included: inn ? iw / inn : NaN,
+      inn,
+      delta: playedRate - base,
+    };
+  }).sort((x, y) => y.played - x.played);
+  for (const row of rows)
+    if (row.pn >= MIN && (row.played < 0.4 || row.played > 0.6))
+      failures.push(`card ${row.id} ${(row.played * 100).toFixed(1)}%`);
+  const line = (row: (typeof rows)[number]) =>
+    `  ${row.id.padEnd(22)} ${row.faction.padEnd(6)} ${(row.played * 100).toFixed(1)}% (${row.delta >= 0 ? "+" : ""}${(row.delta * 100).toFixed(1)} vs seal, n=${row.pn})`;
+  const enough = rows.filter((row) => row.pn >= MIN);
+  console.log("\nTop 12 cards by played win rate:");
+  for (const row of enough.slice(0, 12)) console.log(line(row));
+  console.log("Bottom 12:");
+  for (const row of enough.slice(-12)) console.log(line(row));
+  const csv = opt("csv", "");
+  if (csv) {
+    writeFileSync(
+      csv,
+      [
+        "id,faction,cost,played_wr,played_n,delta_vs_seal,included_wr,included_n",
+        ...rows.map((r) =>
+          [
+            r.id,
+            r.faction,
+            r.cost,
+            r.played.toFixed(3),
+            r.pn,
+            r.delta.toFixed(3),
+            r.included.toFixed(3),
+            r.inn,
+          ].join(","),
         ),
-      ),
-    ].join("\n") + "\n",
-  );
+      ].join("\n") + "\n",
+    );
+  }
+  console.log(`\nGate: ${failures.length ? `${failures.length} outside bounds` : "pass"}`);
+  if (failures.length)
+    console.log(
+      "  " +
+        failures.slice(0, 30).join("\n  ") +
+        (failures.length > 30 ? `\n  … ${failures.length - 30} more` : ""),
+    );
+  if (GATE && failures.length) process.exit(1);
 }
-console.log(`\nGate: ${failures.length ? `${failures.length} outside bounds` : "pass"}`);
-if (failures.length) console.log("  " + failures.slice(0, 40).join("\n  "));
-if (GATE && failures.length) process.exit(1);

@@ -13,6 +13,7 @@ import {
   power,
   skipTrap,
   springTrap,
+  toughness,
   other,
   type Match,
   type Side,
@@ -42,7 +43,7 @@ function targetFor(m: Match, handUid: string, me: Side): Target | null {
   const effect = card.play?.t;
   if (!needsTarget(card)) return null;
   if (effect === "hit") {
-    const prey = [...enemyUnits(m, me)].sort((a, b) => a.hp - b.hp).find((unit) => unit.hp <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
+    const prey = [...enemyUnits(m, me)].sort((a, b) => toughness(a) - toughness(b)).find((unit) => toughness(unit) <= (card.play && card.play.t === "hit" ? card.play.n : 0) + 1);
     if (prey) return { kind: "unit", uid: prey.uid };
     if (m.players[foe].hp <= 8) return { kind: "face", side: foe };
     const big = [...enemyUnits(m, me)].sort((a, b) => power(m, b) - power(m, a))[0];
@@ -127,14 +128,14 @@ export function sharpAttackers(m: Match, style: BotStyle, me: Side): string[] {
   if (through >= m.players[other(me)].hp) return ready.map((unit) => unit.uid);
   const kept = ready.filter((unit) => {
     const atk = power(m, unit);
-    const survives = foes.every((foe) => power(m, foe) < unit.hp);
-    const favorable = foes.some((foe) => atk >= foe.hp && power(m, foe) < unit.hp);
+    const survives = foes.every((foe) => power(m, foe) < toughness(unit));
+    const favorable = foes.some((foe) => atk >= toughness(foe) && power(m, foe) < toughness(unit));
     if (survives || favorable || cardOf(unit.defId).tags.includes("bulwark")) return true;
     return style === "aggro" && m.players[me].hp >= m.players[other(me)].hp && atk >= 3;
   });
   if (kept.length || style === "guard") return kept.map((unit) => unit.uid);
   const best = byPower[0];
-  if (best && foes.some((foe) => power(m, best) >= foe.hp && power(m, foe) <= best.hp)) return [best.uid];
+  if (best && foes.some((foe) => power(m, best) >= toughness(foe) && power(m, foe) <= toughness(best))) return [best.uid];
   return [];
 }
 
@@ -161,7 +162,7 @@ function choosePlay(m: Match, style: BotStyle, me: Side): { uid: string; target:
       const threat = foes.reduce((best, unit) => Math.max(best, power(m, unit)), 0);
       if (option.card.play?.t === "hit") {
         const amount = option.card.play.n;
-        if (foes.some((unit) => unit.hp <= amount)) score += 6 + Math.min(threat, 6);
+        if (foes.some((unit) => toughness(unit) <= amount)) score += 6 + Math.min(threat, 6);
         else if (m.players[other(me)].hp > 10) score -= 2;
       }
       if (option.card.cost === seat.mana) score += 2;
@@ -281,8 +282,8 @@ export function normalBlocks(m: Match, style: BotStyle, me: Side): Record<string
     let bestScore = 0;
     for (const blocker of blockers) {
       if (used.has(blocker.uid)) continue;
-      const kills = power(m, blocker) >= attacker.hp;
-      const dies = power(m, attacker) >= blocker.hp;
+      const kills = power(m, blocker) >= toughness(attacker);
+      const dies = power(m, attacker) >= toughness(blocker);
       let score = 0;
       if (kills && !dies) score = 8;
       else if (kills && dies) score = power(m, attacker) >= power(m, blocker) ? 5 : 2;
