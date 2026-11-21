@@ -211,7 +211,7 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token: session.token }),
       });
-      const body = (await res.json()) as { profile?: Profile; seal?: string; note?: string; error?: string };
+      const body = (await res.json().catch(() => ({ error: `The gift server answered ${res.status}. Claim again in a minute.` }))) as { profile?: Profile; seal?: string; note?: string; error?: string };
       if (body.profile && address) keep(address, body.profile, body.seal);
       if (body.profile) setProfile(body.profile);
       if (body.error) throw new Error(body.error);
@@ -289,6 +289,11 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
                 <p className="mt-2 text-sm text-ash">Connecting a wallet is not enough. Ranked wins only add XP after you sign in. Local practice and friend-device tables do not award XP.</p>
               )}
               {giftNote && <p className="mt-2 text-sm text-bone">{giftNote}</p>}
+              {error && (
+                <p className="mt-2 text-sm text-danger" role="alert">
+                  {error}
+                </p>
+              )}
               <label className="mt-3 block text-xs text-ash" htmlFor="duelist-name">
                 Name
               </label>
