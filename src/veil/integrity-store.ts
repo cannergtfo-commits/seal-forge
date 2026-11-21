@@ -245,3 +245,27 @@ export async function applyMmr(
   );
   return Number(rows[0]?.updated ?? 0) > 0 ? "applied" : "duplicate";
 }
+
+export type GiftStep = "begin" | "buy" | "commit" | "settle";
+
+/** The keeper tx hash for one gift step, stored the moment it is broadcast. */
+export async function giftStep(sql: Sql, wallet: string, step: GiftStep): Promise<string | null> {
+  const rows = await sql<{ tx_hash: string }>`select tx_hash from veil_gift_steps where wallet = ${wallet.toLowerCase()} and step = ${step}`;
+  return rows[0]?.tx_hash ?? null;
+}
+
+export async function recordGiftStep(sql: Sql, wallet: string, step: GiftStep, txHash: string): Promise<void> {
+  await sql`
+    insert into veil_gift_steps (wallet, step, tx_hash) values (${wallet.toLowerCase()}, ${step}, ${txHash})
+    on conflict (wallet, step) do update set tx_hash = excluded.tx_hash, created_at = now()`;
+}
+
+export async function clearGiftSteps(sql: Sql, wallet: string, steps: GiftStep[]): Promise<void> {
+  for (const step of steps) await sql`delete from veil_gift_steps where wallet = ${wallet.toLowerCase()} and step = ${step}`;
+}
+
+/** Every order id some profile already holds, so a recovered order is never someone else's. */
+export async function recordedGiftOrders(sql: Sql): Promise<Set<string>> {
+  const rows = await sql<{ gift_order: string }>`select gift_order from veil_profiles where gift_order is not null and gift_order <> ''`;
+  return new Set(rows.map((row) => String(row.gift_order)));
+}

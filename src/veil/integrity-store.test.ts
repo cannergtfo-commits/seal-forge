@@ -2,6 +2,10 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyRoomResult,
+  clearGiftSteps,
+  giftStep,
+  recordGiftStep,
+  recordedGiftOrders,
   dailyWinsUsed,
   findPrize,
   giftTransfers,
@@ -114,5 +118,23 @@ describe("integrity store", () => {
     await recordGiftTransfer(sql, { wallet: A, orderId: "7", tokenId: "9", amount: 1, txHash: "0xccc" });
     const sent = await giftTransfers(sql, A, "7");
     assert.deepEqual([...sent.entries()].sort(), [["3", "0xbbb"], ["9", "0xccc"]]);
+  });
+  it("stores gift step hashes before the wait, overwrites on resend, and clears them", async () => {
+    assert.equal(await giftStep(sql, A, "buy"), null);
+    await recordGiftStep(sql, A.toUpperCase().replace("0X", "0x"), "buy", "0xaaa");
+    assert.equal(await giftStep(sql, A, "buy"), "0xaaa", "wallet is case-insensitive");
+    await recordGiftStep(sql, A, "buy", "0xbbb");
+    await recordGiftStep(sql, A, "begin", "0xccc");
+    assert.equal(await giftStep(sql, A, "buy"), "0xbbb");
+    await clearGiftSteps(sql, A, ["buy"]);
+    assert.equal(await giftStep(sql, A, "buy"), null);
+    assert.equal(await giftStep(sql, A, "begin"), "0xccc");
+  });
+
+  it("lists every order id already held by a profile", async () => {
+    await sql`insert into veil_profiles (address, name, portrait, gift_order) values (${"0x00000000000000000000000000000000000000c1"}, ${"c1"}, ${"lysara"}, ${"59"}) on conflict (address) do update set gift_order = excluded.gift_order`;
+    const held = await recordedGiftOrders(sql);
+    assert.ok(held.has("59"));
+    assert.ok(!held.has(""));
   });
 });
