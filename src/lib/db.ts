@@ -181,8 +181,8 @@ async function restoreProfilesIfEmpty(sql: Sql) {
       const xp = Math.max(0, Math.min(1_000_000, Math.floor(Number(row.xp) || 0)));
       const wins = Math.max(0, Math.min(100_000, Math.floor(Number(row.wins) || 0)));
       const losses = Math.max(0, Math.min(100_000, Math.floor(Number(row.losses) || 0)));
-      await sql`insert into veil_profiles (address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards)
-        values (${address}, ${String(row.name ?? "Duelist").slice(0, 18)}, ${String(row.portrait ?? "lysara").slice(0, 40)}, ${xp}, ${wins}, ${losses}, ${String(row.deck ?? "").slice(0, 2000)}, ${String(row.deck_name ?? "").slice(0, 18)}, ${Number(row.gifted) ? 1 : 0}, ${String(row.gift_order ?? "").slice(0, 80)}, ${String(row.gift_cards ?? "").slice(0, 200)})
+      await sql`insert into veil_profiles (address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards, motto)
+        values (${address}, ${String(row.name ?? "Duelist").slice(0, 18)}, ${String(row.portrait ?? "lysara").slice(0, 40)}, ${xp}, ${wins}, ${losses}, ${String(row.deck ?? "").slice(0, 2000)}, ${String(row.deck_name ?? "").slice(0, 18)}, ${Number(row.gifted) ? 1 : 0}, ${String(row.gift_order ?? "").slice(0, 80)}, ${String(row.gift_cards ?? "").slice(0, 200)}, ${String(row.motto ?? "").slice(0, 160)})
         on conflict (address) do nothing`;
     }
   } catch {

@@ -66,6 +66,48 @@ export function cleanDeckName(value: string): string | null {
   return name;
 }
 
+/** Display-only tier for the matchmaking rating (never used for pairing). */
+export function mmrTier(mmr: number, games: number): { name: string; step: number } {
+  if (games <= 0) return { name: "Unrated", step: 0 };
+  if (mmr >= 1350) return { name: "Mythforged", step: 5 };
+  if (mmr >= 1200) return { name: "Runed", step: 4 };
+  if (mmr >= 1050) return { name: "Forged", step: 3 };
+  if (mmr >= 900) return { name: "Tempered", step: 2 };
+  return { name: "Unproven", step: 1 };
+}
+
+export const MOTTO_MAX = 80;
+
+// A light filter for the public motto: only clear slurs and the bluntest swears.
+// Matching is on letters only, so "a.s.s" style spacing does not slip through,
+// while ordinary words that merely contain a fragment ("classic", "Scunthorpe") pass.
+const MOTTO_BLOCK = ["fuck", "fucking", "fucker", "shit", "cunt", "nigger", "nigga", "faggot", "fag", "retard", "whore", "slut", "bitch", "kike", "spic", "chink", "tranny"];
+
+/**
+ * Clean an owner-written motto. Returns "" for empty, null when it is not allowed.
+ * React renders it as text, so this is about length and decency, not HTML.
+ */
+export function cleanMotto(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "")
+    .replace(/ {2,}/g, " ")
+    .trim();
+  if (!text) return "";
+  if ([...text].length > MOTTO_MAX) return null;
+  if (/https?:\/\/|www\.|\.(com|net|io|xyz|gg)\b/i.test(text)) return null;
+  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const squashed = text.toLowerCase().replace(/[^\p{L}]/gu, "");
+  for (const bad of MOTTO_BLOCK) {
+    if (words.includes(bad)) return null;
+    if (bad.length >= 5 && squashed.includes(bad)) return null;
+  }
+  return text;
+}
+
 export function isPortrait(id: string): boolean {
   return (PORTRAITS as readonly string[]).includes(id);
 }
