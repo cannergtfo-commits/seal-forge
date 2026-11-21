@@ -123,7 +123,23 @@ export type RoomResult = {
   vsBot: boolean;
   /** The other seat's wallet when both seats were signed-in humans (drives MMR). */
   rival?: string;
+  /** Seal this seat played (profile stats only; never affects XP or rewards). */
+  faction?: string;
+  /** Card ids this seat played, when it brought a deck (profile stats only). */
+  deck?: string[] | null;
 };
+
+const STAT_FACTIONS = new Set(["elf", "human", "goblin", "robot", "demon", "veil"]);
+
+function statFaction(value: unknown): string {
+  return typeof value === "string" && STAT_FACTIONS.has(value) ? value : "";
+}
+
+function statDeck(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  const ids = value.filter((id): id is string => typeof id === "string" && /^[a-z0-9-]{1,40}$/.test(id)).slice(0, 40);
+  return ids.join(",");
+}
 
 /**
  * Record one match result and apply XP in the same statement. The XP update only
@@ -137,8 +153,8 @@ export async function applyRoomResult(
   const wallet = result.address.toLowerCase();
   const rows = await sql.query<{ inserted: number; updated: number }>(
     `with ins as (
-       insert into veil_room_results (room_id, wallet, win, turns, conceded, vs_bot)
-       values ($1, $2, $3, $4, $5, $6)
+       insert into veil_room_results (room_id, wallet, win, turns, conceded, vs_bot, faction, deck)
+       values ($1, $2, $3, $4, $5, $6, $9, $10)
        on conflict (room_id, wallet) do nothing
        returning wallet
      ), upd as (
@@ -150,7 +166,18 @@ export async function applyRoomResult(
         returning address
      )
      select (select count(*) from ins)::int as inserted, (select count(*) from upd)::int as updated`,
-    [result.roomId, wallet, result.win, Math.max(0, Math.floor(result.turns)), result.conceded, result.vsBot, xp.win, xp.loss],
+    [
+      result.roomId,
+      wallet,
+      result.win,
+      Math.max(0, Math.floor(result.turns)),
+      result.conceded,
+      result.vsBot,
+      xp.win,
+      xp.loss,
+      statFaction(result.faction),
+      statDeck(result.deck),
+    ],
   );
   const row = rows[0];
   if (!row || Number(row.inserted) === 0) return "duplicate";

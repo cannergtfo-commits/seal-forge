@@ -99,7 +99,7 @@ function scoreRoom(room: Room): ScoreResult[] {
     const seat = room.seats[side];
     if (!wallet(seat)) continue;
     const rival = wallet(room.seats[side === 0 ? 1 : 0]) || undefined;
-    out.push({ roomId: room.id, address: seat.address, win: room.match.winner === side, turns: room.match.turnCount, conceded: room.conceded, vsBot, rival });
+    out.push({ roomId: room.id, address: seat.address, win: room.match.winner === side, turns: room.match.turnCount, conceded: room.conceded, vsBot, rival, faction: seat.faction, deck: seat.deck });
   }
   return out;
 }
