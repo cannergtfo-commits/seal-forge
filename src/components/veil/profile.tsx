@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { CARDS, FACTIONS, cardOf, type Faction } from "@/veil/cards";
 import { gemTier, rarityName } from "@/veil/card-meta";
 import { CardFace } from "@/components/veil/card";
+import { DeckTile } from "@/components/veil/deck-list";
+import { deckRequest, fetchDecks, type SealedDeck } from "@/veil/deck-client";
 import "./profile.css";
 import { usePlayer } from "@/veil/connect";
 import { openSession } from "@/veil/game-session";
@@ -95,6 +97,7 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
   const [editingMotto, setEditingMotto] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [customize, setCustomize] = useState(false);
+  const [decks, setDecks] = useState<{ decks: SealedDeck[]; max: number } | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -198,6 +201,38 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
       live = false;
     };
   }, [session, hasProfile, profile?.wins, profile?.losses, profile?.gifted]);
+
+  useEffect(() => {
+    if (!session || session.token === "device" || isApk() || !hasProfile) {
+      setDecks(null);
+      return;
+    }
+    let live = true;
+    void fetchDecks(session.token).then((list) => live && list && setDecks(list));
+    return () => {
+      live = false;
+    };
+  }, [session, hasProfile, profile?.wins, profile?.losses]);
+
+  async function activateDeck(deckId: string) {
+    if (!session || session.token === "device") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await deckRequest(session.token, "deck-activate", { deckId });
+      if (!body.decks) throw new Error(body.error ?? "Could not switch decks.");
+      setDecks({ decks: body.decks, max: body.max ?? decks?.max ?? 6 });
+      const next = body.profile as Profile | undefined;
+      if (next) {
+        setProfile(next);
+        if (address) keep(address, next, body.seal);
+      }
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "Could not switch decks.", key));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function signIn() {
     if (!address) return;
@@ -502,7 +537,7 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
         )}
 
         {profile && (
-          <div className="pf-grid">
+          <div className="pf-grid pf-grid-one">
             <section className="pf-panel pf-gift" data-state={profile.gifted ? "done" : profile.wins >= GIFT_WINS ? "ready" : "locked"}>
               <h3 className="pf-h">First-win gift</h3>
               {justClaimed ? (
@@ -536,34 +571,32 @@ export function Profile({ onBack, onDeck, onTutorial }: { onBack: () => void; on
               )}
             </section>
 
-            <section className="pf-panel pf-deck" style={{ "--deck": `var(--color-${deckFaction ?? "veil"})` } as CSSProperties}>
-              <h3 className="pf-h">Sealed deck</h3>
-              {profile.deck.length ? (
-                <>
-                  <div className="pf-deck-head">
-                    <img src={SEAL_ART[deckFaction ?? "veil"]} alt="" className="pf-deck-crest" />
-                    <div>
-                      <p className="pf-deck-name">{profile.deckName || "Unnamed deck"}</p>
-                      <p className="text-xs text-ash">
-                        {sealName(deckFaction ?? "veil")} · {profile.deck.length}/20 · {profile.deck.length === 20 && deckSealed?.ok ? "Sealed for ranked play" : "Not a finished deck yet"}
-                      </p>
-                    </div>
-                  </div>
-                  <Curve deck={profile.deck} />
-                  <div className="pf-deck-strip">
-                    {[...new Set(profile.deck)].slice(0, 12).map((id) => (
-                      <img key={id} src={`/assets/veil/cards/${id}.jpg`} alt={cardOf(id).name} title={cardOf(id).name} />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="pf-empty">No deck sealed yet.</p>
-              )}
-              <button type="button" className="veil-btn veil-btn-primary mt-3" onClick={onDeck}>
-                Open the forge
-              </button>
-            </section>
           </div>
+        )}
+
+        {profile && (
+          <section className="pf-panel" aria-label="Sealed decks">
+            <div className="pf-h-row">
+              <h3 className="pf-h">Sealed decks</h3>
+              <p className="text-xs text-ash">{decks ? `${decks.decks.length}/${decks.max}` : ""}</p>
+            </div>
+            {decks && decks.decks.length > 0 ? (
+              <div className="dl-grid mt-3">
+                {decks.decks.map((item) => (
+                  <DeckTile key={item.id} deck={item} busy={busy} onActivate={() => void activateDeck(item.id)} />
+                ))}
+              </div>
+            ) : profile.deck.length ? (
+              <div className="dl-grid mt-3">
+                <DeckTile deck={{ id: "mirror", name: profile.deckName ?? "", cards: profile.deck, seal: deckFaction ?? "veil", active: true, createdAt: null, record: { games: 0, wins: 0 } }} />
+              </div>
+            ) : (
+              <p className="pf-empty">{signedIn ? "No deck sealed yet. Build one in the forge; you can keep several and pick which one plays." : "Sign in to see your sealed decks."}</p>
+            )}
+            <button type="button" className="veil-btn veil-btn-primary mt-3" onClick={onDeck}>
+              Open the forge
+            </button>
+          </section>
         )}
 
         <section className="pf-panel">
@@ -854,28 +887,6 @@ function Motto({
           {motto ? "Edit" : "Add motto"}
         </button>
       )}
-    </div>
-  );
-}
-
-function Curve({ deck }: { deck: string[] }) {
-  const buckets = [0, 0, 0, 0, 0, 0, 0];
-  for (const id of deck) {
-    try {
-      buckets[Math.min(6, Math.max(0, cardOf(id).cost))] += 1;
-    } catch {
-      /* unknown card */
-    }
-  }
-  const top = Math.max(1, ...buckets);
-  return (
-    <div className="pf-curve" aria-label="Mana curve">
-      {buckets.map((n, cost) => (
-        <div key={cost} className="pf-curve-col">
-          <span className="pf-curve-bar" style={{ height: `${(n / top) * 100}%` }} title={`${n} at cost ${cost === 6 ? "6+" : cost}`} />
-          <span className="pf-curve-cost">{cost === 6 ? "6+" : cost}</span>
-        </div>
-      ))}
     </div>
   );
 }

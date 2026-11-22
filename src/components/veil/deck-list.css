@@ -1,0 +1,294 @@
+/* Sealed deck tiles: shared by the profile deck list and the forge shelf. */
+.dl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+.dl-tile {
+  --tile: var(--color-brass);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.65rem;
+  min-height: 12.5rem;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tile) 45%, #3a3020),
+    0 0 0 1px #000,
+    0 14px 30px -20px #000;
+  transition:
+    translate 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+.dl-tile-art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: center 25%;
+  filter: saturate(1.05);
+}
+.dl-tile-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(0deg, rgb(8 9 12 / 97%) 38%, rgb(8 9 12 / 55%) 75%, rgb(8 9 12 / 25%)),
+    radial-gradient(
+      18rem 9rem at 50% 0%,
+      color-mix(in srgb, var(--tile) 30%, transparent),
+      transparent 70%
+    );
+}
+.dl-tile[data-active="1"] {
+  box-shadow:
+    inset 0 0 0 1px #e7c56a,
+    0 0 0 1px #000,
+    0 0 26px -8px rgb(231 197 106 / 75%);
+}
+.dl-tile[data-selected="1"] {
+  box-shadow:
+    inset 0 0 0 2px var(--tile),
+    0 0 0 1px #000,
+    0 0 24px -6px var(--tile);
+}
+.dl-tile-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.dl-tile-hit:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: -3px;
+  border-radius: 0.65rem;
+}
+.dl-tile-body {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 12.5rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.85rem 0.9rem 0.8rem;
+  pointer-events: none;
+}
+.dl-actions,
+.dl-actions * {
+  pointer-events: auto;
+}
+.dl-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dl-actions .veil-btn {
+  min-height: 2.25rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.7rem;
+}
+.dl-btn-danger {
+  color: #f0a58e;
+}
+.dl-confirm {
+  font-size: 0.75rem;
+  color: var(--color-bone);
+}
+.dl-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.dl-crest {
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow:
+    0 0 0 2px #000,
+    0 0 0 3px var(--tile),
+    0 0 14px -3px var(--tile);
+}
+.dl-name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: #f3e7c8;
+  text-shadow: 0 2px 0 #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-meta,
+.dl-record {
+  font-size: 0.72rem;
+  color: var(--color-ash);
+}
+.dl-record {
+  font-family: var(--font-mono);
+  color: var(--color-bone);
+}
+.dl-active {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  background: linear-gradient(180deg, #f3d68a, #c98a30);
+  color: #1a1208;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px -2px rgb(227 160 74 / 80%);
+}
+.dl-curve {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.22rem;
+  height: 2.6rem;
+  align-items: end;
+}
+.dl-curve-col {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.1rem;
+}
+.dl-curve-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 0.15rem 0.15rem 0 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tile) 85%, #fff),
+    color-mix(in srgb, var(--tile) 40%, #000)
+  );
+  box-shadow: 0 0 6px -2px var(--tile);
+  transform-origin: bottom;
+}
+.dl-curve-cost {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--color-ash);
+}
+.dl-new {
+  display: grid;
+  min-height: 12.5rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.4rem;
+  border: 1px dashed rgb(231 197 106 / 40%);
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 2%);
+  color: var(--color-brass);
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    translate 180ms ease-out,
+    background 180ms ease-out;
+}
+.dl-new:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dl-new-plus {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1.5rem;
+  box-shadow: inset 0 0 0 1px rgb(231 197 106 / 60%);
+}
+.dl-new small {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  color: var(--color-ash);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dl-tile {
+    animation: dl-rise 480ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  .dl-curve-bar {
+    animation: dl-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .dl-tile[data-active="1"] .dl-active {
+    animation: dl-glow 3.2s ease-in-out infinite;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .dl-tile:hover {
+    translate: 0 -4px;
+  }
+  .dl-new:hover:not(:disabled) {
+    translate: 0 -3px;
+    background: rgb(231 197 106 / 6%);
+  }
+}
+@keyframes dl-rise {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes dl-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes dl-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 8px -2px rgb(227 160 74 / 60%);
+  }
+  50% {
+    box-shadow: 0 0 18px 0 rgb(227 160 74 / 90%);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .dl-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.deck-shelf {
+  border-radius: 0.6rem;
+  padding: 0.9rem 1rem 1rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 3%), transparent 40%),
+    linear-gradient(180deg, #161a22, #0f1217);
+  box-shadow:
+    inset 0 0 0 1px rgb(227 160 74 / 18%),
+    0 10px 30px -18px rgb(0 0 0 / 90%);
+}
+.dl-new[data-selected="1"] {
+  border-style: solid;
+  border-color: rgb(231 197 106 / 75%);
+  background: rgb(231 197 106 / 6%);
+}

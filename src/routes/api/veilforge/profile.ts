@@ -2,10 +2,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import { isAddress } from "viem";
 import { challengeFor, leaderboard, openAccount, profileByToken, restoreProgress, saveProfile, sealProfile, walletByToken, type Profile } from "@/veil/accounts";
 import { CARDS } from "@/veil/cards";
-import { veilBalances } from "@/veil/holds";
+import { deckOwned, veilBalances } from "@/veil/holds";
+import { MAX_DECKS, activateDeck, listDecks, renameDeck, sealDeck, unsealDeck, type DeckResult } from "@/veil/decks";
 import { getSql } from "@/lib/db";
 import { profileStats } from "@/veil/profile-stats";
 import { paidVoucherCount, winsToBzb } from "@/veil/reward-reads";
+
+/** Deck ops answer with the full list plus the refreshed profile (its active-deck mirror may have moved). */
+async function deckReply(token: string, run: (wallet: string) => Promise<DeckResult>): Promise<Response> {
+  const wallet = await walletByToken(token);
+  if (!wallet) return Response.json({ error: "Sign in again." }, { status: 401 });
+  const result = await run(wallet);
+  if ("error" in result) return Response.json(result, { status: 400 });
+  const profile = await profileByToken(token);
+  return Response.json({ decks: result.decks, max: MAX_DECKS, ...(profile ? await packed(profile) : {}) });
+}
+
+/** Read-only ownership check for sealing: the same existing helper single-deck sealing used. */
+const owns = (wallet: string, cards: string[]) => deckOwned(wallet, cards);
 
 /** Owner-only stat sheet for the profile page. Read-only: database aggregates plus one public chain view. */
 async function statSheet(token: string): Promise<Response> {
@@ -40,6 +54,11 @@ export const Route = createFileRoute("/api/veilforge/profile")({
         }
         const token = url.searchParams.get("token") ?? "";
         if (token && url.searchParams.get("stats") === "1") return statSheet(token);
+        if (token && url.searchParams.get("decks") === "1") {
+          const wallet = await walletByToken(token);
+          if (!wallet) return Response.json({ error: "Sign in again." }, { status: 401 });
+          return Response.json({ decks: await listDecks(await getSql(), wallet), max: MAX_DECKS });
+        }
         if (token) {
           const profile = await profileByToken(token);
           return Response.json(profile ? await packed(profile) : { error: "Sign in again." }, { status: profile ? 200 : 401 });
@@ -62,6 +81,9 @@ export const Route = createFileRoute("/api/veilforge/profile")({
           deckName?: string;
           nft?: { contract?: string; tokenId?: string } | null;
           motto?: string;
+          deckId?: string;
+          cards?: unknown;
+          activate?: boolean;
           xp?: number;
           wins?: number;
           losses?: number;
@@ -91,6 +113,12 @@ export const Route = createFileRoute("/api/veilforge/profile")({
           if ("error" in restored) return Response.json(restored, { status: 400 });
           return Response.json(await packed(restored.profile));
         }
+        if (body.op === "deck-seal") {
+          return deckReply(body.token ?? "", async (wallet) => sealDeck(await getSql(), wallet, { id: body.deckId, name: body.deckName, cards: body.cards, activate: body.activate }, owns));
+        }
+        if (body.op === "deck-rename") return deckReply(body.token ?? "", async (wallet) => renameDeck(await getSql(), wallet, body.deckId, body.deckName));
+        if (body.op === "deck-activate") return deckReply(body.token ?? "", async (wallet) => activateDeck(await getSql(), wallet, body.deckId));
+        if (body.op === "deck-unseal") return deckReply(body.token ?? "", async (wallet) => unsealDeck(await getSql(), wallet, body.deckId));
         if (body.op === "save") {
           const saved = await saveProfile(body.token ?? "", { name: body.name, portrait: body.portrait, deck: body.deck, deckName: body.deckName, nft: body.nft, motto: body.motto });
           if ("error" in saved) return Response.json(saved, { status: 400 });

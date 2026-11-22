@@ -859,7 +859,7 @@
     animation: pf-drift 30s ease-in-out infinite alternate;
   }
   .pf-plate {
-    animation: pf-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation: pf-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   }
   .pf-plate:nth-child(2) {
     animation-delay: 60ms;
@@ -1034,3 +1034,4 @@
     gap: 0.5rem;
   }
 }
+.pf-grid-one { grid-template-columns: 1fr; }
