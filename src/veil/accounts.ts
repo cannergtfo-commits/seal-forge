@@ -7,6 +7,7 @@ import { CARDS } from "./cards";
 import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
 import { applyMmr, applyRoomResult, type RoomResult } from "./integrity-store";
+import { grantDueTitles, titleOf } from "./titles";
 import { GIFT_WINS, LOSS_XP, MOTTO_MAX, WIN_XP, eloDelta, cleanDeckName, cleanMotto, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
@@ -28,6 +29,10 @@ export type Profile = {
   giftReady: boolean;
   mmr: number;
   motto: string;
+  titleId: string;
+  titleName: string;
+  titleRarity: string;
+  titleBadge: string;
 };
 
 type Row = {
@@ -47,6 +52,7 @@ type Row = {
   gift_cards: string;
   mmr?: number;
   motto?: string;
+  title_id?: string;
 };
 
 const challenges = new Map<string, { nonce: string; message: string; at: number }>();
@@ -73,6 +79,10 @@ function toProfile(row: Row): Profile {
     giftReady: (Number(row.wins) || 0) >= GIFT_WINS,
     mmr: Number(row.mmr ?? 1000) || 1000,
     motto: row.motto ?? "",
+    titleId: row.title_id ?? "",
+    titleName: titleOf(row.title_id)?.name ?? "",
+    titleRarity: titleOf(row.title_id)?.rarity ?? "",
+    titleBadge: titleOf(row.title_id)?.badge ?? "",
   };
 }
 
@@ -360,6 +370,7 @@ export async function applyXp(results: RoomResult[]): Promise<RoomResult[]> {
       else if (outcome === "no-profile") console.warn(`[xp] no signed-in profile for ${address}, match result skipped`);
       // MMR moves only for human-vs-human rooms, once per room (the winner's result carries it).
       if (result.win && result.rival) await applyMmr(sql, { roomId: result.roomId, winner: address, loser: result.rival }, (w, l) => eloDelta(w, l));
+      if (outcome === "applied") await grantDueTitles(sql, address).catch(() => []);
     } catch (error) {
       console.error(`[xp] failed to write ${result.win ? "win" : "loss"} for ${address}`, error);
       failed.push(result);

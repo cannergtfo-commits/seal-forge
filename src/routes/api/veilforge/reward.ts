@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAddress, isAddress } from "viem";
 import { profileByToken } from "@/veil/accounts";
+import { confirmClaimTx } from "@/veil/daily-clear-server";
 import { signPrize } from "@/veil/keeper-sign";
 import { notePrizeSigned, releaseUnsentPrize, roomsReady, scoredPrizeFor } from "@/veil/rooms";
 
@@ -9,7 +10,18 @@ export const Route = createFileRoute("/api/veilforge/reward")({
     handlers: {
       POST: async ({ request }) => {
         await roomsReady();
-        const body = (await request.json()) as { address?: string; roomId?: string; token?: string };
+        const body = (await request.json()) as { address?: string; roomId?: string; token?: string; txHash?: string };
+        // Confirm a already-sent claim() tx. Does not build, sign, or send a voucher.
+        if (typeof body.txHash === "string" && body.txHash) {
+          try {
+            const result = await confirmClaimTx(typeof body.token === "string" ? body.token : "", body.txHash);
+            const status = result.ok ? 200 : result.retry ? 503 : 400;
+            return Response.json(result, { status });
+          } catch (error) {
+            console.error("[reward] claim confirm error", error);
+            return Response.json({ ok: false, error: "Polygon did not answer. We'll try that claim again.", retry: true }, { status: 503 });
+          }
+        }
         // The wallet comes from the signed "Seal Forge account" session, never from the body.
         const profile = typeof body.token === "string" && body.token ? await profileByToken(body.token).catch(() => null) : null;
         if (!profile || !isAddress(profile.address)) return Response.json({ error: "Sign in to claim win rewards." }, { status: 401 });

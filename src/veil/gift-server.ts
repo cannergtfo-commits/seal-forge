@@ -3,6 +3,7 @@ import { createPublicClient, createWalletClient, decodeEventLog, fallback, getAd
 import { privateKeyToAccount } from "viem/accounts";
 import { polygon } from "viem/chains";
 import { getSql } from "@/lib/db";
+import { grantDueTitles } from "./titles";
 import { BZB, CARDS_NFT, GIFT, KEEPER, PACKS } from "./deployed";
 import { GIFT_WINS } from "./ranks";
 import { profileByToken, snapshotProfiles, type Profile } from "./accounts";
@@ -196,6 +197,7 @@ function openedIds(receipt: { logs: { address: string; data: Hex; topics: [] | [
 async function mark(address: string, order: string, cards: string, gifted: number) {
   const sql = await getSql();
   await sql`update veil_profiles set gift_order = ${order}, gift_cards = ${cards}, gifted = ${gifted} where address = ${address}`;
+  if (gifted === 1) await grantDueTitles(sql, address).catch(() => []);
   await snapshotProfiles();
 }
 

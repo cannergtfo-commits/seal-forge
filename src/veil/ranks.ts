@@ -27,6 +27,9 @@ export const DECK_SIZE = 20;
 export const COPY_CAP = 2;
 export const WIN_XP = 20;
 export const LOSS_XP = 10;
+/** Bonus XP for claiming all four daily win vouchers. Two wins' worth (WIN_XP * 2). A perfect day is then 120 XP, one step from Spark to Seal. */
+export const DAILY_CLEAR_XP = 40;
+export const DAILY_CLEAR_WINS = 4;
 
 const RANKS = [
   { name: "Spark", min: 0 },

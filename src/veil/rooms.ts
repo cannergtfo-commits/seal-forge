@@ -17,6 +17,7 @@ import {
   type Target,
 } from "./logic";
 import { DAILY_WINS } from "./deployed";
+import type { EquippedTitle } from "./titles";
 import { MMR_START, mmrBand } from "./mmr";
 import {
   findPrize,
@@ -47,6 +48,7 @@ type SeatInfo = {
   deck: string[] | null;
   eligible: boolean;
   stage: number;
+  title?: EquippedTitle | null;
 };
 
 type Room = {
@@ -76,6 +78,7 @@ type Ticket = {
   queuedAt: number;
   seen: number;
   epoch: number;
+  title?: EquippedTitle | null;
 };
 
 type Lobby = {
@@ -335,6 +338,7 @@ function publicMatch(room: Room, seat: Side) {
         owner: unit.owner,
       })),
       traps: player.traps.map((trap, index) => ({ uid: mine ? trap.uid : `down-${index}`, defId: mine ? trap.defId : "" })),
+      title: room.seats[side].title ?? null,
     };
   };
   return {
@@ -499,6 +503,7 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
     queuedAt: Date.now(),
     seen: Date.now(),
     epoch: 0,
+    title: input.title ?? null,
   };
   self.name = input.name.slice(0, 24) || "Duelist";
   self.faction = input.faction;
@@ -514,8 +519,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
   tickets.set(self.id, self);
   if (waiting) {
     const room = openRoom(
-      { id: waiting.id, name: waiting.name, faction: waiting.faction, address: waiting.address, bot: null, deck: waiting.deck, eligible: waiting.eligible, stage: waiting.stage },
-      { id: self.id, name: self.name, faction: self.faction, address: self.address, bot: null, deck: self.deck, eligible: self.eligible, stage: self.stage },
+      { id: waiting.id, name: waiting.name, faction: waiting.faction, address: waiting.address, bot: null, deck: waiting.deck, eligible: waiting.eligible, stage: waiting.stage, title: waiting.title ?? null },
+      { id: self.id, name: self.name, faction: self.faction, address: self.address, bot: null, deck: self.deck, eligible: self.eligible, stage: self.stage, title: self.title ?? null },
     );
     waiting.roomId = room.id;
     self.roomId = room.id;
@@ -529,8 +534,8 @@ export function joinQueue(input: { id: string; name: string; faction: Faction; a
 function openBot(ticket: Ticket): Room {
   const bot = liveBot();
   const room = openRoom(
-    { id: ticket.id, name: ticket.name, faction: ticket.faction, address: ticket.address, bot: null, deck: ticket.deck, eligible: ticket.eligible, stage: ticket.stage },
-    { id: bot.id, name: bot.name, faction: bot.faction, address: "", bot, deck: null, eligible: false, stage: 0 },
+    { id: ticket.id, name: ticket.name, faction: ticket.faction, address: ticket.address, bot: null, deck: ticket.deck, eligible: ticket.eligible, stage: ticket.stage, title: ticket.title ?? null },
+    { id: bot.id, name: bot.name, faction: bot.faction, address: "", bot, deck: null, eligible: false, stage: 0, title: null },
   );
   ticket.roomId = room.id;
   ticket.seen = Date.now();
@@ -722,7 +727,7 @@ function pruneLobbies(): void {
   }
 }
 
-function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number }): Ticket {
+function seatTicket(input: { id: string; name: string; faction: Faction; address: string; deck?: string[] | null; eligible?: boolean; stage?: number; mmr?: number; title?: EquippedTitle | null }): Ticket {
   const existing = tickets.get(input.id);
   const self: Ticket = existing ?? {
     id: input.id,
@@ -746,6 +751,7 @@ function seatTicket(input: { id: string; name: string; faction: Faction; address
   self.deck = input.deck ?? null;
   self.eligible = Boolean(input.eligible);
   self.stage = stageOf(input.stage);
+  self.title = input.title ?? null;
   self.seen = Date.now();
   tickets.set(self.id, self);
   return self;
@@ -815,8 +821,8 @@ export function joinLobby(
   const guest = seatTicket(input);
   const epoch = nextEpoch(guest);
   const room = openRoom(
-    { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible, stage: host.stage },
-    { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible, stage: guest.stage },
+    { id: host.id, name: host.name, faction: host.faction, address: host.address, bot: null, deck: host.deck, eligible: host.eligible, stage: host.stage, title: host.title ?? null },
+    { id: guest.id, name: guest.name, faction: guest.faction, address: guest.address, bot: null, deck: guest.deck, eligible: guest.eligible, stage: guest.stage, title: guest.title ?? null },
   );
   host.roomId = room.id;
   guest.roomId = room.id;

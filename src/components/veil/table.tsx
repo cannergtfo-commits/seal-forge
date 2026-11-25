@@ -28,6 +28,9 @@ import {
   type Unit,
 } from "@/veil/logic";
 import { stageVisual } from "@/veil/stages";
+import { TitleBadge } from "@/components/veil/title-badge";
+import type { EquippedTitle } from "@/veil/titles";
+import "./titles.css";
 
 const TURN_SECONDS = 60;
 const REACT_SECONDS = 6;
@@ -322,7 +325,7 @@ function Mana({ max, current }: { max: number; current: number }) {
   );
 }
 
-function SeatPlate({ faction, name }: { faction: Faction; name: string }) {
+function SeatPlate({ faction, name, title }: { faction: Faction; name: string; title?: EquippedTitle | null }) {
   const bust = BUST[faction];
   return (
     <div className="arena-plate" data-faction={faction}>
@@ -333,6 +336,12 @@ function SeatPlate({ faction, name }: { faction: Faction; name: string }) {
       <div className="min-w-0">
         <p className="arena-seal-name">{factionName(faction)}</p>
         <p className="arena-duelist">{name}</p>
+        {title && (
+          <p className="arena-title">
+            <TitleBadge badge={title.badge} rarity={title.rarity} size={16} />
+            <span>{title.name}</span>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -383,6 +392,8 @@ export function Table({
   winnerExtra,
   stage = 0,
   untimed = false,
+  youTitle = null,
+  rivalTitle = null,
 }: {
   match: Match;
   setMatch: (match: Match) => void;
@@ -396,6 +407,8 @@ export function Table({
   stage?: number;
   /** Local only: the clocks never auto-pass (guided duel). */
   untimed?: boolean;
+  youTitle?: EquippedTitle | null;
+  rivalTitle?: EquippedTitle | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [attackers, setAttackers] = useState<string[]>([]);
@@ -997,7 +1010,7 @@ export function Table({
           )}
           <section className="arena-seat">
             <div className="arena-seat-bar">
-              <SeatPlate faction={rival} name={bot.name} />
+              <SeatPlate faction={rival} name={bot.name} title={rivalTitle} />
               <div className="arena-vitals">
                 {targetingHit ? (
                   <button
@@ -1095,7 +1108,7 @@ export function Table({
 
           <section className="arena-seat">
             <div className="arena-seat-bar">
-              <SeatPlate faction={you} name="You" />
+              <SeatPlate faction={you} name="You" title={youTitle} />
               <div className="arena-vitals">
                 {targetingHit ? (
                   <button

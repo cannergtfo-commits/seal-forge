@@ -5,6 +5,10 @@ import { CardFace } from "@/components/veil/card";
 import { DeckTile } from "@/components/veil/deck-list";
 import { deckRequest, fetchDecks, type SealedDeck } from "@/veil/deck-client";
 import "./profile.css";
+import "./titles.css";
+import { TitleBadge } from "@/components/veil/title-badge";
+import { TitleToast } from "@/components/veil/title-toast";
+import type { TitleDef, TitleView } from "@/veil/titles";
 import { usePlayer } from "@/veil/connect";
 import { openSession } from "@/veil/game-session";
 import { veilBalances } from "@/veil/holds";
@@ -42,6 +46,10 @@ type Profile = {
   giftReady?: boolean;
   mmr?: number;
   motto?: string;
+  titleId?: string;
+  titleName?: string;
+  titleRarity?: string;
+  titleBadge?: string;
 };
 
 type SealPlay = { faction: string; games: number; wins: number };
@@ -90,11 +98,12 @@ function keep(address: string, profile: Profile, seal: string | null | undefined
   writeProgress(saved);
 }
 
-type ProfilePane = "overview" | "decks" | "collection" | "leaderboard";
+type ProfilePane = "overview" | "decks" | "titles" | "collection" | "leaderboard";
 
 const PROFILE_PANES: { id: ProfilePane; label: string; title: string }[] = [
   { id: "overview", label: "Overview", title: "Overview" },
   { id: "decks", label: "Decks", title: "Sealed decks" },
+  { id: "titles", label: "Titles", title: "Titles and badges" },
   { id: "collection", label: "Collection", title: "On-chain collection" },
   { id: "leaderboard", label: "Board", title: "Leaderboard" },
 ];
@@ -128,6 +137,15 @@ export function Profile({
   const [customize, setCustomize] = useState(false);
   const [decks, setDecks] = useState<{ decks: SealedDeck[]; max: number } | null>(null);
   const [pane, setPane] = useState<ProfilePane>("overview");
+  const [titleRows, setTitleRows] = useState<TitleView[]>([]);
+  const [equippedId, setEquippedId] = useState("");
+  const [unlocks, setUnlocks] = useState<TitleDef[]>([]);
+
+  function acceptTitles(data: { titles?: TitleView[]; equipped?: string; fresh?: TitleDef[] }) {
+    if (data.titles) setTitleRows(data.titles);
+    if (typeof data.equipped === "string") setEquippedId(data.equipped);
+    if (data.fresh?.length) setUnlocks((prev) => [...prev, ...data.fresh!]);
+  }
 
   useEffect(() => {
     if (!ready) return;
@@ -178,7 +196,7 @@ export function Profile({
     const backup = readProgress(address);
     void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
       .then((res) => res.json())
-      .then(async (data: { profile?: Profile; seal?: string; error?: string }) => {
+      .then(async (data: { profile?: Profile; seal?: string; titles?: TitleView[]; equipped?: string; fresh?: TitleDef[]; error?: string }) => {
         if (!data.profile) {
           clearSession();
           setSession(null);
@@ -193,17 +211,19 @@ export function Profile({
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ op: "restore", token: session.token, ...backup }),
           });
-          const body = (await restored.json()) as { profile?: Profile; seal?: string };
+          const body = (await restored.json()) as { profile?: Profile; seal?: string; titles?: TitleView[]; equipped?: string; fresh?: TitleDef[] };
           if (body.profile) {
             keep(address, body.profile, body.seal);
             setProfile(body.profile);
             setName(body.profile.name);
+            acceptTitles(body);
             return;
           }
         }
         keep(address, data.profile, data.seal);
         setProfile(data.profile);
         setName(data.profile.name);
+        acceptTitles(data);
       })
       .catch(() => {
         setProfile(local);
@@ -263,6 +283,7 @@ export function Profile({
       if (next) {
         setProfile(next);
         if (address) keep(address, next, body.seal);
+        acceptTitles(body as { titles?: TitleView[]; equipped?: string; fresh?: TitleDef[] });
       }
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "Could not switch decks.", key));
@@ -283,6 +304,7 @@ export function Profile({
       setSession(next);
       setProfile(opened.profile as Profile);
       setName((opened.profile as Profile).name);
+      acceptTitles(opened as { titles?: TitleView[]; equipped?: string; fresh?: TitleDef[] });
       const seal = (opened as { seal?: string }).seal;
       if (seal) keep(address, opened.profile as Profile, seal);
     } catch (err) {
@@ -326,10 +348,11 @@ export function Profile({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ op: "save", token: session.token, name, ...extra }),
       });
-      const body = (await res.json()) as { profile?: Profile; seal?: string; error?: string };
+      const body = (await res.json()) as { profile?: Profile; seal?: string; titles?: TitleView[]; equipped?: string; fresh?: TitleDef[]; error?: string };
       if (!body.profile) throw new Error(body.error ?? "Could not save.");
       setProfile(body.profile);
       setName(body.profile.name);
+      acceptTitles(body);
       const seal = (body as { seal?: string }).seal;
       if (address) keep(address, body.profile, seal);
       return true;
@@ -359,13 +382,38 @@ export function Profile({
         .json()
         .catch(() => ({
           error: `The gift server answered ${res.status}. Claim again in a minute.`,
-        }))) as { profile?: Profile; seal?: string; note?: string; error?: string };
+        }))) as { profile?: Profile; seal?: string; note?: string; error?: string; titles?: TitleView[]; equipped?: string; fresh?: TitleDef[] };
       if (body.profile && address) keep(address, body.profile, body.seal);
       if (body.profile) setProfile(body.profile);
+      acceptTitles(body);
       if (body.error) throw new Error(body.error);
       setGiftNote(body.note ?? "The pack is on its way.");
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "The pack was not gifted.", key));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function chooseTitle(titleId: string) {
+    if (!session || session.token === "device") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/veilforge/profile", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "title", token: session.token, titleId }),
+      });
+      const body = (await res.json()) as { profile?: Profile; titles?: TitleView[]; equipped?: string; fresh?: TitleDef[]; error?: string; seal?: string };
+      if (body.error && !body.profile) throw new Error(body.error);
+      if (body.profile) {
+        setProfile(body.profile);
+        if (address) keep(address, body.profile, body.seal);
+      }
+      acceptTitles(body);
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "Could not equip that title.", key));
     } finally {
       setBusy(false);
     }
@@ -511,6 +559,16 @@ export function Profile({
                     </span>
                   </div>
                   <h2 className="pf-name">{profile.name}</h2>
+                  {(profile.titleName || titleRows.find((row) => row.id === equippedId)?.name) && (
+                    <p className="tb-hero">
+                      <TitleBadge
+                        badge={profile.titleBadge || titleRows.find((row) => row.id === equippedId)?.badge}
+                        rarity={profile.titleRarity || titleRows.find((row) => row.id === equippedId)?.rarity}
+                        size={22}
+                      />
+                      <span>{profile.titleName || titleRows.find((row) => row.id === equippedId)?.name}</span>
+                    </p>
+                  )}
                 </div>
                 <Motto
                   motto={profile.motto ?? ""}
@@ -856,6 +914,62 @@ export function Profile({
           </section>
         )}
 
+        {profile && (
+          <section className="pf-panel" data-pane="titles" aria-label="Titles and badges">
+            <div className="pf-h-row">
+              <h3 className="pf-h">Titles</h3>
+              <p className="text-xs text-ash">
+                {titleRows.filter((row) => row.held).length}/{titleRows.length || "—"}
+              </p>
+            </div>
+            <p className="mt-2 text-sm text-ash">
+              Badges unlock from ranked play, daily clears, sealed decks, and the first-win pack. Equip one to show it on your profile, the board, and the duel nameplate.
+            </p>
+            {titleRows.length === 0 ? (
+              <p className="pf-empty">{signedIn ? "Titles will appear once the account finishes loading." : "Sign in to track and equip titles."}</p>
+            ) : (
+              <div className="tb-grid">
+                {titleRows.map((row) => {
+                  const on = equippedId === row.id || profile.titleId === row.id;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      className="tb-card"
+                      data-held={row.held ? "1" : "0"}
+                      data-equipped={on ? "1" : undefined}
+                      data-rarity={row.rarity}
+                      disabled={busy || !row.held || !signedIn}
+                      onClick={() => void chooseTitle(on ? "" : row.id)}
+                    >
+                      <TitleBadge badge={row.badge} rarity={row.rarity} size={40} title={row.name} />
+                      <div className="tb-card-copy">
+                        <p className="tb-card-name">{row.name}</p>
+                        <p className="tb-card-flavor">{row.flavor}</p>
+                      </div>
+                      <p className="tb-card-meta">
+                        <span>{row.rarity}{on ? " · equipped" : row.held ? " · owned" : " · locked"}</span>
+                        {row.held ? (
+                          <span>{on ? "Click to unequip" : "Click to equip"}</span>
+                        ) : (
+                          <>
+                            <span className="tb-track" aria-hidden>
+                              <span style={{ width: `${Math.min(100, (row.current / Math.max(1, row.target)) * 100)}%` }} />
+                            </span>
+                            <span className="tb-locked">
+                              {row.current}/{row.target}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         <section
           className="pf-panel pf-board-panel"
           data-pane="leaderboard"
@@ -885,6 +999,12 @@ export function Profile({
                     <span className="block text-xs text-ash">
                       {row.rank} · {row.wins}–{row.losses}
                     </span>
+                    {row.titleName && (
+                      <span className="tb-board-title">
+                        <TitleBadge badge={row.titleBadge} rarity={row.titleRarity} size={16} />
+                        <span className="truncate">{row.titleName}</span>
+                      </span>
+                    )}
                   </span>
                   <span className="pf-board-xp">{row.xp} XP</span>
                 </li>
@@ -904,6 +1024,16 @@ export function Profile({
                   <span className="block text-xs text-ash">
                     {rank?.name} · {profile.wins}–{profile.losses} · not in the top 20 yet
                   </span>
+                  {(profile.titleName || titleRows.find((row) => row.id === equippedId)?.name) && (
+                    <span className="tb-board-title">
+                      <TitleBadge
+                        badge={profile.titleBadge || titleRows.find((row) => row.id === equippedId)?.badge}
+                        rarity={profile.titleRarity || titleRows.find((row) => row.id === equippedId)?.rarity}
+                        size={16}
+                      />
+                      <span className="truncate">{profile.titleName || titleRows.find((row) => row.id === equippedId)?.name}</span>
+                    </span>
+                  )}
                 </span>
                 <span className="pf-board-xp">{profile.xp} XP</span>
               </li>
@@ -1068,6 +1198,7 @@ export function Profile({
 
         {error && !profile && <p className="text-sm text-danger">{error}</p>}
       </main>
+      {unlocks.length > 0 && <TitleToast titles={unlocks} onDone={() => setUnlocks([])} />}
     </div>
   );
 }

@@ -10,7 +10,10 @@ import { redactKey } from "@/veil/keys";
 import { startMatch, type Match, type Unit } from "@/veil/logic";
 import { readBook } from "@/veil/phone-book";
 import { openSession } from "@/veil/game-session";
-import { deckSeal, LOSS_XP, WIN_XP, rankFor } from "@/veil/ranks";
+import { deckSeal, DAILY_CLEAR_XP, LOSS_XP, WIN_XP, rankFor } from "@/veil/ranks";
+import { reportClaimWithRetry } from "@/veil/prize-client";
+import { TitleToast } from "@/components/veil/title-toast";
+import type { EquippedTitle, TitleDef } from "@/veil/titles";
 import { readSession, writeSession } from "@/veil/session";
 import { isApk } from "@/veil/shell";
 import { ownedStageIds, saveStagePick, stagePick, STAGES } from "@/veil/stages";
@@ -42,6 +45,7 @@ type SeatView = {
   handCount: number;
   units: UnitView[];
   traps?: Array<{ uid: string; defId: string }>;
+  title?: EquippedTitle | null;
 };
 type View = {
   you: 0 | 1;
@@ -171,6 +175,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [claim, setClaim] = useState<Claim | null>(null);
   const [reward, setReward] = useState("none");
+  const [bonusNote, setBonusNote] = useState<string | null>(null);
+  const [unlocks, setUnlocks] = useState<TitleDef[]>([]);
   const [busy, setBusy] = useState(false);
   const [useSealed, setUseSealed] = useState(false);
   const [sealed, setSealed] = useState<{ ids: string[]; seal: Faction; name: string } | null>(null);
@@ -741,6 +747,13 @@ export function Ranked({ onBack }: { onBack: () => void }) {
       const hash = await sendGame(key, signer, (nonce) => wallet.writeContract({ address: REWARDS, abi: rewardsAbi, functionName: "claim", args: [claim.matchId, claim.signature], nonce }));
       await sentBy(hash, signer);
       setClaim(null);
+      void reportClaimWithRetry(hash)
+        .then((report) => {
+          if (!report) return;
+          if (report.clear) setBonusNote(`Daily clear: +${report.xp || DAILY_CLEAR_XP} XP`);
+          if (report.fresh.length) setUnlocks(report.fresh);
+        })
+        .catch(() => undefined);
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "The reward did not send.", key));
     } finally {
@@ -789,6 +802,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
 
   if (view && you && them && ghost) {
     return (
+      <>
+      {unlocks.length > 0 && <TitleToast titles={unlocks} onDone={() => setUnlocks([])} />}
       <Table
         match={viewAsMatch(view)}
         setMatch={() => undefined}
@@ -806,6 +821,8 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           void leave({ keepBoard: true });
         }}
         stage={view.stage ?? (stageOwned.includes(stageOn) ? stageOn : 0)}
+        youTitle={you.title ?? null}
+        rivalTitle={them.title ?? null}
         onRematch={() => {
           void leave();
           setView(null);
@@ -815,6 +832,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           <div className="mt-3">
             <p className="text-sm text-ash">Signed-in accounts gain 20 XP for a win and lose 10 XP for a loss.</p>
             {xpNote && <p className="mt-2 text-sm text-bone">{xpNote}</p>}
+            {bonusNote && <p className="mt-2 text-sm text-bone">{bonusNote}</p>}
             {view.winner === view.you && claim && (
               <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void takeReward()}>
                 Claim 0.25 BzB
@@ -832,6 +850,7 @@ export function Ranked({ onBack }: { onBack: () => void }) {
           </div>
         }
       />
+      </>
     );
   }
 
