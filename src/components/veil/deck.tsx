@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CardFace } from "@/components/veil/card";
+import { DeckTile } from "@/components/veil/deck-list";
+import { deckRequest, fetchDecks, type SealedDeck } from "@/veil/deck-client";
 import { CARDS, FACTIONS, SEALS, cardOf, type Faction } from "@/veil/cards";
 import { usePlayer } from "@/veil/connect";
 import { openSession } from "@/veil/game-session";
@@ -39,6 +41,28 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const touched = useRef(false);
+  const [decks, setDecks] = useState<SealedDeck[] | null>(null);
+  const [maxDecks, setMaxDecks] = useState(6);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  function loadIntoForge(next: string[], name: string, id: string | null) {
+    setEditingId(id);
+    setDeck(next);
+    setDeckName(name);
+    const found = deckSeal(next);
+    setSeal(found.ok && found.seal !== "veil" ? found.seal : next.length ? null : seal);
+    setShowUnbound(
+      next.some((cardId) => {
+        try {
+          return cardOf(cardId).faction === "veil";
+        } catch {
+          return false;
+        }
+      }),
+    );
+    setNotice(null);
+    setError(null);
+  }
 
   useEffect(() => {
     if (!ready) return;
@@ -89,6 +113,17 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
       return;
     }
     if (!session) return;
+    void fetchDecks(session.token).then((list) => {
+      if (!list) return;
+      setDecks(list.decks);
+      setMaxDecks(list.max);
+      if (touched.current) return;
+      const active = list.decks.find((item) => item.active);
+      if (active) {
+        touched.current = true;
+        loadIntoForge(active.cards, active.name, active.id);
+      }
+    });
     void fetch(`/api/veilforge/profile?token=${encodeURIComponent(session.token)}`)
       .then((res) => res.json())
       .then((data: { profile?: { deck: string[]; deckName?: string } }) => {
@@ -142,24 +177,47 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
       }
       const active = session ?? (await signIn());
       if (!active) return;
-      const res = await fetch("/api/veilforge/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ op: "save", token: active.token, deck, deckName: named }),
-      });
-      const body = (await res.json()) as { profile?: { deck: string[]; deckName?: string }; error?: string };
-      if (!body.profile) {
-        if (res.status === 401) {
+      const body = await deckRequest(active.token, "deck-seal", { deckId: editingId ?? undefined, cards: deck, deckName: named });
+      if (!body.decks) {
+        if (body.status === 401) {
           clearSession();
           setSession(null);
         }
         throw new Error(body.error ?? "Could not save.");
       }
-      setDeck(body.profile.deck);
-      setDeckName(body.profile.deckName ?? named);
-      setNotice("Deck sealed.");
+      setDecks(body.decks);
+      const key = [...deck].sort().join(",");
+      const saved = body.decks.find((item) => [...item.cards].sort().join(",") === key);
+      setEditingId(saved?.id ?? null);
+      setDeckName(saved?.name ?? named);
+      setNotice(saved?.active ? "Deck sealed. It is your active deck." : "Deck sealed. Set it active to play it.");
     } catch (err) {
       setError(redactKey(err instanceof Error ? err.message : "Could not save.", key));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function shelfOp(op: "deck-rename" | "deck-activate" | "deck-unseal", deckId: string, extra: Record<string, unknown> = {}) {
+    if (!session) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await deckRequest(session.token, op, { deckId, ...extra });
+      if (!body.decks) {
+        if (body.status === 401) {
+          clearSession();
+          setSession(null);
+        }
+        throw new Error(body.error ?? "Could not update the deck.");
+      }
+      setDecks(body.decks);
+      if (op === "deck-unseal" && deckId === editingId) loadIntoForge([], "", null);
+      if (op === "deck-activate") setNotice(`${body.decks.find((item) => item.active)?.name || "Deck"} is now your active deck.`);
+      if (op === "deck-rename") setNotice("Deck renamed.");
+      if (op === "deck-unseal") setNotice("Deck unsealed. Your cards stay in your wallet.");
+    } catch (err) {
+      setError(redactKey(err instanceof Error ? err.message : "Could not update the deck.", key));
     } finally {
       setBusy(false);
     }
@@ -234,6 +292,10 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
             : !fits
               ? "A card in this deck is not in the wallet."
               : null;
+  const editing = editingId ? decks?.find((item) => item.id === editingId) ?? null : null;
+  const sameCards = Boolean(editing && [...editing.cards].sort().join(",") === [...deck].sort().join(","));
+  const renameOnly = Boolean(editing && sameCards && cleanDeckName(deckName) !== null && (cleanDeckName(deckName) ?? "") !== editing.name);
+  const atCap = Boolean(decks && decks.length >= maxDecks);
   const lastCopy = new Map<string, number>();
   deck.forEach((id, index) => lastCopy.set(id, index));
 
@@ -251,7 +313,7 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
         </div>
         <p className="font-mono text-sm text-brass">{deck.length}/20</p>
       </header>
-      <main className="mx-auto grid max-w-5xl gap-4 px-4 pb-10">
+      <main className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-4 px-4 pb-10">
         {!address && <p className="text-sm text-ash">{isApk() ? "Make a wallet in the game. Only card NFTs in that wallet can enter a deck." : "Connect a wallet. Only card NFTs in that wallet can enter a deck."}</p>}
         {address && !session && (
           <section className="rounded-md border border-line bg-panel p-4">
@@ -259,6 +321,46 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
             <button type="button" className="veil-btn veil-btn-primary mt-3" disabled={busy} onClick={() => void signIn()}>
               Sign in with wallet
             </button>
+          </section>
+        )}
+        {session && !isApk() && decks && (
+          <section className="deck-shelf" aria-label="Sealed decks">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-sm tracking-widest text-brass">SEALED DECKS · {decks.length}/{maxDecks}</h2>
+              <p className="text-xs text-ash">The active deck is the one ranked and server tables play.</p>
+            </div>
+            <div className="dl-grid mt-3">
+              {decks.map((item) => (
+                <DeckTile
+                  key={item.id}
+                  deck={item}
+                  selected={item.id === editingId}
+                  busy={busy}
+                  onSelect={() => {
+                    touched.current = true;
+                    loadIntoForge(item.cards, item.name, item.id);
+                  }}
+                  onActivate={() => void shelfOp("deck-activate", item.id)}
+                  onUnseal={() => void shelfOp("deck-unseal", item.id)}
+                />
+              ))}
+              <button
+                type="button"
+                className="dl-new"
+                disabled={atCap}
+                data-selected={editingId === null ? "1" : undefined}
+                onClick={() => {
+                  touched.current = true;
+                  loadIntoForge([], "", null);
+                }}
+              >
+                <span className="dl-new-plus" aria-hidden>
+                  +
+                </span>
+                New deck
+                <small>{atCap ? `All ${maxDecks} slots used. Unseal one first.` : editingId === null ? "Building a new deck below" : "Start an empty forge"}</small>
+              </button>
+            </div>
           </section>
         )}
         <div className="flex flex-wrap gap-2">
@@ -292,8 +394,13 @@ export function DeckForge({ onBack }: { onBack: () => void }) {
             />
             <p className="font-mono text-sm text-brass">{deck.length}/20</p>
             <div className="ml-auto flex flex-wrap gap-2">
-              <button type="button" className="veil-btn veil-btn-primary" disabled={busy || !deckLegal} onClick={() => void save()}>
-                {busy ? "Sealing" : "Seal deck"}
+              {renameOnly && editing && (
+                <button type="button" className="veil-btn" disabled={busy} onClick={() => void shelfOp("deck-rename", editing.id, { deckName: cleanDeckName(deckName) ?? "" })}>
+                  Rename
+                </button>
+              )}
+              <button type="button" className="veil-btn veil-btn-primary" disabled={busy || !deckLegal || (!editingId && atCap && !isApk())} onClick={() => void save()}>
+                {busy ? "Sealing" : editingId && !isApk() ? "Reseal deck" : decks && !isApk() ? "Seal new deck" : "Seal deck"}
               </button>
               <button type="button" className="veil-btn" disabled={deck.length === 0 && deckName === ""} onClick={() => { touched.current = true; setDeck([]); setDeckName(""); }}>
                 Clear

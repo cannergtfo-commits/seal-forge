@@ -7,7 +7,7 @@ import { CARDS } from "./cards";
 import { ASHEN_NFT, BLAZAR_NFT, CARDS_NFT, KAGE_NFT, KEEPER } from "./deployed";
 import { deckOwned, veilBalances } from "./holds";
 import { applyMmr, applyRoomResult, type RoomResult } from "./integrity-store";
-import { GIFT_WINS, LOSS_XP, WIN_XP, eloDelta, cleanDeckName, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
+import { GIFT_WINS, LOSS_XP, MOTTO_MAX, WIN_XP, eloDelta, cleanDeckName, cleanMotto, cleanName, isPortrait, parseDeck, rankFor } from "./ranks";
 
 export type Profile = {
   address: string;
@@ -27,6 +27,7 @@ export type Profile = {
   giftOrder: string;
   giftReady: boolean;
   mmr: number;
+  motto: string;
 };
 
 type Row = {
@@ -45,6 +46,7 @@ type Row = {
   gift_order: string;
   gift_cards: string;
   mmr?: number;
+  motto?: string;
 };
 
 const challenges = new Map<string, { nonce: string; message: string; at: number }>();
@@ -70,6 +72,7 @@ function toProfile(row: Row): Profile {
     giftOrder: row.gift_order ?? "",
     giftReady: (Number(row.wins) || 0) >= GIFT_WINS,
     mmr: Number(row.mmr ?? 1000) || 1000,
+    motto: row.motto ?? "",
   };
 }
 
@@ -108,7 +111,7 @@ export async function sealProfile(profile: Profile): Promise<Hex | null> {
 export async function snapshotProfiles(): Promise<void> {
   try {
     const sql = await getSql();
-    const rows = await sql`select address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards from veil_profiles order by address`;
+    const rows = await sql`select address, name, portrait, xp, wins, losses, deck, deck_name, gifted, gift_order, gift_cards, motto from veil_profiles order by address`;
     mkdirSync(BACKUP_DIR, { recursive: true });
     const body = JSON.stringify({ at: new Date().toISOString(), rows });
     writeFileSync(`${BACKUP_DIR}/latest.json`, body);
@@ -190,6 +193,12 @@ async function byToken(token: string): Promise<Row | null> {
   return rows[0] ?? null;
 }
 
+/** The row behind a session token, for read-only stat lookups. */
+export async function walletByToken(token: string): Promise<string | null> {
+  const row = await byToken(token);
+  return row ? row.address : null;
+}
+
 export async function profileByToken(token: string): Promise<Profile | null> {
   const row = await byToken(token);
   return row ? toProfile(row) : null;
@@ -242,7 +251,7 @@ async function pictureFromUri(tokenUri: string): Promise<string | null> {
 
 export async function saveProfile(
   token: string,
-  input: { name?: string; portrait?: string; deck?: unknown; deckName?: string; nft?: { contract?: string; tokenId?: string } | null },
+  input: { name?: string; portrait?: string; deck?: unknown; deckName?: string; nft?: { contract?: string; tokenId?: string } | null; motto?: unknown },
 ): Promise<{ profile: Profile } | { error: string }> {
   const row = await byToken(token);
   if (!row) return { error: "Sign in again." };
@@ -284,8 +293,14 @@ export async function saveProfile(
     if (cleaned === null) return { error: "Deck names are 2 to 18 letters or numbers." };
     deckName = cleaned;
   }
+  let motto = row.motto ?? "";
+  if (input.motto !== undefined) {
+    const cleaned = cleanMotto(input.motto);
+    if (cleaned === null) return { error: `Mottos are up to ${MOTTO_MAX} characters, with no links or slurs.` };
+    motto = cleaned;
+  }
   const sql = await getSql();
-  await sql`update veil_profiles set name = ${name}, portrait = ${portrait}, nft_contract = ${nftContract}, nft_token = ${nftToken}, nft_image = ${nftImage}, deck = ${deck}, deck_name = ${deckName} where address = ${row.address}`;
+  await sql`update veil_profiles set name = ${name}, portrait = ${portrait}, nft_contract = ${nftContract}, nft_token = ${nftToken}, nft_image = ${nftImage}, deck = ${deck}, deck_name = ${deckName}, motto = ${motto} where address = ${row.address}`;
   const next = await sql<Row>`select * from veil_profiles where address = ${row.address}`;
   await snapshotProfiles();
   return { profile: toProfile(next[0]!) };
