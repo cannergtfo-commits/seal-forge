@@ -265,6 +265,7 @@ describe("Formation", () => {
     const scrap = unit(m, "scrap", 1);
     m.players[1].units = [squire, scrap, unit(m, "scrap", 1)];
     m = cast(m, "un-toll", { kind: "unit", uid: squire.uid });
+    m = cast(m, "un-toll", { kind: "unit", uid: squire.uid });
     assert.equal(m.players[1].units[0]!.hp, 1);
     m = cast(m, "un-toll", { kind: "unit", uid: scrap.uid });
     const after = m.players[1].units.find((u) => u.defId === "un-squire");
@@ -356,7 +357,7 @@ describe("Tithe", () => {
 describe("Veilstep", () => {
   it("can't be targeted by the rival's spells until it has attacked", () => {
     const m = board(0);
-    const pilgrim = unit(m, "un-pilgrim", 1);
+    const pilgrim = unit(m, "kg-pilgrim-kage", 1);
     m.players[1].units = [pilgrim];
     m.players[0].hand = [{ uid: "s", defId: "shot" }];
     const tried = playCard(m, "s", { kind: "unit", uid: pilgrim.uid });
@@ -366,7 +367,7 @@ describe("Veilstep", () => {
 
   it("can't be hit by traps on its first attack, and is revealed after", () => {
     let m = board(0);
-    const pilgrim = unit(m, "un-pilgrim", 0);
+    const pilgrim = unit(m, "kg-pilgrim-kage", 0);
     m.players[0].units = [pilgrim];
     m.players[1].traps = [{ uid: "t", defId: "un-cross", owner: 1 }];
     m = declareAttack(m, [pilgrim.uid]).state;
@@ -374,7 +375,7 @@ describe("Veilstep", () => {
     assert.match(springTrap(m, "t", pilgrim.uid).error ?? "", /Veilstep/);
     m = skipTrapState(m);
     m = assignDefenders(m, {}).state;
-    assert.equal(m.players[1].hp, 18);
+    assert.equal(m.players[1].hp, 17);
     const after = m.players[0].units[0]!;
     assert.equal(after.revealed, true);
     assert.equal(canTarget(m, 1, after), true);
@@ -489,5 +490,30 @@ describe("Rebalance effects", () => {
     assert.equal(cardOf("pact").name, "Ichor Covenant");
     assert.equal(cardOf("pact").printedName, "Blood Pact");
     assert.equal(cardOf("familiar").printedName, "Imp Familiar");
+  });
+});
+
+describe("Haste and bolt restore", () => {
+  it("gives Road Pilgrim Haste so it can attack the turn it is played", () => {
+    const card = cardOf("un-pilgrim");
+    assert.deepEqual(card.tags, ["haste"]);
+    let m = board(0);
+    m = cast(m, "un-pilgrim", null);
+    const pilgrim = m.players[0].units[0]!;
+    assert.equal(pilgrim.sick, true);
+    assert.equal(canAttack(m, pilgrim), true);
+    const night = cardOf("kg-pilgrim-kage");
+    assert.deepEqual(night.tags, ["veilstep"]);
+  });
+
+  it("makes Silver Toll a 1-mana deal-1 spell", () => {
+    const card = cardOf("un-toll");
+    assert.equal(card.cost, 1);
+    assert.equal(card.play?.t, "hit");
+    assert.equal(card.play && "n" in card.play ? card.play.n : null, 1);
+    let m = board(0);
+    m = cast(m, "un-toll", { kind: "face", side: 1 });
+    assert.equal(m.players[1].hp, 19);
+    assert.equal(m.players[0].mana, 9);
   });
 });
