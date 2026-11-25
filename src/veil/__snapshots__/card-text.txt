@@ -45,10 +45,10 @@ vex	v1	5	5/4	Play: draw 1 and lose 2 life. This can't drop you below 1.
 tyrant	v2	7	6/5	Crush.
 un-lantern	v1	1	1/2	A light that belongs to no grove.
 un-squire	v2	2	2/2	Formation. — Steel with the crest filed off.
-un-toll	v2	2	-	Deal 2 to a unit or a player.
+un-toll	v3	1	-	Deal 1 to a unit or a player.
 un-choir	v2	3	2/3	Requiem: draw 1. — They sing for whoever paid.
 un-ward	v1	3	1/4	Bulwark.
-un-pilgrim	v2	2	2/1	Veilstep.
+un-pilgrim	v3	2	2/1	Haste.
 un-cross	v1	2	-	Trap. When they attack: deal 2 to an attacker.
 un-nameless	v2	5	3/4	Play: Unseal a unit. — No seal. Just the road.
 bz-comet-fox	v2	1	1/2	Requiem: heal 2.
