@@ -292,3 +292,20 @@
   border-color: rgb(231 197 106 / 75%);
   background: rgb(231 197 106 / 6%);
 }
+
+@media (max-width: 720px) {
+  .dl-actions .veil-btn,
+  .dl-new {
+    min-height: 2.75rem;
+  }
+  .dl-tile,
+  .dl-new {
+    min-height: 14rem;
+  }
+  .dl-tile-body {
+    min-height: 14rem;
+  }
+  .dl-name {
+    font-size: 1.15rem;
+  }
+}

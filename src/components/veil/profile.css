@@ -976,6 +976,83 @@
   }
 }
 
+/* ── Page chrome ── */
+.pf-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
+}
+.pf-top-title {
+  min-width: 0;
+  flex: 1;
+}
+.pf-kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--color-brass);
+}
+.pf-guide-short {
+  display: none;
+}
+.pf-main {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: 0 1rem max(3rem, env(safe-area-inset-bottom));
+}
+.pf-root {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  overflow-x: hidden;
+}
+
+.pf-tabs {
+  display: none;
+}
+
+.pf-board-lead {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--color-ash);
+}
+.pf-board-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.pf-board-you {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  background: linear-gradient(180deg, #f3d68a, #c98a30);
+  color: #1a1208;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pf-board-xp {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-brass);
+}
+.pf-board-panel {
+  box-shadow:
+    inset 0 0 0 1px rgb(227 160 74 / 28%),
+    inset 0 1px 0 rgb(255 240 210 / 6%),
+    0 10px 30px -18px rgb(0 0 0 / 90%);
+}
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
   .pf-plates {
@@ -986,52 +1063,239 @@
   }
 }
 @media (max-width: 720px) {
+  .pf-root[data-has-profile][data-pane="overview"] [data-pane]:not([data-pane="overview"]),
+  .pf-root[data-has-profile][data-pane="decks"] [data-pane]:not([data-pane="decks"]),
+  .pf-root[data-has-profile][data-pane="collection"] [data-pane]:not([data-pane="collection"]),
+  .pf-root[data-has-profile][data-pane="leaderboard"] [data-pane]:not([data-pane="leaderboard"]) {
+    display: none;
+  }
+
+  .pf-top {
+    gap: 0.5rem;
+    padding: max(0.55rem, env(safe-area-inset-top)) 0.85rem 0.5rem;
+  }
+  .pf-kicker {
+    display: none;
+  }
+  .pf-guide-full {
+    display: none;
+  }
+  .pf-guide-short {
+    display: inline;
+  }
+  .pf-top .veil-btn,
+  .pf-tab,
+  .pf-toggle,
+  .pf-wallet,
+  .pf-motto-btn,
+  .pf-motto-edit .veil-btn {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .pf-main {
+    gap: 0.85rem;
+    padding: 0 0.85rem max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Compact hero: crest + name/rank in one row, motto and XP beneath. */
+  .pf-hero {
+    min-height: 0;
+  }
   .pf-hero-body {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-    padding: 1.4rem 1rem 1.2rem;
-    gap: 1.3rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    text-align: left;
+    padding: 0.75rem 0.8rem 0.85rem;
+    gap: 0.7rem 0.85rem;
+  }
+  .pf-hero-text {
+    display: contents;
+  }
+  .pf-hero-id {
+    min-width: 0;
+  }
+  .pf-crest {
+    width: 4.5rem;
+    align-self: start;
+  }
+  .pf-crest-level {
+    width: 1.7rem;
+    height: 1.7rem;
+    bottom: -0.65rem;
+    font-size: 0.8rem;
+  }
+  .pf-crest-ring {
+    display: none;
+  }
+  .pf-name {
+    margin-top: 0.2rem;
+    font-size: 1.35rem;
+  }
+  .pf-badge {
+    font-size: 0.62rem;
+    padding: 0.15rem 0.5rem;
+  }
+  .pf-motto,
+  .pf-wallet,
+  .pf-xp {
+    grid-column: 1 / -1;
+  }
+  .pf-motto {
+    margin-top: 0;
+    min-height: 0;
+  }
+  .pf-motto q {
+    font-size: 0.92rem;
+  }
+  .pf-xp {
+    margin-top: 0;
+    max-width: none;
   }
   .pf-hero-veil {
     background:
-      linear-gradient(0deg, rgb(8 9 12 / 96%) 30%, rgb(8 9 12 / 55%)),
-      radial-gradient(
-        20rem 14rem at 50% 20%,
-        color-mix(in srgb, var(--seal) 30%, transparent),
-        transparent 70%
-      );
+      linear-gradient(90deg, rgb(8 9 12 / 88%) 0%, rgb(8 9 12 / 70%) 55%, rgb(8 9 12 / 40%)),
+      linear-gradient(0deg, rgb(8 9 12 / 92%), transparent 70%);
   }
-  .pf-crest {
-    width: 7rem;
+  .pf-hero-art {
+    filter: none;
+    transform: none;
+    inset: 0;
   }
-  .pf-badges,
-  .pf-motto {
-    justify-content: center;
+  .pf-hero::after {
+    inset: 0.3rem;
   }
-  .pf-xp {
-    margin-inline: auto;
-    width: 100%;
+
+  .pf-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: sticky;
+    top: env(safe-area-inset-top);
+    z-index: 20;
+    margin: 0 -0.85rem;
+    padding: 0.3rem 0.45rem;
+    background: #0c0e12;
+    box-shadow:
+      0 1px 0 rgb(227 160 74 / 28%),
+      0 8px 16px -12px #000;
   }
+  .pf-tab {
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--color-ash);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .pf-tab-on {
+    color: #1a1208;
+    background: linear-gradient(180deg, #f3d68a, #c98a30);
+    box-shadow: 0 0 12px -2px rgb(227 160 74 / 70%);
+  }
+  .pf-tab:focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+  }
+
   .pf-plates {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
+    gap: 0.5rem;
+  }
+  .pf-plate {
+    padding: 0.7rem 0.7rem 0.6rem;
   }
   .pf-plate-value {
-    font-size: 1.45rem;
+    font-size: 1.4rem;
+  }
+  .pf-plate-sub {
+    font-size: 0.68rem;
   }
   .pf-grid {
     grid-template-columns: 1fr;
   }
   .pf-cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.6rem;
+    gap: 0.55rem;
   }
   .pf-seal-row {
-    grid-template-columns: 1.8rem 5rem 1fr auto;
+    grid-template-columns: 1.8rem minmax(0, 4.6rem) 1fr auto;
+    gap: 0.4rem;
+  }
+  .pf-seal-name {
+    font-size: 0.78rem;
   }
   .pf-sig {
-    gap: 0.5rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .pf-board {
+    gap: 0.35rem;
+  }
+  .pf-board-row {
+    min-height: 3.25rem;
+    padding: 0.5rem 0.7rem;
+    gap: 0.6rem;
+  }
+  .pf-board-face {
+    width: 2.15rem;
+    height: 2.8rem;
+  }
+  .pf-toggle {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  /* Other tabs: keep a one-row identity strip, hide motto/wallet/XP. */
+  .pf-root[data-has-profile]:not([data-pane="overview"]) .pf-motto,
+  .pf-root[data-has-profile]:not([data-pane="overview"]) .pf-wallet,
+  .pf-root[data-has-profile]:not([data-pane="overview"]) .pf-xp {
+    display: none;
+  }
+  .pf-root[data-has-profile]:not([data-pane="overview"]) .pf-hero-body {
+    padding-bottom: 0.7rem;
   }
 }
-.pf-grid-one { grid-template-columns: 1fr; }
+
+/* Narrower phones: keep type readable, tighten chrome, never overflow. */
+@media (max-width: 380px) {
+  .pf-tab {
+    font-size: 0.64rem;
+    letter-spacing: 0.03em;
+  }
+  .pf-name {
+    font-size: 1.2rem;
+  }
+  .pf-crest {
+    width: 4rem;
+  }
+  .pf-plate-value {
+    font-size: 1.25rem;
+  }
+  .pf-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Lighter motion/effects on phones (perf + battery). Reduced-motion still wins. */
+@media (max-width: 720px) and (prefers-reduced-motion: no-preference) {
+  .pf-hero-art,
+  .pf-crest-shine,
+  .pf-crest-ring {
+    animation: none;
+  }
+  .pf-plate {
+    animation: none;
+  }
+  .pf-xp-fill::after {
+    display: none;
+  }
+}
+
+.pf-grid-one {
+  grid-template-columns: 1fr;
+}
