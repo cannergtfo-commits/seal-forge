@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { claimGift } from "@/veil/gift-server";
 import { giftErrorText } from "@/veil/gift-core";
 import { sealProfile } from "@/veil/accounts";
+import { getSql } from "@/lib/db";
+import { titlesFor } from "@/veil/titles";
 
 export const Route = createFileRoute("/api/veilforge/gift")({
   server: {
@@ -11,7 +13,13 @@ export const Route = createFileRoute("/api/veilforge/gift")({
         try {
           const result = await claimGift(body.token ?? "");
           if ("error" in result) return Response.json(result, { status: 400 });
-          return Response.json({ ...result, seal: await sealProfile(result.profile) });
+          const seal = await sealProfile(result.profile);
+          try {
+            const bundle = await titlesFor(await getSql(), result.profile.address);
+            return Response.json({ ...result, seal, titles: bundle.titles, equipped: bundle.equipped, fresh: bundle.fresh });
+          } catch {
+            return Response.json({ ...result, seal });
+          }
         } catch (error) {
           // The raw error (RPC dumps, revert data) stays in the server log; the player gets a plain line.
           console.error("[gift] claim failed:", error instanceof Error ? error.message : error);

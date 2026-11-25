@@ -1059,12 +1059,13 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .pf-cards {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 @media (max-width: 720px) {
   .pf-root[data-has-profile][data-pane="overview"] [data-pane]:not([data-pane="overview"]),
   .pf-root[data-has-profile][data-pane="decks"] [data-pane]:not([data-pane="decks"]),
+  .pf-root[data-has-profile][data-pane="titles"] [data-pane]:not([data-pane="titles"]),
   .pf-root[data-has-profile][data-pane="collection"] [data-pane]:not([data-pane="collection"]),
   .pf-root[data-has-profile][data-pane="leaderboard"] [data-pane]:not([data-pane="leaderboard"]) {
     display: none;
@@ -1186,9 +1187,9 @@
     background: transparent;
     color: var(--color-ash);
     font: inherit;
-    font-size: 0.72rem;
+    font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     cursor: pointer;
   }

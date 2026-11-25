@@ -7,6 +7,7 @@ import { MAX_DECKS, activateDeck, listDecks, renameDeck, sealDeck, unsealDeck, t
 import { getSql } from "@/lib/db";
 import { profileStats } from "@/veil/profile-stats";
 import { paidVoucherCount, winsToBzb } from "@/veil/reward-reads";
+import { equipTitle, titlesFor } from "@/veil/titles";
 
 /** Deck ops answer with the full list plus the refreshed profile (its active-deck mirror may have moved). */
 async function deckReply(token: string, run: (wallet: string) => Promise<DeckResult>): Promise<Response> {
@@ -15,7 +16,7 @@ async function deckReply(token: string, run: (wallet: string) => Promise<DeckRes
   const result = await run(wallet);
   if ("error" in result) return Response.json(result, { status: 400 });
   const profile = await profileByToken(token);
-  return Response.json({ decks: result.decks, max: MAX_DECKS, ...(profile ? await packed(profile) : {}) });
+  return Response.json({ decks: result.decks, max: MAX_DECKS, ...(profile ? await withTitles(token, profile) : {}) });
 }
 
 /** Read-only ownership check for sealing: the same existing helper single-deck sealing used. */
@@ -39,8 +40,18 @@ async function statSheet(token: string): Promise<Response> {
   });
 }
 
-async function packed(profile: Profile) {
-  return { profile, seal: await sealProfile(profile) };
+async function packed(profile: Profile, extra: Record<string, unknown> = {}) {
+  return { profile, seal: await sealProfile(profile), ...extra };
+}
+
+async function withTitles(token: string, profile: Profile) {
+  try {
+    const bundle = await titlesFor(await getSql(), profile.address);
+    return packed(profile, { titles: bundle.titles, equipped: bundle.equipped, fresh: bundle.fresh });
+  } catch (error) {
+    console.error("[titles] catalog failed", error);
+    return packed(profile);
+  }
 }
 
 export const Route = createFileRoute("/api/veilforge/profile")({
@@ -61,7 +72,7 @@ export const Route = createFileRoute("/api/veilforge/profile")({
         }
         if (token) {
           const profile = await profileByToken(token);
-          return Response.json(profile ? await packed(profile) : { error: "Sign in again." }, { status: profile ? 200 : 401 });
+          return Response.json(profile ? await withTitles(token, profile) : { error: "Sign in again." }, { status: profile ? 200 : 401 });
         }
         const address = url.searchParams.get("address") ?? "";
         if (!isAddress(address)) return Response.json({ error: "Missing wallet." }, { status: 400 });
@@ -81,6 +92,7 @@ export const Route = createFileRoute("/api/veilforge/profile")({
           deckName?: string;
           nft?: { contract?: string; tokenId?: string } | null;
           motto?: string;
+          titleId?: string;
           deckId?: string;
           cards?: unknown;
           activate?: boolean;
@@ -96,7 +108,7 @@ export const Route = createFileRoute("/api/veilforge/profile")({
         if (body.op === "sign") {
           const opened = await openAccount(body.address ?? "", body.signature ?? "");
           if ("error" in opened) return Response.json(opened, { status: 400 });
-          return Response.json({ token: opened.token, ...(await packed(opened.profile)) });
+          return Response.json({ token: opened.token, ...(await withTitles(opened.token, opened.profile)) });
         }
         if (body.op === "restore") {
           const restored = await restoreProgress(body.token ?? "", {
@@ -111,7 +123,7 @@ export const Route = createFileRoute("/api/veilforge/profile")({
             signature: body.signature,
           });
           if ("error" in restored) return Response.json(restored, { status: 400 });
-          return Response.json(await packed(restored.profile));
+          return Response.json(await withTitles(body.token ?? "", restored.profile));
         }
         if (body.op === "deck-seal") {
           return deckReply(body.token ?? "", async (wallet) => sealDeck(await getSql(), wallet, { id: body.deckId, name: body.deckName, cards: body.cards, activate: body.activate }, owns));
@@ -119,10 +131,19 @@ export const Route = createFileRoute("/api/veilforge/profile")({
         if (body.op === "deck-rename") return deckReply(body.token ?? "", async (wallet) => renameDeck(await getSql(), wallet, body.deckId, body.deckName));
         if (body.op === "deck-activate") return deckReply(body.token ?? "", async (wallet) => activateDeck(await getSql(), wallet, body.deckId));
         if (body.op === "deck-unseal") return deckReply(body.token ?? "", async (wallet) => unsealDeck(await getSql(), wallet, body.deckId));
+        if (body.op === "title") {
+          const wallet = await walletByToken(body.token ?? "");
+          if (!wallet) return Response.json({ error: "Sign in again." }, { status: 401 });
+          const titleId = typeof body.titleId === "string" ? body.titleId : "";
+          const result = await equipTitle(await getSql(), wallet, titleId || null);
+          if ("error" in result) return Response.json(result, { status: 400 });
+          const profile = await profileByToken(body.token ?? "");
+          return Response.json(profile ? await withTitles(body.token ?? "", profile) : result);
+        }
         if (body.op === "save") {
           const saved = await saveProfile(body.token ?? "", { name: body.name, portrait: body.portrait, deck: body.deck, deckName: body.deckName, nft: body.nft, motto: body.motto });
           if ("error" in saved) return Response.json(saved, { status: 400 });
-          return Response.json(await packed(saved.profile));
+          return Response.json(await withTitles(body.token ?? "", saved.profile));
         }
         return Response.json({ error: "Unknown request." }, { status: 400 });
       },

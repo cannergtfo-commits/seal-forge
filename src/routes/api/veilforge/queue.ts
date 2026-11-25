@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAddress, isAddress } from "viem";
 import { applyXp, profileByToken } from "@/veil/accounts";
+import { getSql } from "@/lib/db";
+import { equippedTitle, type EquippedTitle } from "@/veil/titles";
 import type { Faction } from "@/veil/cards";
 import { deckOwned, veilBalances } from "@/veil/holds";
 import { signPrize } from "@/veil/keeper-sign";
@@ -72,7 +74,7 @@ async function sessionWallet(token: unknown): Promise<{ address: string; mmr: nu
 
 async function readSeat(body: { name?: string; faction?: string; address?: string; token?: string; deck?: unknown; stage?: unknown }): Promise<
   | { error: string; status: number }
-  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string; stage: number; mmr: number; auth: "signed-in" | "signed-out" | "guest" }
+  | { name: string; faction: Faction; address: string; deck: string[] | null; eligible: boolean; deckNote: string; stage: number; mmr: number; title: EquippedTitle | null; auth: "signed-in" | "signed-out" | "guest" }
 > {
   if (!body.faction || !factions.has(body.faction as Faction)) return { error: "Pick a seal.", status: 400 };
   const claimed = body.address && isAddress(body.address) ? body.address : "";
@@ -108,7 +110,15 @@ async function readSeat(body: { name?: string; faction?: string; address?: strin
   const stageWallet = address || claimed;
   const asked = typeof body.stage === "number" ? body.stage : Number(body.stage);
   const stage = stageWallet && Number.isInteger(asked) && asked >= 1 && asked <= 64 && (await ownsStage(stageWallet, asked).catch(() => false)) ? asked : 0;
-  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote, stage, mmr: address ? mmr : MMR_START, auth };
+  let title: EquippedTitle | null = null;
+  if (address) {
+    try {
+      title = await equippedTitle(await getSql(), address);
+    } catch {
+      title = null;
+    }
+  }
+  return { name: body.name ?? "Duelist", faction: body.faction as Faction, address, deck, eligible, deckNote, stage, mmr: address ? mmr : MMR_START, title, auth };
 }
 
 export const Route = createFileRoute("/api/veilforge/queue")({
